@@ -1,0 +1,4 @@
+node_modules
+CLAUDE.md
+.idx/dev.nix
+.vscode/settings.json
