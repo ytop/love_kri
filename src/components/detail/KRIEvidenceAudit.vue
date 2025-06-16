@@ -1,6 +1,9 @@
 <template>
   <div class="evidence-audit">
-    <el-tabs type="border-card">
+    <div v-if="bothDataEmpty" class="no-data-prominent">
+      <p>No evidence or audit trail information is available for this KRI.</p>
+    </div>
+    <el-tabs v-else type="border-card">
       <el-tab-pane label="Evidence" name="evidence">
         <div v-if="evidenceData.length === 0" class="no-data">
           <p>No evidence files available</p>
@@ -122,6 +125,11 @@ export default {
       required: true
     }
   },
+  computed: {
+    bothDataEmpty() {
+      return this.evidenceData.length === 0 && this.auditData.length === 0;
+    }
+  },
   methods: {
     formatDate(dateString) {
       if (!dateString) return 'N/A';
@@ -152,6 +160,17 @@ export default {
 <style scoped>
 .evidence-audit {
   padding: 0.5rem 0;
+}
+
+.no-data-prominent {
+  text-align: center;
+  padding: 2rem;
+  color: #ef4444; /* Prominent color, adjust as needed */
+  font-size: 1.125rem; /* Larger font size */
+  border: 1px solid #fecaca; /* Optional border */
+  background-color: #fee2e2; /* Optional background */
+  border-radius: 0.375rem; /* Optional rounded corners */
+  margin-bottom: 1rem; /* Space before tabs if they were to appear */
 }
 
 .no-data {
