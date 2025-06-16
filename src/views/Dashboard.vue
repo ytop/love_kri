@@ -18,6 +18,7 @@
       <el-card class="filter-card">
         <k-r-i-filters
           :filters="filters"
+          :show-advanced="showAdvancedFilters"
           @filter-change="handleFilterChange"
           @reset-filters="handleResetFilters"
           @toggle-advanced="showAdvancedFilters = !showAdvancedFilters"
