@@ -16,7 +16,12 @@
     <div class="dashboard-content">
       <!-- Filters Card -->
       <el-card class="filter-card">
-        <simple-filters />
+        <k-r-i-filters
+          :filters="filters"
+          @filter-change="handleFilterChange"
+          @reset-filters="handleResetFilters"
+          @toggle-advanced="showAdvancedFilters = !showAdvancedFilters"
+        />
       </el-card>
 
       <!-- Action Toolbar -->
@@ -75,13 +80,13 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import { getLastDayOfPreviousMonth } from '@/utils/helpers';
-import SimpleFilters from '../components/SimpleFilters.vue';
+import KRIFilters from '../components/KRIFilters.vue'; // Changed from SimpleFilters
 import SimpleTable from '../components/SimpleTable.vue';
 
 export default {
   name: 'Dashboard',
   components: {
-    SimpleFilters,
+    KRIFilters, // Changed from SimpleFilters
     SimpleTable
   },
   data() {
