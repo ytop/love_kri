@@ -60,7 +60,7 @@
             show-icon>
           </el-alert>
         </div>
-        <simple-table 
+        <k-r-i-table 
           :data="filteredKRIItems" 
           :loading="loading"
           @row-click="handleKRIClick"
@@ -82,13 +82,13 @@
 import { mapState, mapGetters, mapActions } from 'vuex';
 import { getLastDayOfPreviousMonth } from '@/utils/helpers';
 import KRIFilters from '../components/KRIFilters.vue'; // Changed from SimpleFilters
-import SimpleTable from '../components/SimpleTable.vue';
+import KRITable from '../components/KRITable.vue';
 
 export default {
   name: 'Dashboard',
   components: {
     KRIFilters, // Changed from SimpleFilters
-    SimpleTable
+    KRITable
   },
   data() {
     return {
@@ -156,6 +156,7 @@ export default {
     },
     
     handleKRIClick(kriId, reportingDate) {
+      console.log(kriId, reportingDate)
       this.$router.push({ 
         name: 'KRIDetail', 
         params: { id: kriId, date: reportingDate }

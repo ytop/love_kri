@@ -16,7 +16,7 @@ export default new Router({
     {
       path: '/kri/:id/:date',
       name: 'KRIDetail',
-      component: () => import('../views/SimpleKRIDetail.vue'),
+      component: () => import('../views/KRIDetail.vue'),
       props: true
     },
     {

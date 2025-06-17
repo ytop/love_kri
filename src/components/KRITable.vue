@@ -4,6 +4,7 @@
       :data="data"
       v-loading="loading"
       style="width: 100%"
+      @row-click="handleRowClick"
       @selection-change="handleSelectionChange"
     >
       <el-table-column
@@ -137,7 +138,7 @@
             size="mini"
             @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
           >
-            View
+            Go
           </el-button>
         </template>
       </el-table-column>
@@ -165,6 +166,10 @@ export default {
     }
   },
   methods: {
+    handleRowClick(row, column, event) {
+      // Emit event to parent component with KRI ID and reporting date
+      this.$emit('row-click', row.id, this.formatReportingDate(row.reportingDate));
+    },
     handleSelectionChange(selection) {
       this.$emit('select-all', selection.length === this.data.length);
       selection.forEach(row => {

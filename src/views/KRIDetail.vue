@@ -43,7 +43,7 @@
             <div slot="header" class="card-header">
               <span>General Information</span>
             </div>
-            <kri-general-info :kri-data="kriDetail" />
+            <k-r-i-general-info :kri-data="kriDetail" />
           </el-card>
           
           <!-- KRI Overview -->
@@ -51,7 +51,7 @@
             <div slot="header" class="card-header">
               <span>KRI Overview</span>
             </div>
-            <kri-overview :kri-data="kriDetail" />
+            <k-r-i-overview :kri-data="kriDetail" />
           </el-card>
           
           <!-- Data Elements -->
@@ -59,7 +59,7 @@
             <div slot="header" class="card-header">
               <span>Data Elements</span>
             </div>
-            <kri-data-elements :atomic-data="atomicData" />
+            <k-r-i-data-elements :atomic-data="atomicData" />
           </el-card>
           
           <!-- Evidence and Audit -->
@@ -67,7 +67,7 @@
             <div slot="header" class="card-header">
               <span>Evidence & Audit Trail</span>
             </div>
-            <kri-evidence-audit 
+            <k-r-i-evidence-audit 
               :evidence-data="evidenceData"
               :audit-data="auditTrailData"
             />
@@ -76,7 +76,7 @@
         
         <!-- Sidebar -->
         <div class="sidebar">
-          <kri-sidebar 
+          <k-r-i-sidebar 
             :kri-data="kriDetail"
             :atomic-data="atomicData"
           />
