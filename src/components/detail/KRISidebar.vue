@@ -6,10 +6,17 @@
         <span>Quick Actions</span>
       </div>
       <div class="actions">
-        <el-button type="primary" style="width: 100%; margin-bottom: 0.5rem;">
+        <el-button type="primary" style="width: 100%;">
           <i class="el-icon-edit"></i>
           Approve KRI
         </el-button>
+            <el-button
+              type="danger"
+              icon="el-icon-close"
+              @click="handleRejectKRI"
+              style="width: 100%;">
+              Reject KRI
+            </el-button>
       </div>
     </el-card>
 
@@ -275,6 +282,16 @@ export default {
       if (percentage >= 80) return '#67c23a';
       if (percentage >= 60) return '#e6a23c';
       return '#f56c6c';
+    },
+    handleRejectKRI() {
+      if (this.kriData && this.kriData.kri_id) {
+        console.log('Reject KRI button clicked for KRI ID:', this.kriData.kri_id);
+        // In a real application, this would likely dispatch a Vuex action
+        // or call a service to reject the KRI.
+        // It might also involve showing a confirmation modal.
+      } else {
+        console.log('Reject KRI button clicked, but KRI data or KRI ID is missing.');
+      }
     }
   }
 };
@@ -299,6 +316,7 @@ export default {
 .actions {
   display: flex;
   flex-direction: column;
+  gap: 0.75rem; /* Use a slightly larger gap for clarity, e.g., 0.75rem or 12px */
 }
 
 .summary {

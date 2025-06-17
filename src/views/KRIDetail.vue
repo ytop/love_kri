@@ -55,13 +55,36 @@
           </el-card>
           
           <!-- Data Elements -->
-          <el-card class="info-card">
+          <el-card class="info-card" v-if="atomicData && atomicData.length > 0">
             <div slot="header" class="card-header">
               <span>Data Elements</span>
             </div>
             <k-r-i-data-elements :atomic-data="atomicData" />
           </el-card>
           
+          <!-- Simple Actions Card (if no data elements) -->
+          <el-card class="info-card simple-actions-card" v-else>
+            <div slot="header" class="card-header">
+              <span>Quick Actions</span>
+            </div>
+            <div class="simple-actions-content">
+              <el-button
+                icon="el-icon-folder-opened"
+                @click="handleEvidenceClick"
+                title="View Evidence"
+                type="primary" plain>
+                Evidence
+              </el-button>
+              <el-button
+                icon="el-icon-chat-dot-round"
+                @click="handleCommentClick"
+                title="View Comments"
+                type="primary" plain>
+                Comments
+              </el-button>
+            </div>
+          </el-card>
+
           <!-- Evidence and Audit -->
           <el-card class="info-card">
             <div slot="header" class="card-header">
@@ -154,6 +177,14 @@ export default {
         default:
           return '';
       }
+    },
+    handleEvidenceClick() {
+      console.log('Evidence button on simple card clicked. KRI ID:', this.id, 'Reporting Date:', this.date);
+      // Placeholder: Future implementation might navigate to the evidence tab or open a modal.
+    },
+    handleCommentClick() {
+      console.log('Comment button on simple card clicked. KRI ID:', this.id, 'Reporting Date:', this.date);
+      // Placeholder: Future implementation might open a comment modal or section.
     }
   }
 };
@@ -270,5 +301,32 @@ export default {
   .sidebar {
     position: static;
   }
+}
+
+.simple-actions-card .el-card__header { /* Target header of the simple actions card if more specific styling is needed */
+  /* For example, if the header padding needs adjustment: */
+  /* padding: 10px 20px; */
+  /* Or if the title needs a different style: */
+  /* font-size: 1rem; */
+}
+
+.simple-actions-card .simple-actions-content {
+  display: flex;
+  flex-direction: row; /* Align buttons in a row */
+  gap: 1rem; /* Space between buttons */
+  align-items: center; /* Align items vertically */
+  justify-content: flex-start; /* Align buttons to the start of the container */
+  padding: 10px 0; /* Add some padding within the content area of the card */
+}
+
+.simple-actions-card .el-button {
+  /* Ensure buttons have a consistent look if not already covered by global El-UI styles */
+  /* For example, if you want to enforce a certain margin or size: */
+  /* margin-right: 10px; */ /* gap property on parent is better */
+}
+
+/* If the card itself needs specific margin when it appears: */
+.simple-actions-card {
+    margin-bottom: 1.5rem; /* Same as other info-cards in the layout */
 }
 </style>
