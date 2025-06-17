@@ -46,6 +46,25 @@
         </el-table-column>
       </el-table>
     </div>
+
+    <!-- Calculation Details Section -->
+    <div class="calculation-details">
+      <h3 class="section-title">Calculation Details</h3>
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Formula:</span>
+          <span class="detail-value code-font">(A - B) / C</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Calculation:</span>
+          <span class="detail-value code-font">(1,234,567 - 1,100,000) / 500,000</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Result:</span>
+          <span class="detail-value code-font">0.269134</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -104,5 +123,54 @@ export default {
   background-color: #f8fafc;
   color: #374151;
   font-weight: 600;
+}
+
+/* Styles for Calculation Details section based on mock UI */
+.calculation-details {
+  background-color: #f8f9fa; /* Mock: #f8f9fa */
+  padding: 16px;             /* Mock: 16px */
+  border-radius: 6px;        /* Mock: var(--border-radius), using 6px as placeholder */
+  margin: 24px 0;            /* Mock: 24px 0 */
+  border: 1px solid #e0e0e0; /* Mock: 1px solid var(--border-color), using #e0e0e0 */
+}
+
+.section-title {
+  font-size: 18px;           /* Mock: 18px */
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 20px;       /* Mock: 20px */
+  padding-bottom: 12px;      /* Mock: 12px */
+  border-bottom: 1px solid #e0e0e0; /* Mock: 1px solid var(--border-color) */
+}
+
+.details-grid {
+  display: grid;
+  gap: 0.5rem; /* Adjusted gap for tighter spacing if needed */
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0; /* Reduced padding for a cleaner look within the section */
+}
+
+.detail-label {
+  font-weight: bold;         /* Mock: bold */
+  width: 90px;               /* Mock: 90px */
+  min-width: 90px;           /* Ensure width is applied */
+  color: #6c757d;           /* Mock: var(--text-muted), using #6c757d */
+  margin-right: 0.75rem;
+}
+
+.detail-value {
+  color: #111827; /* Dark gray for values */
+}
+
+.code-font {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 0.875rem; /* 14px */
+  background-color: #f3f4f6; /* Light gray background for code-like text */
+  padding: 0.125rem 0.375rem; /* Small padding */
+  border-radius: 3px;
 }
 </style>

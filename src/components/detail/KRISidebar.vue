@@ -77,6 +77,26 @@
       </div>
     </el-card>
 
+    <!-- Breach Status -->
+    <el-card class="sidebar-card">
+      <div slot="header" class="card-header">
+        <span>Breach Status</span>
+      </div>
+      <div>
+        <v-chart class="chart" :option="gaugeOption" style="height: 200px;" autoresize />
+      </div>
+    </el-card>
+
+    <!-- 12-Month Trend -->
+    <el-card class="sidebar-card">
+      <div slot="header" class="card-header">
+        <span>12-Month Trend</span>
+      </div>
+      <div>
+        <v-chart class="chart" :option="lineOption" style="height: 200px;" autoresize />
+      </div>
+    </el-card>
+
     <!-- Navigation -->
     <el-card class="sidebar-card">
       <div slot="header" class="card-header">
@@ -102,8 +122,34 @@
 
 <script>
 import { mapKriStatus, formatDateFromInt } from '@/utils/helpers';
+import { use } from 'echarts/core';
+import { CanvasRenderer } from 'echarts/renderers';
+import { GaugeChart, LineChart } from 'echarts/charts';
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+} from 'echarts/components';
+import VChart, { THEME_KEY } from 'vue-echarts';
+
+use([
+  CanvasRenderer,
+  GaugeChart,
+  LineChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+]);
 
 export default {
+  components: {
+    VChart
+  },
+  provide: {
+    [THEME_KEY]: 'light' // or 'dark'
+  },
   name: 'KRISidebar',
   props: {
     kriData: {
@@ -125,6 +171,152 @@ export default {
     completenessPercentage() {
       if (this.atomicData.length === 0) return 0;
       return Math.round((this.completeAtomicCount / this.atomicData.length) * 100);
+    },
+
+    gaugeOption() {
+      return {
+        series: [
+          {
+            type: 'gauge',
+            center: ['50%', '60%'],
+            startAngle: 200,
+            endAngle: -20,
+            min: 0,
+            max: 100,
+            splitNumber: 10, // More granularity for segments
+            axisLine: {
+              lineStyle: {
+                width: 18,
+                color: [ // Segment colors
+                  [0.3, '#67C23A'], // Green for 0-30%
+                  [0.7, '#E6A23C'], // Yellow for 30-70%
+                  [1, '#F56C6C']    // Red for 70-100%
+                ]
+              }
+            },
+            progress: {
+              show: true,
+              width: 18,
+              itemStyle: { // Ensure progress color matches the current segment
+                color: 'auto'
+              }
+            },
+            pointer: { // Make pointer visible
+              show: true,
+              width: 5,
+              length: '60%',
+              itemStyle: {
+                color: 'auto'
+              }
+            },
+            axisTick: {
+              distance: -25,
+              splitNumber: 5,
+              lineStyle: {
+                width: 1,
+                color: '#999'
+              }
+            },
+            splitLine: { // Keep split lines for visual cues
+              distance: -25, // Adjusted distance
+              length: 8,    // Adjusted length
+              lineStyle: {
+                width: 1,
+                color: '#bbb' // Slightly darker color
+              }
+            },
+            axisLabel: { // Show labels for thresholds
+              distance: -10, // Adjusted distance
+              color: 'auto', // Use segment colors or a default
+              fontSize: 9
+            },
+            anchor: {
+              show: false
+            },
+            title: { // Title for context if needed, e.g. "Breach Level"
+              show: true,
+              offsetCenter: [0, '20%'],
+              fontSize: 12,
+              color: '#666'
+            },
+            detail: { // Prominent value display
+              valueAnimation: true,
+              width: '60%',
+              lineHeight: 30, // Adjusted line height
+              borderRadius: 6,  // Adjusted border radius
+              offsetCenter: [0, '-10%'], // Adjusted position
+              fontSize: 20, // Larger font size
+              fontWeight: 'bold', // Bolder font
+              formatter: '{value}%',
+              color: 'auto' // Color based on segment
+            },
+            data: [
+              {
+                value: 67, // Placeholder value
+                name: 'Status' // Optional name for title
+              }
+            ]
+          }
+        ]
+      };
+    },
+    lineOption() {
+      return {
+        tooltip: {
+          trigger: 'axis',
+          formatter: '{b}: {c}' // Simple tooltip
+        },
+        xAxis: {
+          type: 'category',
+          data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+          boundaryGap: false, // Line starts from the edge
+          axisTick: { show: false }, // Hide ticks
+          axisLine: { show: false } // Hide x-axis line
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: { show: false }, // Hide y-axis grid lines
+          axisLabel: { show: false }, // Hide y-axis labels
+          axisLine: { show: false } // Hide y-axis line
+        },
+        series: [
+          {
+            data: [10, 22, 15, 28, 20, 30, 25, 35, 30, 40, 38, 45], // Placeholder data
+            type: 'line',
+            smooth: true,
+            symbol: 'circle', // Show data points as circles
+            symbolSize: 6,
+            itemStyle: {
+              color: '#3b82f6' // Primary blue color for line and points
+            },
+            lineStyle: {
+              color: '#3b82f6',
+              width: 2
+            },
+            areaStyle: { // Optional: add a subtle gradient area below the line
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                    offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
+                }, {
+                    offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
+                }]
+              }
+            }
+          }
+        ],
+        grid: { // Adjust grid to make chart cleaner
+          left: '0%',
+          right: '2%',
+          top: '5%', // Add some top margin
+          bottom: '0%',
+          containLabel: false // Set to false if axes are hidden
+        }
+      };
     }
   },
   methods: {
