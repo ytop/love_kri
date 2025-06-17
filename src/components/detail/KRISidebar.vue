@@ -8,72 +8,8 @@
       <div class="actions">
         <el-button type="primary" style="width: 100%; margin-bottom: 0.5rem;">
           <i class="el-icon-edit"></i>
-          Edit KRI
+          Approve KRI
         </el-button>
-        <el-button style="width: 100%; margin-bottom: 0.5rem;">
-          <i class="el-icon-download"></i>
-          Export Data
-        </el-button>
-        <el-button style="width: 100%;">
-          <i class="el-icon-refresh"></i>
-          Refresh Data
-        </el-button>
-      </div>
-    </el-card>
-
-    <!-- KRI Summary -->
-    <el-card class="sidebar-card">
-      <div slot="header" class="card-header">
-        <span>KRI Summary</span>
-      </div>
-      <div class="summary">
-        <div class="summary-item">
-          <label>KRI ID</label>
-          <span>{{ kriData.kri_id }}</span>
-        </div>
-        <div class="summary-item">
-          <label>Status</label>
-          <el-tag :type="getStatusTagType(mapKriStatus(kriData.kri_status))" size="small">
-            {{ mapKriStatus(kriData.kri_status) }}
-          </el-tag>
-        </div>
-        <div class="summary-item">
-          <label>Owner</label>
-          <span>{{ kriData.kri_owner || 'N/A' }}</span>
-        </div>
-        <div class="summary-item">
-          <label>Current Value</label>
-          <span class="value">{{ kriData.kri_value || 'N/A' }}</span>
-        </div>
-        <div class="summary-item">
-          <label>Reporting Date</label>
-          <span>{{ formatReportingDate(kriData.reporting_date) }}</span>
-        </div>
-      </div>
-    </el-card>
-
-    <!-- Data Quality -->
-    <el-card class="sidebar-card">
-      <div slot="header" class="card-header">
-        <span>Data Quality</span>
-      </div>
-      <div class="quality-metrics">
-        <div class="quality-item">
-          <label>Atomic Elements</label>
-          <span class="count">{{ atomicData.length }}</span>
-        </div>
-        <div class="quality-item">
-          <label>Complete Elements</label>
-          <span class="count">{{ completeAtomicCount }}</span>
-        </div>
-        <div class="quality-item">
-          <label>Completeness</label>
-          <el-progress 
-            :percentage="completenessPercentage"
-            :color="getProgressColor(completenessPercentage)"
-            :stroke-width="8"
-          />
-        </div>
       </div>
     </el-card>
 
@@ -103,10 +39,6 @@
         <span>Navigation</span>
       </div>
       <div class="navigation">
-        <el-button type="text" style="width: 100%; text-align: left; padding-left: 0;">
-          <i class="el-icon-trend-charts"></i>
-          Historical Trend
-        </el-button>
         <el-button type="text" style="width: 100%; text-align: left; padding-left: 0;">
           <i class="el-icon-document"></i>
           Related KRIs

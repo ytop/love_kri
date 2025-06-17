@@ -69,7 +69,7 @@
     </div>
 
     <!-- Chart View Dialog -->
-    <kri-chart-view
+    <k-r-i-chart-view
       v-if="showChartView"
       :visible="showChartView"
       :data="filteredKRIItems"
@@ -83,12 +83,14 @@ import { mapState, mapGetters, mapActions } from 'vuex';
 import { getLastDayOfPreviousMonth } from '@/utils/helpers';
 import KRIFilters from '../components/KRIFilters.vue'; // Changed from SimpleFilters
 import KRITable from '../components/KRITable.vue';
+import KRIChartView from '../components/KRIChartView.vue';
 
 export default {
   name: 'Dashboard',
   components: {
     KRIFilters, // Changed from SimpleFilters
-    KRITable
+    KRITable,
+    KRIChartView
   },
   data() {
     return {

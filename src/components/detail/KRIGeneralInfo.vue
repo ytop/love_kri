@@ -1,59 +1,46 @@
 <template>
   <div class="general-info">
     <el-row :gutter="24">
-      <el-col :span="12">
-        <div class="info-item">
-          <label>KRI Name</label>
-          <p>{{ kriData.kri_name || 'N/A' }}</p>
-        </div>
-      </el-col>
-      <el-col :span="12">
+      <el-col :span="8">
         <div class="info-item">
           <label>KRI Owner</label>
           <p>{{ kriData.kri_owner || 'N/A' }}</p>
         </div>
       </el-col>
-    </el-row>
-    
-    <el-row :gutter="24">
-      <el-col :span="12">
-        <div class="info-item">
-          <label>L1 Risk Type</label>
-          <p>{{ kriData.l1_risk_type || 'N/A' }}</p>
-        </div>
-      </el-col>
-      <el-col :span="12">
-        <div class="info-item">
-          <label>L2 Risk Type</label>
-          <p>{{ kriData.l2_risk_type || 'N/A' }}</p>
-        </div>
-      </el-col>
-    </el-row>
-    
-    <el-row :gutter="24">
-      <el-col :span="12">
+      <el-col :span="8">
         <div class="info-item">
           <label>Reporting Frequency</label>
           <p>{{ kriData.reporting_frequency || 'N/A' }}</p>
         </div>
       </el-col>
-      <el-col :span="12">
+      <el-col :span="8">
         <div class="info-item">
           <label>Data Provider</label>
           <p>{{ kriData.data_provider || 'N/A' }}</p>
         </div>
       </el-col>
     </el-row>
-    
-    <div class="info-item full-width">
-      <label>KRI Description</label>
-      <p>{{ kriData.kri_description || 'No description available' }}</p>
-    </div>
-    
-    <div class="info-item full-width">
-      <label>KRI Formula</label>
-      <p class="formula">{{ kriData.kri_formula || 'No formula available' }}</p>
-    </div>
+
+    <el-row :gutter="24">
+      <el-col :span="8">
+        <div class="info-item full-width">
+          <label>KRI Description</label>
+          <p>{{ kriData.kri_description || 'No description available' }}</p>
+        </div>
+      </el-col>
+      <el-col :span="8">
+        <div class="info-item">
+          <label>L1 Risk Type</label>
+          <p>{{ kriData.l1_risk_type || 'N/A' }}</p>
+        </div>
+      </el-col>
+      <el-col :span="8">
+        <div class="info-item">
+          <label>L2 Risk Type</label>
+          <p>{{ kriData.l2_risk_type || 'N/A' }}</p>
+        </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
