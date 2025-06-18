@@ -4,11 +4,16 @@
   "description": "KRI Dashboard application ported to Vue.js 2 with Element UI",
   "main": "src/main.js",
   "scripts": {
-    "dev": "webpack-dev-server --mode development --open",
+    "dev": "webpack-dev-server  --host 0.0.0.0 --mode development --open",
     "build": "webpack --mode production",
     "lint": "eslint --ext .js,.vue src/"
   },
-  "keywords": ["vue", "element-ui", "kri", "dashboard"],
+  "keywords": [
+    "vue",
+    "element-ui",
+    "kri",
+    "dashboard"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
