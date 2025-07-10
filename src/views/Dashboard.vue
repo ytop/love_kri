@@ -10,8 +10,23 @@
         <div class="header-stats">
           <el-tag type="info">{{ filteredKRIItems.length }} KRIs</el-tag>
         </div>
+        <div class="header-actions">
+          <el-badge :value="pendingKRIsCount" class="item" type="danger" :hidden="pendingKRIsCount === 0">
+            <el-button size="medium" @click="navigateToStatusPage('Pending')">Pending for input</el-button>
+          </el-badge>
+          <el-badge :value="submittedKRIsCount" class="item" type="danger" :hidden="submittedKRIsCount === 0">
+            <el-button size="medium" @click="navigateToStatusPage('Submitted')">Pending for approval</el-button>
+          </el-badge>
+        </div>
       </div>
     </div>
+STYLE_FIX
+.header-actions {
+  display: flex;
+  gap: 1rem; /* Space between the new buttons */
+  align-items: center;
+}
+END_STYLE_FIX
 
     <div class="dashboard-content">
       <!-- Filters Card -->
@@ -101,7 +116,7 @@ export default {
   },
   computed: {
     ...mapState('kri', ['loading', 'error']),
-    ...mapGetters('kri', ['filteredKRIItems']),
+    ...mapGetters('kri', ['filteredKRIItems', 'pendingKRIsCount', 'submittedKRIsCount']),
     filters() {
       return this.$store.state.kri.filters;
     }
@@ -163,12 +178,27 @@ export default {
         name: 'KRIDetail', 
         params: { id: kriId, date: reportingDate }
       });
+    },
+    navigateToStatusPage(status) {
+      if (status === 'Pending') {
+        this.$router.push({ name: 'PendingKRIs' });
+      } else if (status === 'Submitted') {
+        this.$router.push({ name: 'SubmittedKRIs' });
+      }
     }
   }
 };
 </script>
 
 <style scoped>
+/* .item class and its styling removed as el-badge handles positioning well with parent flex alignment. */
+/* Retained for context if specific adjustments are needed later:
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
+}
+*/
+
 .dashboard {
   min-height: 100vh;
   background-color: #f1f5f9;
@@ -186,6 +216,11 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem; /* Added for spacing between elements */
+}
+
+.header-info {
+  flex-grow: 1; /* Allow info to take available space */
 }
 
 .header-info h1 {

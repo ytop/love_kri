@@ -317,6 +317,15 @@ const getters = {
     }
     
     return filtered;
+  },
+  pendingKRIsCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Pending').length;
+  },
+  submittedKRIsCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Submitted').length;
+  },
+  krisByStatus: (state) => (status) => {
+    return state.kriItems.filter(item => item.collectionStatus === status);
   }
 };
 
