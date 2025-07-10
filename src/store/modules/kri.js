@@ -67,29 +67,6 @@ const mutations = {
       breachType: '',
       dataProvider: ''
     };
-  },
-  UPDATE_KRI_STATUS_IN_LIST(state, { kriId, reportingDate, newStatusText }) {
-    const itemIndex = state.kriItems.findIndex(item => item.id === kriId && item.reportingDate === reportingDate);
-    if (itemIndex !== -1) {
-      const updatedItem = { ...state.kriItems[itemIndex], collectionStatus: newStatusText };
-      state.kriItems.splice(itemIndex, 1, updatedItem);
-      state.kriItems = [...state.kriItems]; // Ensure reactivity for view updates
-    }
-  },
-  UPDATE_BATCH_KRI_STATUS_IN_LIST(state, { krisToUpdate, newStatusText }) {
-    let itemsWereUpdated = false;
-    krisToUpdate.forEach(kriRef => {
-      const itemIndex = state.kriItems.findIndex(item => item.id === kriRef.id && item.reportingDate === kriRef.reportingDate);
-      if (itemIndex !== -1) {
-        const updatedItem = { ...state.kriItems[itemIndex], collectionStatus: newStatusText };
-        // Replace item in array for reactivity
-        state.kriItems.splice(itemIndex, 1, updatedItem);
-        itemsWereUpdated = true;
-      }
-    });
-    if (itemsWereUpdated) {
-      state.kriItems = [...state.kriItems]; // Ensure reactivity for view updates
-    }
   }
 };
 
@@ -307,37 +284,6 @@ const actions = {
 
   resetFilters({ commit }) {
     commit('RESET_FILTERS');
-  },
-
-  async updateKRIStatusAction({ commit }, { kriId, reportingDate, newStatusText, comment }) {
-    commit('SET_LOADING', true); // Optional: indicate loading state
-    try {
-      await kriService.updateKRIStatus(kriId, reportingDate, newStatusText, comment);
-      commit('UPDATE_KRI_STATUS_IN_LIST', { kriId, reportingDate, newStatusText });
-      // Optionally, dispatch fetchKRIItems if a full refresh is preferred after update,
-      // or handle item removal from list if it no longer matches criteria (e.g. on KRIListByStatus page)
-    } catch (error) {
-      commit('SET_ERROR', error.message);
-      console.error('Error in updateKRIStatusAction:', error);
-      throw error; // Re-throw for component to handle
-    } finally {
-      commit('SET_LOADING', false);
-    }
-  },
-
-  async batchUpdateKRIStatusAction({ commit }, { krisToUpdate, newStatusText }) {
-    commit('SET_LOADING', true); // Optional: indicate loading state
-    try {
-      await kriService.batchUpdateKRIStatus(krisToUpdate, newStatusText);
-      commit('UPDATE_BATCH_KRI_STATUS_IN_LIST', { krisToUpdate, newStatusText });
-      // Similar considerations for data refresh as in single update
-    } catch (error) {
-      commit('SET_ERROR', error.message);
-      console.error('Error in batchUpdateKRIStatusAction:', error);
-      throw error; // Re-throw for component to handle
-    } finally {
-      commit('SET_LOADING', false);
-    }
   }
 };
 
@@ -371,15 +317,6 @@ const getters = {
     }
     
     return filtered;
-  },
-  pendingKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Pending').length;
-  },
-  submittedKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Submitted').length;
-  },
-  krisByStatus: (state) => (status) => {
-    return state.kriItems.filter(item => item.collectionStatus === status);
   }
 };
 

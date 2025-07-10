@@ -5,10 +5,9 @@
       v-loading="loading"
       style="width: 100%"
       @row-click="handleRowClick"
-      @selection-change="onSelectionChange"
+      @selection-change="handleSelectionChange"
     >
       <el-table-column
-        v-if="showRowSelection"
         type="selection"
         width="55"
         :selectable="isSelectable"
@@ -130,20 +129,17 @@
       
       <el-table-column
         label="Actions"
-        width="250" /* Increased width */
+        width="100"
         fixed="right"
       >
         <template slot-scope="scope">
-          <slot name="actions" :row="scope.row" :index="scope.$index">
-            <!-- Default content: Go button -->
-            <el-button
-              type="primary"
-              size="mini"
-              @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
-            >
-              Go
-            </el-button>
-          </slot>
+          <el-button
+            type="primary"
+            size="mini"
+            @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
+          >
+            Go
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -164,26 +160,21 @@ export default {
       type: Boolean,
       default: false
     },
-    showRowSelection: { // New prop
-      type: Boolean,
-      default: false
+    selectedKris: {
+      type: Array,
+      default: () => []
     }
-    // selectedKris prop seems unused, consider removing if confirmed
   },
   methods: {
     handleRowClick(row, column, event) {
-      // Avoid triggering row-click when clicking on interactive elements within a cell
-      if (event.target.closest('.el-button, .el-input, .el-checkbox')) {
-        return;
-      }
       // Emit event to parent component with KRI ID and reporting date
-      // This specific row click might be for navigation, confirm if still needed globally
-      // For now, let's assume the KRI Name click is the primary navigation trigger
-      // this.$emit('row-click', row.id, this.formatReportingDate(row.reportingDate));
-      // Let's make the KRI Name click the explicit way to navigate.
+      this.$emit('row-click', row.id, this.formatReportingDate(row.reportingDate));
     },
-    onSelectionChange(selection) { // Renamed and simplified
-      this.$emit('selection-change', selection);
+    handleSelectionChange(selection) {
+      this.$emit('select-all', selection.length === this.data.length);
+      selection.forEach(row => {
+        this.$emit('row-select', row.id, row.reportingDate, true);
+      });
     },
     
     handleKRIClick(kriId, reportingDate) {
