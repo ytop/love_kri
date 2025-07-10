@@ -40,32 +40,34 @@
           @kri-click="handleKRIClick"
         >
           <template #actions="slotProps">
-            <div class="action-cell">
-              <el-button
-                type="primary"
-                size="mini"
-                @click="handleKRIClick(slotProps.row.id, slotProps.row.reportingDate)"
-              >
-                Go
-              </el-button>
-              <template v-if="status === 'Submitted'">
-                <el-input
-                  v-model="reworkComments[slotProps.row.id + '_' + slotProps.row.reportingDate]"
-                  size="mini"
-                  placeholder="Rework Comment"
-                  class="rework-comment-input"
-                ></el-input>
+            <template v-if="slotProps.row"> {/* Safeguard added here */}
+              <div class="action-cell">
                 <el-button
-                  type="warning"
+                  type="primary"
                   size="mini"
-                  @click="handleRework(slotProps.row)"
-                  class="rework-button"
+                  @click="handleKRIClick(slotProps.row.id, slotProps.row.reportingDate)"
                 >
-                  Rework
+                  Go
                 </el-button>
-                <!-- TODO: Persist this comment. (Comment added in script logic as well) -->
-              </template>
-            </div>
+                <template v-if="status === 'Submitted'">
+                  <el-input
+                    v-model="reworkComments[slotProps.row.id + '_' + slotProps.row.reportingDate]"
+                    size="mini"
+                    placeholder="Rework Comment"
+                    class="rework-comment-input"
+                  ></el-input>
+                  <el-button
+                    type="warning"
+                    size="mini"
+                    @click="handleRework(slotProps.row)"
+                    class="rework-button"
+                  >
+                    Rework
+                  </el-button>
+                  <!-- TODO: Persist this comment. (Comment added in script logic as well) -->
+                </template>
+              </div>
+            </template>
           </template>
         </k-r-i-table>
         <div v-if="!loading && kriItemsByStatus.length === 0 && !error" class="no-data-message">
