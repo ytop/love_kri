@@ -9,9 +9,20 @@
     </div>
 
     <div class="page-content">
+      <div class="action-bar top-action-bar">
+        <el-button
+          type="primary"
+          @click="handleApproveSelected"
+          :disabled="selectedKRIItems.length === 0"
+        >
+          Approve Selected Items
+        </el-button>
+      </div>
+
       <el-card class="table-card">
         <div slot="header" class="table-header">
           <span>{{ kriItemsByStatus.length }} KRIs found</span>
+          <!-- Can add more info or controls here if needed -->
         </div>
         <div v-if="error" class="error-message">
           <el-alert
@@ -24,12 +35,53 @@
         <k-r-i-table
           :data="kriItemsByStatus"
           :loading="loading"
-          @row-click="handleKRIClick"
-        />
+          :show-row-selection="true"
+          @selection-change="handleSelectionChange"
+          @kri-click="handleKRIClick"
+        >
+          <template #actions="slotProps">
+            <div class="action-cell">
+              <el-button
+                type="primary"
+                size="mini"
+                @click="handleKRIClick(slotProps.row.id, slotProps.row.reportingDate)"
+              >
+                Go
+              </el-button>
+              <template v-if="status === 'Submitted'">
+                <el-input
+                  v-model="reworkComments[slotProps.row.id + '_' + slotProps.row.reportingDate]"
+                  size="mini"
+                  placeholder="Rework Comment"
+                  class="rework-comment-input"
+                ></el-input>
+                <el-button
+                  type="warning"
+                  size="mini"
+                  @click="handleRework(slotProps.row)"
+                  class="rework-button"
+                >
+                  Rework
+                </el-button>
+                <!-- TODO: Persist this comment. (Comment added in script logic as well) -->
+              </template>
+            </div>
+          </template>
+        </k-r-i-table>
         <div v-if="!loading && kriItemsByStatus.length === 0 && !error" class="no-data-message">
           <el-empty :description="'No KRIs found with status: ' + status"></el-empty>
         </div>
       </el-card>
+
+      <div class="action-bar bottom-action-bar">
+        <el-button
+          type="primary"
+          @click="handleApproveSelected"
+          :disabled="selectedKRIItems.length === 0"
+        >
+          Approve Selected Items
+        </el-button>
+      </div>
     </div>
   </div>
 </template>
@@ -52,6 +104,12 @@ export default {
         return ['Pending', 'Submitted'].indexOf(value) !== -1;
       }
     }
+  },
+  data() {
+    return {
+      selectedKRIItems: [],
+      reworkComments: {} // For storing comments for each row on 'Submitted' page: { [kriId_reportingDate]: comment }
+    };
   },
   computed: {
     ...mapState('kri', ['loading', 'error', 'filters']),
@@ -90,7 +148,56 @@ export default {
     }
   },
   methods: {
-    ...mapActions('kri', ['fetchKRIItems', 'updateFilters']),
+    ...mapActions('kri', ['fetchKRIItems', 'updateFilters', 'updateKRIStatusAction', 'batchUpdateKRIStatusAction']),
+    handleSelectionChange(selection) {
+      this.selectedKRIItems = selection;
+    },
+    async handleApproveSelected() {
+      if (this.selectedKRIItems.length === 0) {
+        this.$message.warning('No items selected for approval.');
+        return;
+      }
+
+      const krisToUpdate = this.selectedKRIItems.map(item => ({ id: item.id, reportingDate: item.reportingDate }));
+      let targetStatus = '';
+
+      if (this.status === 'Pending') {
+        targetStatus = 'Submitted';
+      } else if (this.status === 'Submitted') {
+        targetStatus = 'Finalized';
+      } else {
+        this.$message.error('Invalid page status for approval action.');
+        return;
+      }
+
+      try {
+        await this.batchUpdateKRIStatusAction({ krisToUpdate, newStatusText: targetStatus });
+        this.$message.success(`${krisToUpdate.length} KRI(s) have been moved to '${targetStatus}'.`);
+        this.selectedKRIItems = []; // Clear selection
+        // The list will auto-update due to Vuex reactivity and getters
+      } catch (error) {
+        this.$message.error('Failed to approve selected KRIs: ' + error.message);
+      }
+    },
+    async handleRework(row) {
+      const commentKey = `${row.id}_${row.reportingDate}`;
+      const comment = this.reworkComments[commentKey] || '';
+      // TODO: Persist this comment. For now, it's logged by the service.
+
+      try {
+        await this.updateKRIStatusAction({
+          kriId: row.id,
+          reportingDate: row.reportingDate,
+          newStatusText: 'Pending',
+          comment
+        });
+        this.$message.success(`KRI ${row.id} has been sent back to 'Pending'.`);
+        this.$set(this.reworkComments, commentKey, ''); // Clear comment for this row
+        // Item will disappear from 'Submitted' list due to reactivity
+      } catch (error) {
+        this.$message.error(`Failed to rework KRI ${row.id}: ` + error.message);
+      }
+    },
     handleKRIClick(kriId, reportingDate) {
       this.$router.push({
         name: 'KRIDetail',
@@ -157,5 +264,31 @@ export default {
 .error-message, .no-data-message {
   padding: 1rem;
   text-align: center;
+}
+
+.action-bar {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: flex-end; /* Align button to the right, or flex-start for left */
+}
+
+.bottom-action-bar {
+  margin-top: 1rem;
+}
+
+.action-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* Space between items in action cell */
+}
+
+.rework-comment-input {
+  width: 150px; /* Adjust as needed */
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.rework-button {
+  /* Custom styles if needed */
 }
 </style>
