@@ -21,7 +21,7 @@
             show-icon>
           </el-alert>
         </div>
-        <k-r-i-table
+        <k-r-i-table-collect-data
           :data="kriItemsByStatus"
           :loading="loading"
           @row-click="handleKRIClick"
@@ -36,13 +36,13 @@
 
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
-import KRITable from '../components/KRITable.vue';
+import KRITableCollectData from '../components/KRITableCollectData.vue';
 import { getLastDayOfPreviousMonth } from '@/utils/helpers';
 
 export default {
   name: 'KRIListByStatus',
   components: {
-    KRITable
+    KRITableCollectData
   },
   props: {
     status: {
