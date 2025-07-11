@@ -1,5 +1,14 @@
 <template>
   <div class="kri-table">
+    <div class="table-actions">
+      <el-button
+        type="primary"
+        @click="handleApproveSelected"
+        :disabled="selectedKris.length === 0"
+      >
+        Approve Selected
+      </el-button>
+    </div>
     <el-table
       :data="data"
       v-loading="loading"
@@ -143,6 +152,15 @@
         </template>
       </el-table-column>
     </el-table>
+    <div class="table-actions">
+      <el-button
+        type="primary"
+        @click="handleApproveSelected"
+        :disabled="selectedKris.length === 0"
+      >
+        Approve Selected
+      </el-button>
+    </div>
   </div>
 </template>
 
@@ -181,6 +199,11 @@ export default {
       this.$emit('kri-click', kriId, reportingDate);
     },
     
+    handleApproveSelected() {
+      // TODO: Implement the logic to approve selected KRIs
+      console.log('Approving selected KRIs:', this.selectedKris);
+    },
+
     isSelectable(row) {
       return true;
     },
@@ -219,6 +242,11 @@ export default {
 </script>
 
 <style scoped>
+.table-actions {
+  padding: 10px;
+  text-align: left;
+}
+
 .kri-table >>> .el-table th {
   background-color: #f8fafc;
   color: #374151;
