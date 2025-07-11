@@ -20,13 +20,6 @@
         </div>
       </div>
     </div>
-STYLE_FIX
-.header-actions {
-  display: flex;
-  gap: 1rem; /* Space between the new buttons */
-  align-items: center;
-}
-END_STYLE_FIX
 
     <div class="dashboard-content">
       <!-- Filters Card -->
