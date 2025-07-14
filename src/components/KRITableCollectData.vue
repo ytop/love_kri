@@ -80,22 +80,6 @@
       />
       
       <el-table-column
-        prop="l1RiskType"
-        label="L1 Risk Type"
-        width="150"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
-        prop="l2RiskType"
-        label="L2 Risk Type"
-        width="150"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
         prop="breachType"
         label="Breach Type"
         width="120"
