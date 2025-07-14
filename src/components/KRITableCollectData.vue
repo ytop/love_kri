@@ -25,14 +25,14 @@
       <el-table-column
         prop="id"
         label="KRI ID"
-        width="100"
+        width="80"
         sortable
       />
       
       <el-table-column
         prop="name"
         label="KRI Name"
-        min-width="200"
+        min-width="320"
         sortable
         show-overflow-tooltip
       >
@@ -50,7 +50,7 @@
       <el-table-column
         prop="owner"
         label="Owner"
-        width="150"
+        width="80"
         sortable
         show-overflow-tooltip
       />
