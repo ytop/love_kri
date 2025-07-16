@@ -47,6 +47,15 @@ export const getStatusTagTypeFromLabel = (statusLabel) => {
   return getStatusTagType(numericStatus);
 };
 
+// Legacy aliases for backward compatibility
+export const mapKriStatus = mapStatus;
+export const getKriStatusTagType = getStatusTagType;
+export const getKriStatusCssClass = getStatusCssClass;
+
+export const mapAtomicStatus = mapStatus;
+export const getAtomicStatusTagType = getStatusTagType;
+export const getAtomicStatusCssClass = getStatusCssClass;
+
 // Get the last day of the previous month as default reporting date
 export const getLastDayOfPreviousMonth = () => {
   const today = new Date();
