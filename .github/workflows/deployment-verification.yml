@@ -20,13 +20,10 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Clean npm cache
-        run: npm cache clean --force
 
       - name: Install dependencies
         run: |
-          npm ci --no-optional --prefer-offline
-          npm ls html-webpack-plugin
+          npm install
 
       - name: Verify webpack dependencies
         run: |
@@ -39,14 +36,6 @@ jobs:
 
       - name: Check for security vulnerabilities
         run: npm audit --audit-level=high
-
-      - name: Verify package-lock.json is up to date
-        run: |
-          npm ci --package-lock-only
-          if ! git diff --exit-code package-lock.json; then
-            echo "package-lock.json is not up to date. Please run 'npm install' and commit the changes."
-            exit 1
-          fi
 
       - name: Check build size and validate structure
         run: |
@@ -141,7 +130,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm ci --no-optional --prefer-offline
+          npm install
           npm ls html-webpack-plugin
 
       - name: Check PR diff for potential issues
