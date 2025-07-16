@@ -29,7 +29,7 @@
           :show-advanced="showAdvancedFilters"
           @filter-change="handleFilterChange"
           @reset-filters="handleResetFilters"
-          @toggle-advanced="showAdvancedFilters = !showAdvancedFilters"
+          @toggle-advanced="handleToggleAdvancedFilters"
         />
       </el-card>
 
@@ -143,6 +143,10 @@ export default {
       const defaultDate = getLastDayOfPreviousMonth();
       this.updateFilters({ reportingDate: defaultDate });
       this.fetchKRIItems(defaultDate);
+    },
+    
+    handleToggleAdvancedFilters() {
+      this.showAdvancedFilters = !this.showAdvancedFilters;
     },
     
     handleSelectAll(checked) {

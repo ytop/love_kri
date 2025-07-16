@@ -3,7 +3,7 @@
     <div v-if="bothDataEmpty" class="no-data-prominent">
       <p>No evidence or audit trail information is available for this KRI.</p>
     </div>
-    <el-tabs v-else type="border-card">
+    <el-tabs v-else v-model="activeTab" type="border-card">
       <el-tab-pane label="Evidence" name="evidence">
         <div v-if="evidenceData.length === 0" class="no-data">
           <p>No evidence files available</p>
@@ -124,6 +124,11 @@ export default {
       type: Array,
       required: true
     }
+  },
+  data() {
+    return {
+      activeTab: 'evidence' // Set Evidence as the default active tab
+    };
   },
   computed: {
     bothDataEmpty() {

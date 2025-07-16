@@ -319,6 +319,11 @@ export default {
   gap: 0.75rem; /* Use a slightly larger gap for clarity, e.g., 0.75rem or 12px */
 }
 
+/* Override Element UI's default margin between adjacent buttons */
+.el-button + .el-button {
+  margin-left: 0;
+}
+
 .summary {
   display: flex;
   flex-direction: column;
