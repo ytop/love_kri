@@ -54,7 +54,7 @@
 </template>
 
 <script>
-import { mapStatus, getStatusTagType, getStatusCssClass } from '@/utils/helpers';
+import { mapStatus, getStatusTagType } from '@/utils/helpers';
 
 export default {
   name: 'KRIDataElements',
@@ -75,8 +75,6 @@ export default {
     mapAtomicStatus: mapStatus,
     
     getAtomicStatusType: getStatusTagType,
-
-    getAtomicStatusBadgeClass: getStatusCssClass,
 
     handleSelectAllChange() {
       if (this.selectAll) {

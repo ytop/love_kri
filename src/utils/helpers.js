@@ -47,14 +47,9 @@ export const getStatusTagTypeFromLabel = (statusLabel) => {
   return getStatusTagType(numericStatus);
 };
 
-// Legacy aliases for backward compatibility
+// Legacy aliases for backward compatibility (only keep the ones actually used)
 export const mapKriStatus = mapStatus;
-export const getKriStatusTagType = getStatusTagType;
-export const getKriStatusCssClass = getStatusCssClass;
-
 export const mapAtomicStatus = mapStatus;
-export const getAtomicStatusTagType = getStatusTagType;
-export const getAtomicStatusCssClass = getStatusCssClass;
 
 // Get the last day of the previous month as default reporting date
 export const getLastDayOfPreviousMonth = () => {
@@ -72,9 +67,4 @@ export const formatDateFromInt = (dateInt) => {
   const month = dateString.substring(4, 6);
   const day = dateString.substring(6, 8);
   return `${year}-${month}-${day}`;
-};
-
-// Convert date string to integer format
-export const dateStringToInt = (dateString) => {
-  return parseInt(dateString.replace(/-/g, ''), 10);
 };
