@@ -7,6 +7,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, "dist"),
     filename: "bundle.js",
+    publicPath: "/",
     clean: true,
   },
   resolve: {
@@ -51,6 +52,14 @@ module.exports = {
     port: 8081,
     hot: true,
     allowedHosts: "all",
-    historyApiFallback: true,
+    historyApiFallback: {
+      rewrites: [
+        { from: /.*/, to: '/index.html' }
+      ]
+    },
+    static: {
+      directory: path.join(__dirname, 'dist'),
+      publicPath: '/',
+    },
   },
 };
