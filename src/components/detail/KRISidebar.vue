@@ -240,9 +240,9 @@ export default {
                 x2: 0,
                 y2: 1,
                 colorStops: [{
-                    offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
+                  offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
                 }, {
-                    offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
+                  offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
                 }]
               }
             }
@@ -267,14 +267,14 @@ export default {
     
     getStatusTagType(status) {
       switch (status) {
-        case 'Pending':
-          return 'warning';
-        case 'Submitted':
-          return 'info';
-        case 'Finalized':
-          return 'success';
-        default:
-          return '';
+      case 'Pending':
+        return 'warning';
+      case 'Submitted':
+        return 'info';
+      case 'Finalized':
+        return 'success';
+      default:
+        return '';
       }
     },
     

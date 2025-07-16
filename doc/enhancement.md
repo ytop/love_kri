@@ -26,25 +26,24 @@ Public Const gStatusPendingSubmit As String = "Ready for submission" ' 40
 Public Const gStatusPendingAcknowledg As String = "Submitted" ' 50
 Public Const gStatusFinalized As String = "Finalized" ' 60
 
-case 1, if data provide = kri owner, 10 --> 40 --> 50 --> 60 
-  Action 10 --> 40, kri inpuuter submit data
+case 1, if data provide = kri owner, 10 --> 40 --> 50 --> 60
+  Action 10 --> 40, kri inputer submit data
         40 --> 50, kri acknowledger approve kri
 
-case 2, if data provide <> kri owner, 10 --> 30 -- > 40 --> 50 --> 60 
+case 2, if data provide <> kri owner, 10 --> 30 -- > 40 --> 50 --> 60
   Action 10 --> 30, data provider appover
 
 case 3,  in case 1, 40 --> 50 approve, if reject, 40 --> 20
-         in case 2, 30 --> 40 , if reject, 30 --> 20 
+         in case 2, 30 --> 40 , if reject, 30 --> 20
                     40 --> 50, if reject, 40 --> 20
 
 change status
 change sample data,
 
-
 =============== task 2 ===================================
 
 Union view,
-in KRITableCollectData.vue, merge kri data element / atomic into the list view, 
+in KRITableCollectData.vue, merge kri data element / atomic into the list view,
 
 ================ task 3 ====================
 split  KRITableCollectData.vue into 'input' & 'approve',  update button name

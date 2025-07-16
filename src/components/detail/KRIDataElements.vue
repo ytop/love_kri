@@ -51,6 +51,8 @@
 </template>
 
 <script>
+import { mapStatus, getStatusTagType, getStatusCssClass } from '@/utils/helpers';
+
 export default {
   name: 'KRIDataElements',
   props: {
@@ -66,46 +68,12 @@ export default {
     };
   },
   methods: {
-    mapAtomicStatus(status) {
-      if (status === null || status === undefined) return 'Unknown';
-      switch (status) {
-        case 0:
-          return 'Inactive';
-        case 1:
-          return 'Active';
-        case 2:
-          return 'Validated';
-        default:
-          return `Status ${status}`;
-      }
-    },
+    // Use centralized unified status functions
+    mapAtomicStatus: mapStatus,
     
-    getAtomicStatusType(status) {
-      switch (status) {
-        case 0:
-          return 'info';
-        case 1:
-          return 'warning';
-        case 2:
-          return 'success';
-        default:
-          return '';
-      }
-    },
+    getAtomicStatusType: getStatusTagType,
 
-    getAtomicStatusBadgeClass(statusNumeric) {
-      const statusText = this.mapAtomicStatus(statusNumeric); // Gets 'Inactive', 'Active', 'Validated'
-      switch (statusText) {
-        case 'Validated': // Mock uses 'Approved'
-          return 'status-approved';
-        case 'Active':    // Mock uses 'Pending' for items needing action
-          return 'status-pending';
-        case 'Inactive':  // Mock uses 'Rejected' or some other style
-          return 'status-rejected'; // Or 'status-na' or a specific class for inactive
-        default:
-          return 'status-na'; // For 'Unknown' or other statuses
-      }
-    },
+    getAtomicStatusBadgeClass: getStatusCssClass,
 
     handleSelectAllChange() {
       if (this.selectAll) {

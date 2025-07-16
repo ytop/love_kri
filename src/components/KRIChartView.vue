@@ -132,20 +132,20 @@ export default {
     
     updateChart() {
       switch (this.chartType) {
-        case 'status':
-          this.chartOption = this.getStatusChart();
-          break;
-        case 'riskType':
-          this.chartOption = this.getRiskTypeChart();
-          break;
-        case 'owner':
-          this.chartOption = this.getOwnerChart();
-          break;
-        case 'breach':
-          this.chartOption = this.getBreachChart();
-          break;
-        default:
-          this.chartOption = this.getStatusChart();
+      case 'status':
+        this.chartOption = this.getStatusChart();
+        break;
+      case 'riskType':
+        this.chartOption = this.getRiskTypeChart();
+        break;
+      case 'owner':
+        this.chartOption = this.getOwnerChart();
+        break;
+      case 'breach':
+        this.chartOption = this.getBreachChart();
+        break;
+      default:
+        this.chartOption = this.getStatusChart();
       }
     },
     

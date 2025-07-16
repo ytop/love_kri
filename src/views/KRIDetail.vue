@@ -168,14 +168,14 @@ export default {
     
     getStatusTagType(status) {
       switch (status) {
-        case 'Pending':
-          return 'warning';
-        case 'Submitted':
-          return 'info';
-        case 'Finalized':
-          return 'success';
-        default:
-          return '';
+      case 'Pending':
+        return 'warning';
+      case 'Submitted':
+        return 'info';
+      case 'Finalized':
+        return 'success';
+      default:
+        return '';
       }
     },
     handleEvidenceClick() {

@@ -12,7 +12,7 @@ export const kriService = {
     
     const { data, error } = await query;
     if (error) {
-      console.error("Error fetching KRI data:", error);
+      console.error('Error fetching KRI data:', error);
       throw new Error('Failed to fetch KRI data');
     }
     return data;
@@ -30,7 +30,7 @@ export const kriService = {
       .single();
     
     if (error) {
-      console.error("Error fetching KRI detail:", error);
+      console.error('Error fetching KRI detail:', error);
       throw new Error('Failed to fetch KRI detail');
     }
     return data;
@@ -48,7 +48,7 @@ export const kriService = {
       .order('atomic_id', { ascending: true });
     
     if (error) {
-      console.error("Error fetching atomic data:", error);
+      console.error('Error fetching atomic data:', error);
       throw new Error('Failed to fetch atomic data');
     }
     return data;
@@ -66,7 +66,7 @@ export const kriService = {
       .order('uploaded_at', { ascending: false });
     
     if (error) {
-      console.error("Error fetching evidence data:", error);
+      console.error('Error fetching evidence data:', error);
       throw new Error('Failed to fetch evidence data');
     }
     return data;
@@ -84,7 +84,7 @@ export const kriService = {
       .order('changed_at', { ascending: false });
     
     if (error) {
-      console.error("Error fetching audit trail:", error);
+      console.error('Error fetching audit trail:', error);
       throw new Error('Failed to fetch audit trail');
     }
     return data;

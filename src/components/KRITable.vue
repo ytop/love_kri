@@ -148,6 +148,7 @@
 
 <script>
 import { formatDateFromInt } from '@/utils/helpers';
+import { getStatusTagTypeFromLabel } from '@/utils/helpers';
 
 export default {
   name: 'KRITable',
@@ -166,7 +167,7 @@ export default {
     }
   },
   methods: {
-    handleRowClick(row, column, event) {
+    handleRowClick(row, _column, _event) {
       // Emit event to parent component with KRI ID and reporting date
       this.$emit('row-click', row.id, this.formatReportingDate(row.reportingDate));
     },
@@ -181,33 +182,24 @@ export default {
       this.$emit('kri-click', kriId, reportingDate);
     },
     
-    isSelectable(row) {
+    isSelectable(_row) {
       return true;
     },
     
     getStatusTagType(status) {
-      switch (status) {
-        case 'Pending':
-          return 'warning';
-        case 'Submitted':
-          return 'info';
-        case 'Finalized':
-          return 'success';
-        default:
-          return '';
-      }
+      return getStatusTagTypeFromLabel(status);
     },
     
     getBreachTagType(breachType) {
       switch (breachType) {
-        case 'No Breach':
-          return 'success';
-        case 'Warning':
-          return 'warning';
-        case 'Limit':
-          return 'danger';
-        default:
-          return '';
+      case 'No Breach':
+        return 'success';
+      case 'Warning':
+        return 'warning';
+      case 'Limit':
+        return 'danger';
+      default:
+        return '';
       }
     },
     

@@ -1,8 +1,10 @@
 import Vue from 'vue';
 import Router from 'vue-router';
 import Dashboard from '../views/Dashboard.vue';
+import KRIListByStatus from '../views/KRIListByStatus.vue';
+import KRIPendingInput from '../views/KRIPendingInput.vue';
+import KRIPendingApproval from '../views/KRIPendingApproval.vue';
 import NotFound from '../views/NotFound.vue';
-import KRIListByStatus from '../views/KRIListByStatus.vue'; // Import the new component
 
 Vue.use(Router);
 
@@ -21,16 +23,30 @@ export default new Router({
       props: true
     },
     {
-      path: '/kris/pending',
+      path: '/kris/pending-input',
       name: 'PendingKRIs',
-      component: KRIListByStatus,
-      props: { status: 'Pending' }
+      component: KRIPendingInput
+    },
+    {
+      path: '/kris/pending-approval',
+      name: 'SubmittedKRIs',
+      component: KRIPendingApproval
+    },
+    // Keep the old routes for backward compatibility
+    {
+      path: '/kris/pending',
+      redirect: '/kris/pending-input'
     },
     {
       path: '/kris/submitted',
-      name: 'SubmittedKRIs',
+      redirect: '/kris/pending-approval'
+    },
+    // Generic status-based route for other statuses
+    {
+      path: '/kris/status/:status',
+      name: 'KRIsByStatus',
       component: KRIListByStatus,
-      props: { status: 'Submitted' }
+      props: true
     },
     {
       path: '*',

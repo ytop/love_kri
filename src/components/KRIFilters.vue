@@ -19,7 +19,10 @@
             clearable
             @change="onFilterChange"
           >
-            <el-option label="Pending" value="Pending" />
+            <el-option label="Pending Input" value="Pending Input" />
+            <el-option label="Adjusting" value="Adjusting" />
+            <el-option label="Pending Data Provider Approval" value="Pending Data Provider Approval" />
+            <el-option label="Ready for submission" value="Ready for submission" />
             <el-option label="Submitted" value="Submitted" />
             <el-option label="Finalized" value="Finalized" />
           </el-select>

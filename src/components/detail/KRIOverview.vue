@@ -52,14 +52,14 @@ export default {
   methods: {
     getBreachTagType(breachType) {
       switch (breachType) {
-        case 'No Breach':
-          return 'success';
-        case 'Warning':
-          return 'warning';
-        case 'Limit':
-          return 'danger';
-        default:
-          return '';
+      case 'No Breach':
+        return 'success';
+      case 'Warning':
+        return 'warning';
+      case 'Limit':
+        return 'danger';
+      default:
+        return '';
       }
     }
   }

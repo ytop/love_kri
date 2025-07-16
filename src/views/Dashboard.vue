@@ -170,7 +170,7 @@ export default {
     },
     
     handleKRIClick(kriId, reportingDate) {
-      console.log(kriId, reportingDate)
+      console.log(kriId, reportingDate);
       this.$router.push({ 
         name: 'KRIDetail', 
         params: { id: kriId, date: reportingDate }
