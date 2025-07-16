@@ -1,4 +1,5 @@
 # KRI Dashboard - Vue.js 2 Port
+[![Deployment Verification](https://github.com/ytop/love_kri/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/ytop/love_kri/actions/workflows/deployment-verification.yml)
 
 This is a Vue.js 2 port of the original React KRI (Key Risk Indicator) Dashboard application. The project uses Element UI for components and ECharts for data visualization.
 
