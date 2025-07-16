@@ -65,6 +65,7 @@
           <el-tag
             :type="getStatusTagType(scope.row.collectionStatus)"
             size="small"
+            class="status-tag"
           >
             {{ scope.row.collectionStatus }}
           </el-tag>

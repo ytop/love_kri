@@ -29,9 +29,12 @@
                 <td>{{ item.atomic_metadata }}</td> <!-- Using atomic_metadata for Data Element Name -->
                 <td class="data-value" :data-original-value="item.atomic_value">{{ item.atomic_value }}</td>
                 <td>
-                    <span class="status-badge" :class="getAtomicStatusBadgeClass(item.atomic_status)">
+                    <el-tag 
+                        :type="getAtomicStatusType(item.atomic_status)"
+                        size="small"
+                        class="status-tag">
                         {{ mapAtomicStatus(item.atomic_status) }}
-                    </span>
+                    </el-tag>
                 </td>
                 <td>{{ item.provider_name || 'N/A' }}</td> <!-- Placeholder for provider, defaults to N/A -->
                 <td><span class="icon upload-icon">[ICON_UPLOAD]</span></td> <!-- Placeholder for icon -->
@@ -51,7 +54,7 @@
 </template>
 
 <script>
-import { mapStatus, getStatusTagType, getStatusCssClass } from '@/utils/helpers';
+import { mapStatus, getStatusTagType } from '@/utils/helpers';
 
 export default {
   name: 'KRIDataElements',
@@ -72,8 +75,6 @@ export default {
     mapAtomicStatus: mapStatus,
     
     getAtomicStatusType: getStatusTagType,
-
-    getAtomicStatusBadgeClass: getStatusCssClass,
 
     handleSelectAllChange() {
       if (this.selectAll) {
@@ -215,32 +216,7 @@ export default {
 }
 
 /* Status Badges Styles */
-.status-badge {
-    padding: 4px 12px;
-    border-radius: 9999px; /* pill shape */
-    font-size: 11px;
-    font-weight: 600;
-    display: inline-block;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
-}
-.status-badge.status-approved {
-    background-color: rgba(40, 167, 69, 0.1);
-    color: #155724;
-}
-.status-badge.status-pending {
-    background-color: rgba(255, 193, 7, 0.15);
-    color: #856404;
-}
-.status-badge.status-rejected {
-    background-color: rgba(220, 53, 69, 0.1);
-    color: #721c24;
-}
-.status-badge.status-na {
-    background-color: rgba(108, 117, 125, 0.1);
-    color: #6c757d;
-}
+/* Status badge styles now in global src/styles/status.css */
 
 /* Icon Styles (Placeholders) */
 .icon {

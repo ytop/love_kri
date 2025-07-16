@@ -44,12 +44,7 @@
           </el-button>
         </div>
 
-        <div class="toolbar-right" v-if="selectedKRIs.length > 0">
-          <span class="selection-info">{{ selectedKRIs.length }} selected</span>
-          <el-button type="primary" icon="el-icon-check">
-            Approve Selected KRI
-          </el-button>
-        </div>
+        <!-- Toolbar right section removed - selection functionality not implemented yet -->
       </div>
 
       <!-- KRI Table -->
@@ -103,8 +98,7 @@ export default {
   data() {
     return {
       showAdvancedFilters: false,
-      showChartView: false,
-      selectedKRIs: []
+      showChartView: false
     };
   },
   computed: {
@@ -147,26 +141,6 @@ export default {
     
     handleToggleAdvancedFilters() {
       this.showAdvancedFilters = !this.showAdvancedFilters;
-    },
-    
-    handleSelectAll(checked) {
-      if (checked) {
-        this.selectedKRIs = this.filteredKRIItems.map(kri => `${kri.id}-${kri.reportingDate}`);
-      } else {
-        this.selectedKRIs = [];
-      }
-    },
-    
-    handleRowSelect(kriId, reportingDate, checked) {
-      const compositeId = `${kriId}-${reportingDate}`;
-      if (checked) {
-        this.selectedKRIs.push(compositeId);
-      } else {
-        const index = this.selectedKRIs.indexOf(compositeId);
-        if (index > -1) {
-          this.selectedKRIs.splice(index, 1);
-        }
-      }
     },
     
     handleKRIClick(kriId, reportingDate) {

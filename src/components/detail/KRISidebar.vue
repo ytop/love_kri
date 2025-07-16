@@ -60,7 +60,7 @@
 </template>
 
 <script>
-import { mapKriStatus, formatDateFromInt } from '@/utils/helpers';
+import { mapStatus, formatDateFromInt, getStatusTagType } from '@/utils/helpers';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { GaugeChart, LineChart } from 'echarts/charts';
@@ -259,23 +259,11 @@ export default {
     }
   },
   methods: {
-    mapKriStatus,
+    mapStatus,
+    getStatusTagType,
     
     formatReportingDate(dateInt) {
       return formatDateFromInt(dateInt);
-    },
-    
-    getStatusTagType(status) {
-      switch (status) {
-      case 'Pending':
-        return 'warning';
-      case 'Submitted':
-        return 'info';
-      case 'Finalized':
-        return 'success';
-      default:
-        return '';
-      }
     },
     
     getProgressColor(percentage) {
