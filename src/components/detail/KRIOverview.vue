@@ -31,7 +31,7 @@
       <el-col :span="12">
         <div class="info-item">
           <label>Breach Type</label>
-          <el-tag :type="getBreachTagType(kriData.breach_type || 'No Breach')" size="small">
+          <el-tag :type="getBreachTagType(kriData.breach_type || 'No Breach')" size="small" class="status-tag">
             {{ kriData.breach_type || 'No Breach' }}
           </el-tag>
         </div>
@@ -52,14 +52,14 @@ export default {
   methods: {
     getBreachTagType(breachType) {
       switch (breachType) {
-        case 'No Breach':
-          return 'success';
-        case 'Warning':
-          return 'warning';
-        case 'Limit':
-          return 'danger';
-        default:
-          return '';
+      case 'No Breach':
+        return 'success';
+      case 'Warning':
+        return 'warning';
+      case 'Limit':
+        return 'danger';
+      default:
+        return '';
       }
     }
   }

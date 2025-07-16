@@ -11,10 +11,10 @@
           <el-tag type="info">{{ filteredKRIItems.length }} KRIs</el-tag>
         </div>
         <div class="header-actions">
-          <el-badge :value="pendingKRIsCount" class="item" type="danger" :hidden="pendingKRIsCount === 0">
+          <el-badge :value="inputWorkflowKRIsCount" class="item" type="danger" :hidden="inputWorkflowKRIsCount === 0">
             <el-button size="medium" @click="navigateToStatusPage('Pending')">Pending for input</el-button>
           </el-badge>
-          <el-badge :value="submittedKRIsCount" class="item" type="danger" :hidden="submittedKRIsCount === 0">
+          <el-badge :value="approvalWorkflowKRIsCount" class="item" type="danger" :hidden="approvalWorkflowKRIsCount === 0">
             <el-button size="medium" @click="navigateToStatusPage('Submitted')">Pending for approval</el-button>
           </el-badge>
         </div>
@@ -109,7 +109,7 @@ export default {
   },
   computed: {
     ...mapState('kri', ['loading', 'error']),
-    ...mapGetters('kri', ['filteredKRIItems', 'pendingKRIsCount', 'submittedKRIsCount']),
+    ...mapGetters('kri', ['filteredKRIItems', 'inputWorkflowKRIsCount', 'approvalWorkflowKRIsCount']),
     filters() {
       return this.$store.state.kri.filters;
     }
@@ -170,7 +170,7 @@ export default {
     },
     
     handleKRIClick(kriId, reportingDate) {
-      console.log(kriId, reportingDate)
+      console.log(kriId, reportingDate);
       this.$router.push({ 
         name: 'KRIDetail', 
         params: { id: kriId, date: reportingDate }
@@ -292,6 +292,12 @@ export default {
   color: #6b7280;
   font-size: 1rem;
   cursor: help;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
 }
 
 .header-actions >>> .el-badge__content {

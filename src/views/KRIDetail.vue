@@ -28,8 +28,8 @@
             </div>
           </div>
           <div class="header-actions">
-            <el-tag :type="getStatusTagType(mapKriStatus(kriDetail.kri_status))">
-              {{ mapKriStatus(kriDetail.kri_status) }}
+            <el-tag :type="getStatusTagType(kriDetail.kri_status)" class="status-tag">
+              {{ mapStatus(kriDetail.kri_status) }}
             </el-tag>
           </div>
         </div>
@@ -111,7 +111,7 @@
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import { mapKriStatus, formatDateFromInt } from '../utils/helpers';
+import { mapStatus, formatDateFromInt, getStatusTagType } from '../utils/helpers';
 import KRIGeneralInfo from '../components/detail/KRIGeneralInfo.vue';
 import KRIOverview from '../components/detail/KRIOverview.vue';
 import KRIDataElements from '../components/detail/KRIDataElements.vue';
@@ -160,23 +160,11 @@ export default {
       this.$router.push('/');
     },
     
-    mapKriStatus,
+    mapStatus,
+    getStatusTagType,
     
     formatReportingDate(dateInt) {
       return formatDateFromInt(dateInt);
-    },
-    
-    getStatusTagType(status) {
-      switch (status) {
-        case 'Pending':
-          return 'warning';
-        case 'Submitted':
-          return 'info';
-        case 'Finalized':
-          return 'success';
-        default:
-          return '';
-      }
     },
     handleEvidenceClick() {
       console.log('Evidence button on simple card clicked. KRI ID:', this.id, 'Reporting Date:', this.date);

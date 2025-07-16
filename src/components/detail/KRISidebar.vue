@@ -60,7 +60,7 @@
 </template>
 
 <script>
-import { mapKriStatus, formatDateFromInt } from '@/utils/helpers';
+import { mapStatus, formatDateFromInt, getStatusTagType } from '@/utils/helpers';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { GaugeChart, LineChart } from 'echarts/charts';
@@ -140,10 +140,10 @@ export default {
                 color: 'auto'
               }
             },
-            pointer: { // Make pointer visible
+            pointer: { // Make pointer visible but shorter to avoid text overlap
               show: true,
               width: 5,
-              length: '60%',
+              length: '45%', // Shortened pointer so it doesn't reach text area
               itemStyle: {
                 color: 'auto'
               }
@@ -174,7 +174,7 @@ export default {
             },
             title: { // Title for context if needed, e.g. "Breach Level"
               show: true,
-              offsetCenter: [0, '20%'],
+              offsetCenter: [0, '30%'], // Move title to bottom area
               fontSize: 12,
               color: '#666'
             },
@@ -183,7 +183,7 @@ export default {
               width: '60%',
               lineHeight: 30, // Adjusted line height
               borderRadius: 6,  // Adjusted border radius
-              offsetCenter: [0, '-10%'], // Adjusted position
+              offsetCenter: [0, '60%'], // Move detail to bottom area below pointer reach
               fontSize: 20, // Larger font size
               fontWeight: 'bold', // Bolder font
               formatter: '{value}%',
@@ -240,9 +240,9 @@ export default {
                 x2: 0,
                 y2: 1,
                 colorStops: [{
-                    offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
+                  offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
                 }, {
-                    offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
+                  offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
                 }]
               }
             }
@@ -259,23 +259,11 @@ export default {
     }
   },
   methods: {
-    mapKriStatus,
+    mapStatus,
+    getStatusTagType,
     
     formatReportingDate(dateInt) {
       return formatDateFromInt(dateInt);
-    },
-    
-    getStatusTagType(status) {
-      switch (status) {
-        case 'Pending':
-          return 'warning';
-        case 'Submitted':
-          return 'info';
-        case 'Finalized':
-          return 'success';
-        default:
-          return '';
-      }
     },
     
     getProgressColor(percentage) {

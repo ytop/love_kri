@@ -72,42 +72,54 @@ export const KRIAuditTrailSchema = {
 
 // Enum definitions for status fields
 export const KRIStatus = {
-  PENDING: 0,
-  SUBMITTED: 1,
-  FINALIZED: 2
+  PENDING_INPUT: 10,
+  ADJUSTING: 20,
+  PENDING_DATA_PROVIDER_APPROVAL: 30,
+  READY_FOR_SUBMISSION: 40,
+  SUBMITTED: 50,
+  FINALIZED: 60
 };
 
 export const AtomicStatus = {
-  INACTIVE: 0,
-  ACTIVE: 1,
-  VALIDATED: 2
+  PENDING_INPUT: 10,
+  ADJUSTING: 20,
+  PENDING_DATA_PROVIDER_APPROVAL: 30,
+  READY_FOR_SUBMISSION: 40,
+  SUBMITTED: 50,
+  FINALIZED: 60
 };
 
 // Helper functions for data transformation
 export const mapKriStatus = (status) => {
-  if (status === null || status === undefined) return 'Pending';
+  if (status === null || status === undefined) return 'Pending Input';
   switch (status) {
-    case KRIStatus.PENDING:
-      return 'Pending';
-    case KRIStatus.SUBMITTED:
-      return 'Submitted';
-    case KRIStatus.FINALIZED:
-      return 'Finalized';
-    default:
-      return `Unknown (${status})`;
+  case KRIStatus.PENDING_INPUT:
+    return 'Pending Input';
+  case KRIStatus.ADJUSTING:
+    return 'Adjusting';
+  case KRIStatus.PENDING_DATA_PROVIDER_APPROVAL:
+    return 'Pending Data Provider Approval';
+  case KRIStatus.READY_FOR_SUBMISSION:
+    return 'Ready for submission';
+  case KRIStatus.SUBMITTED:
+    return 'Submitted';
+  case KRIStatus.FINALIZED:
+    return 'Finalized';
+  default:
+    return `Unknown (${status})`;
   }
 };
 
 export const mapAtomicStatus = (status) => {
   if (status === null || status === undefined) return 'Unknown';
   switch (status) {
-    case AtomicStatus.INACTIVE:
-      return 'Inactive';
-    case AtomicStatus.ACTIVE:
-      return 'Active';
-    case AtomicStatus.VALIDATED:
-      return 'Validated';
-    default:
-      return `Status ${status}`;
+  case AtomicStatus.INACTIVE:
+    return 'Inactive';
+  case AtomicStatus.ACTIVE:
+    return 'Active';
+  case AtomicStatus.VALIDATED:
+    return 'Validated';
+  default:
+    return `Status ${status}`;
   }
 };

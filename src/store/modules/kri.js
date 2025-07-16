@@ -1,5 +1,5 @@
 import { kriService } from '@/services/kriService';
-import { mapKriStatus, getLastDayOfPreviousMonth } from '@/utils/helpers';
+import { mapStatus, getLastDayOfPreviousMonth } from '@/utils/helpers';
 
 const state = {
   kriItems: [],
@@ -83,7 +83,7 @@ const actions = {
         id: String(kri.kri_id),
         name: kri.kri_name || '',
         owner: kri.kri_owner || '',
-        collectionStatus: mapKriStatus(kri.kri_status),
+        collectionStatus: mapStatus(kri.kri_status),
         kriType: kri.ras_metric || 'N/A',
         l1RiskType: kri.l1_risk_type || '',
         l2RiskType: kri.l2_risk_type || '',
@@ -165,7 +165,7 @@ const actions = {
         id: String(kri.kri_id),
         name: kri.kri_name || '',
         owner: kri.kri_owner || '',
-        collectionStatus: mapKriStatus(kri.kri_status),
+        collectionStatus: mapStatus(kri.kri_status),
         kriType: kri.ras_metric || 'N/A',
         l1RiskType: kri.l1_risk_type || '',
         l2RiskType: kri.l2_risk_type || '',
@@ -319,10 +319,36 @@ const getters = {
     return filtered;
   },
   pendingKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Pending').length;
+    return state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
   },
   submittedKRIsCount: (state) => {
     return state.kriItems.filter(item => item.collectionStatus === 'Submitted').length;
+  },
+  adjustingKRIsCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Adjusting').length;
+  },
+  pendingDataProviderApprovalCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Pending Data Provider Approval').length;
+  },
+  readyForSubmissionCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Ready for submission').length;
+  },
+  finalizedKRIsCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Finalized').length;
+  },
+  // New getters for workflow-based counts
+  inputWorkflowKRIsCount: (state) => {
+    // Sum of Pending Input + Adjusting (matches KRIPendingInput logic)
+    const pendingInput = state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
+    const adjusting = state.kriItems.filter(item => item.collectionStatus === 'Adjusting').length;
+    return pendingInput + adjusting;
+  },
+  approvalWorkflowKRIsCount: (state) => {
+    // Sum of Pending Data Provider Approval + Ready for submission + Submitted (matches KRIPendingApproval logic)
+    const pendingDP = state.kriItems.filter(item => item.collectionStatus === 'Pending Data Provider Approval').length;
+    const readyForSubmission = state.kriItems.filter(item => item.collectionStatus === 'Ready for submission').length;
+    const submitted = state.kriItems.filter(item => item.collectionStatus === 'Submitted').length;
+    return pendingDP + readyForSubmission + submitted;
   },
   krisByStatus: (state) => (status) => {
     return state.kriItems.filter(item => item.collectionStatus === status);

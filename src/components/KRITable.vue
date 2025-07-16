@@ -16,7 +16,7 @@
       <el-table-column
         prop="id"
         label="KRI ID"
-        width="100"
+        width="80"
         sortable
       />
       
@@ -41,7 +41,7 @@
       <el-table-column
         prop="owner"
         label="Owner"
-        width="150"
+        width="80"
         sortable
         show-overflow-tooltip
       />
@@ -56,6 +56,7 @@
           <el-tag
             :type="getStatusTagType(scope.row.collectionStatus)"
             size="small"
+            class="status-tag"
           >
             {{ scope.row.collectionStatus }}
           </el-tag>
@@ -148,6 +149,7 @@
 
 <script>
 import { formatDateFromInt } from '@/utils/helpers';
+import { getStatusTagTypeFromLabel } from '@/utils/helpers';
 
 export default {
   name: 'KRITable',
@@ -166,7 +168,7 @@ export default {
     }
   },
   methods: {
-    handleRowClick(row, column, event) {
+    handleRowClick(row, _column, _event) {
       // Emit event to parent component with KRI ID and reporting date
       this.$emit('row-click', row.id, this.formatReportingDate(row.reportingDate));
     },
@@ -181,33 +183,24 @@ export default {
       this.$emit('kri-click', kriId, reportingDate);
     },
     
-    isSelectable(row) {
+    isSelectable(_row) {
       return true;
     },
     
     getStatusTagType(status) {
-      switch (status) {
-        case 'Pending':
-          return 'warning';
-        case 'Submitted':
-          return 'info';
-        case 'Finalized':
-          return 'success';
-        default:
-          return '';
-      }
+      return getStatusTagTypeFromLabel(status);
     },
     
     getBreachTagType(breachType) {
       switch (breachType) {
-        case 'No Breach':
-          return 'success';
-        case 'Warning':
-          return 'warning';
-        case 'Limit':
-          return 'danger';
-        default:
-          return '';
+      case 'No Breach':
+        return 'success';
+      case 'Warning':
+        return 'warning';
+      case 'Limit':
+        return 'danger';
+      default:
+        return '';
       }
     },
     
@@ -227,6 +220,26 @@ export default {
 
 .kri-table >>> .el-table td {
   padding: 12px 0;
+}
+
+/* Fix caret-wrapper alignment to prevent line breaks */
+.kri-table >>> .el-table th .cell {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kri-table >>> .el-table th .caret-wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.kri-table >>> .el-table th .sort-caret {
+  display: block;
 }
 
 .kri-name-link {

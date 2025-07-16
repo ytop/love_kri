@@ -49,7 +49,7 @@ export default {
       type: String,
       required: true,
       validator: function (value) {
-        return ['Pending', 'Submitted'].indexOf(value) !== -1;
+        return ['Pending Input', 'Adjusting', 'Pending Data Provider Approval', 'Ready for submission', 'Submitted', 'Finalized', 'Pending', 'Submitted'].indexOf(value) !== -1;
       }
     }
   },
@@ -57,16 +57,25 @@ export default {
     ...mapState('kri', ['loading', 'error', 'filters']),
     ...mapGetters('kri', ['krisByStatus']),
     pageTitle() {
-      if (this.status === 'Pending') {
+      if (this.status === 'Pending' || this.status === 'Pending Input') {
         return 'KRIs Pending Input';
       } else if (this.status === 'Submitted') {
         return 'KRIs Pending Approval';
+      } else if (this.status === 'Adjusting') {
+        return 'KRIs Being Adjusted';
+      } else if (this.status === 'Pending Data Provider Approval') {
+        return 'KRIs Pending Data Provider Approval';
+      } else if (this.status === 'Ready for submission') {
+        return 'KRIs Ready for Submission';
+      } else if (this.status === 'Finalized') {
+        return 'Finalized KRIs';
       }
       return 'KRI List';
     },
     kriItemsByStatus() {
-      // Ensure that the krisByStatus getter receives the status prop correctly
-      return this.krisByStatus(this.status);
+      // Handle both old and new status formats for backwards compatibility
+      const targetStatus = this.status === 'Pending' ? 'Pending Input' : this.status;
+      return this.krisByStatus(targetStatus);
     },
     // We need the reportingDate from filters to ensure data is loaded for the correct period
     reportingDate() {
@@ -80,7 +89,7 @@ export default {
       try {
         // Ensure filters in store are up-to-date if navigating directly to this page
         if (this.$store.state.kri.filters.reportingDate !== this.reportingDate) {
-            this.updateFilters({ reportingDate: this.reportingDate });
+          this.updateFilters({ reportingDate: this.reportingDate });
         }
         await this.fetchKRIItems(this.reportingDate);
       } catch (error) {
