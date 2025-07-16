@@ -336,6 +336,20 @@ const getters = {
   finalizedKRIsCount: (state) => {
     return state.kriItems.filter(item => item.collectionStatus === 'Finalized').length;
   },
+  // New getters for workflow-based counts
+  inputWorkflowKRIsCount: (state) => {
+    // Sum of Pending Input + Adjusting (matches KRIPendingInput logic)
+    const pendingInput = state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
+    const adjusting = state.kriItems.filter(item => item.collectionStatus === 'Adjusting').length;
+    return pendingInput + adjusting;
+  },
+  approvalWorkflowKRIsCount: (state) => {
+    // Sum of Pending Data Provider Approval + Ready for submission + Submitted (matches KRIPendingApproval logic)
+    const pendingDP = state.kriItems.filter(item => item.collectionStatus === 'Pending Data Provider Approval').length;
+    const readyForSubmission = state.kriItems.filter(item => item.collectionStatus === 'Ready for submission').length;
+    const submitted = state.kriItems.filter(item => item.collectionStatus === 'Submitted').length;
+    return pendingDP + readyForSubmission + submitted;
+  },
   krisByStatus: (state) => (status) => {
     return state.kriItems.filter(item => item.collectionStatus === status);
   }

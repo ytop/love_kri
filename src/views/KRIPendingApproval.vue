@@ -21,9 +21,9 @@
             <el-button size="small" icon="el-icon-download">Export List</el-button>
           </div>
           <div class="status-info">
-            <el-tag type="info" size="small">{{ pendingDataProviderApprovalCount }} Pending DP Approval</el-tag>
-            <el-tag type="primary" size="small">{{ readyForSubmissionCount }} Ready for Submission</el-tag>
-            <el-tag type="info" size="small">{{ submittedCount }} Submitted</el-tag>
+            <el-tag type="info" size="small" class="status-tag">{{ pendingDataProviderApprovalCount }} Pending DP Approval</el-tag>
+            <el-tag type="primary" size="small" class="status-tag">{{ readyForSubmissionCount }} Ready for Submission</el-tag>
+            <el-tag type="info" size="small" class="status-tag">{{ submittedCount }} Submitted</el-tag>
           </div>
         </div>
       </el-card>
