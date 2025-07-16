@@ -294,6 +294,12 @@ export default {
   cursor: help;
 }
 
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
 .header-actions >>> .el-badge__content {
   z-index: 10;
 }
