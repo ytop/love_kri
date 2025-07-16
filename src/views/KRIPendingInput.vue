@@ -21,8 +21,8 @@
             <el-button size="small" icon="el-icon-download">Export List</el-button>
           </div>
           <div class="status-info">
-            <el-tag type="warning" size="small">{{ pendingInputCount }} Pending Input</el-tag>
-            <el-tag type="warning" size="small">{{ adjustingCount }} Adjusting</el-tag>
+            <el-tag type="warning" size="small" class="status-tag">{{ pendingInputCount }} Pending Input</el-tag>
+            <el-tag type="warning" size="small" class="status-tag">{{ adjustingCount }} Adjusting</el-tag>
           </div>
         </div>
       </el-card>

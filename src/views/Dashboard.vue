@@ -11,10 +11,10 @@
           <el-tag type="info">{{ filteredKRIItems.length }} KRIs</el-tag>
         </div>
         <div class="header-actions">
-          <el-badge :value="pendingKRIsCount" class="item" type="danger" :hidden="pendingKRIsCount === 0">
+          <el-badge :value="inputWorkflowKRIsCount" class="item" type="danger" :hidden="inputWorkflowKRIsCount === 0">
             <el-button size="medium" @click="navigateToStatusPage('Pending')">Pending for input</el-button>
           </el-badge>
-          <el-badge :value="submittedKRIsCount" class="item" type="danger" :hidden="submittedKRIsCount === 0">
+          <el-badge :value="approvalWorkflowKRIsCount" class="item" type="danger" :hidden="approvalWorkflowKRIsCount === 0">
             <el-button size="medium" @click="navigateToStatusPage('Submitted')">Pending for approval</el-button>
           </el-badge>
         </div>
@@ -109,7 +109,7 @@ export default {
   },
   computed: {
     ...mapState('kri', ['loading', 'error']),
-    ...mapGetters('kri', ['filteredKRIItems', 'pendingKRIsCount', 'submittedKRIsCount']),
+    ...mapGetters('kri', ['filteredKRIItems', 'inputWorkflowKRIsCount', 'approvalWorkflowKRIsCount']),
     filters() {
       return this.$store.state.kri.filters;
     }

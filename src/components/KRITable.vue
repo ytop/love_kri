@@ -16,7 +16,7 @@
       <el-table-column
         prop="id"
         label="KRI ID"
-        width="100"
+        width="80"
         sortable
       />
       
@@ -41,7 +41,7 @@
       <el-table-column
         prop="owner"
         label="Owner"
-        width="150"
+        width="80"
         sortable
         show-overflow-tooltip
       />
@@ -220,6 +220,26 @@ export default {
 
 .kri-table >>> .el-table td {
   padding: 12px 0;
+}
+
+/* Fix caret-wrapper alignment to prevent line breaks */
+.kri-table >>> .el-table th .cell {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kri-table >>> .el-table th .caret-wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.kri-table >>> .el-table th .sort-caret {
+  display: block;
 }
 
 .kri-name-link {
