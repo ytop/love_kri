@@ -289,4 +289,8 @@ export default {
   font-size: 1rem;
   cursor: help;
 }
+
+.header-actions >>> .el-badge__content {
+  z-index: 10;
+}
 </style>
