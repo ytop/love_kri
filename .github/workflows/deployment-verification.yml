@@ -18,17 +18,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+      - name: Clean npm cache
+        run: npm cache clean --force
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci --no-optional --prefer-offline
+          npm ls html-webpack-plugin
+
+      - name: Verify webpack dependencies
+        run: |
+          echo "Checking webpack and related dependencies..."
+          npm ls webpack webpack-cli html-webpack-plugin vue-loader
+          echo "Dependencies verified successfully"
 
       - name: Run ESLint
         run: npm run lint
@@ -46,7 +50,10 @@ jobs:
 
       - name: Check build size and validate structure
         run: |
+          echo "Starting build process..."
           npm run build
+          echo "Build completed successfully"
+          
           # Check if dist directory exists and has content
           if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
             echo "Build failed - dist directory is missing or empty"
@@ -55,6 +62,10 @@ jobs:
           # Check if main files exist
           if [ ! -f "dist/index.html" ]; then
             echo "Build validation failed - index.html not found"
+            exit 1
+          fi
+          if [ ! -f "dist/bundle.js" ]; then
+            echo "Build validation failed - bundle.js not found"
             exit 1
           fi
           echo "Build validation passed"
@@ -123,9 +134,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+
+      - name: Clean npm cache
+        run: npm cache clean --force
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci --no-optional --prefer-offline
+          npm ls html-webpack-plugin
 
       - name: Check PR diff for potential issues
         run: |
@@ -152,16 +169,31 @@ jobs:
         run: |
           echo "🔄 Testing if PR branch builds successfully..."
           
-          # Build current branch
-          npm run build
+          # Verify webpack dependencies before building
+          npm ls webpack webpack-cli html-webpack-plugin vue-loader
           
-          # Check if build was successful
-          if [ $? -eq 0 ]; then
-            echo "✅ PR branch builds successfully"
-          else
-            echo "❌ PR branch build failed"
+          # Build current branch
+          echo "Starting build process..."
+          npm run build
+          echo "Build completed successfully"
+          
+          # Check if build was successful and files exist
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
+            echo "❌ PR branch build failed - dist directory is missing or empty"
             exit 1
           fi
+          
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ PR branch build failed - index.html not found"
+            exit 1
+          fi
+          
+          if [ ! -f "dist/bundle.js" ]; then
+            echo "❌ PR branch build failed - bundle.js not found"
+            exit 1
+          fi
+          
+          echo "✅ PR branch builds successfully with all required files"
 
       - name: Comment PR Status
         if: always()
