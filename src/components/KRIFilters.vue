@@ -49,7 +49,7 @@
 
     <!-- Advanced Filters -->
     <el-collapse-transition>
-      <div v-if="showAdvanced" class="advanced-filters">
+      <div v-show="showAdvanced" class="advanced-filters">
         <el-divider content-position="left">Advanced Filters</el-divider>
         <div class="filter-row">
           <el-form :model="localFilters" :inline="true" class="filter-form">
@@ -210,10 +210,6 @@ export default {
   padding: 1rem;
 }
 
-.filter-row {
-  margin-bottom: 1rem;
-}
-
 .filter-form >>> .el-form-item {
   margin-bottom: 1rem;
   margin-right: 1rem;
@@ -225,7 +221,7 @@ export default {
 }
 
 .advanced-filters {
-  margin-top: 1rem;
+  overflow: hidden;
 }
 
 .filter-actions {
