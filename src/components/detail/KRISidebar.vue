@@ -320,7 +320,7 @@ export default {
 }
 
 /* Override Element UI's default margin between adjacent buttons */
-.actions .el-button + .el-button {
+.el-button + .el-button {
   margin-left: 0;
 }
 
