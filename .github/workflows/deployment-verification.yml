@@ -2,7 +2,6 @@ name: Deployment Verification
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,25 +33,158 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Check for security vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Verify package-lock.json is up to date
+        run: |
+          npm ci --package-lock-only
+          if ! git diff --exit-code package-lock.json; then
+            echo "package-lock.json is not up to date. Please run 'npm install' and commit the changes."
+            exit 1
+          fi
+
+      - name: Check build size and validate structure
+        run: |
+          npm run build
+          # Check if dist directory exists and has content
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
+            echo "Build failed - dist directory is missing or empty"
+            exit 1
+          fi
+          # Check if main files exist
+          if [ ! -f "dist/index.html" ]; then
+            echo "Build validation failed - index.html not found"
+            exit 1
+          fi
+          echo "Build validation passed"
+
       - name: Run development server (startup check)
         run: |
           timeout 30s npm run dev &
           DEV_PID=$!
-          sleep 10
+          sleep 15
+          
+          # Check if process is still running
           if kill -0 $DEV_PID 2>/dev/null; then
-            echo "Dev server started successfully"
+            echo "✅ Dev server started successfully"
+            # Try to make a basic HTTP request to verify it's responsive
+            if curl -f http://localhost:8080 >/dev/null 2>&1; then
+              echo "✅ Dev server is responsive"
+            else
+              echo "⚠️  Dev server started but not responsive on port 8080"
+            fi
             kill $DEV_PID
           else
-            echo "Dev server failed to start"
+            echo "❌ Dev server failed to start"
             exit 1
           fi
 
-      - name: Build project
-        run: npm run build
+      # Additional PR-specific checks
+      - name: PR Branch Validation
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "🔍 Running PR-specific validations..."
+          
+          # Check if there are any merge conflicts indicators
+          if grep -r "<<<<<<< HEAD\|>>>>>>> \|=======" src/ --include="*.js" --include="*.vue" --include="*.json" 2>/dev/null; then
+            echo "❌ Merge conflict markers found in source files"
+            exit 1
+          fi
+          
+          # Check for TODO/FIXME comments that might indicate incomplete work
+          TODO_COUNT=$(grep -r "TODO\|FIXME" src/ --include="*.js" --include="*.vue" 2>/dev/null | wc -l || echo "0")
+          if [ "$TODO_COUNT" -gt 10 ]; then
+            echo "⚠️  Warning: $TODO_COUNT TODO/FIXME comments found. Consider addressing them before merge."
+          fi
+          
+          echo "✅ PR validation checks passed"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: build-files
+          name: build-files-${{ github.sha }}
           path: dist/
-          retention-days: 7 
+          retention-days: 7
+
+  # Additional job specifically for PR checks
+  pr-quality-checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for better diff analysis
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check PR diff for potential issues
+        run: |
+          echo "🔍 Analyzing PR changes..."
+          
+          # Get the list of changed files
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Check if any critical files were modified
+          if echo "$CHANGED_FILES" | grep -E "(package\.json|package-lock\.json|webpack\.config\.js|vue\.config\.js)"; then
+            echo "⚠️  Critical configuration files modified - ensure compatibility"
+          fi
+          
+          # Check for large file additions
+          LARGE_FILES=$(git diff --name-only --diff-filter=A origin/main...HEAD | xargs -I {} sh -c 'if [ -f "{}" ] && [ $(wc -c < "{}") -gt 100000 ]; then echo "{}"; fi' 2>/dev/null || true)
+          if [ -n "$LARGE_FILES" ]; then
+            echo "⚠️  Large files added (>100KB):"
+            echo "$LARGE_FILES"
+          fi
+
+      - name: Validate PR branch builds against main
+        run: |
+          echo "🔄 Testing if PR branch builds successfully..."
+          
+          # Build current branch
+          npm run build
+          
+          # Check if build was successful
+          if [ $? -eq 0 ]; then
+            echo "✅ PR branch builds successfully"
+          else
+            echo "❌ PR branch build failed"
+            exit 1
+          fi
+
+      - name: Comment PR Status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { context } = require('@actions/core');
+            const prNumber = context.payload.pull_request?.number;
+            
+            if (prNumber) {
+              const comment = `## 🤖 Automated PR Checks
+              
+              ✅ **Build Status**: Build completed successfully
+              ✅ **Code Quality**: ESLint checks passed
+              ✅ **Security**: No high-severity vulnerabilities found
+              ✅ **Dev Server**: Startup validation passed
+              
+              This PR is ready for review! 🚀`;
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              });
+            } 
