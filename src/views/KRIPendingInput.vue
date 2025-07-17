@@ -12,6 +12,18 @@
     </div>
 
     <div class="page-content">
+      <!-- Filters Card -->
+      <el-card class="filter-card">
+        <k-r-i-filters
+          :filters="filters"
+          :show-advanced="showAdvancedFilters"
+          :available-departments="availableDepartments"
+          @filter-change="handleFilterChange"
+          @reset-filters="handleResetFilters"
+          @toggle-advanced="handleToggleAdvancedFilters"
+        />
+      </el-card>
+
       <!-- Quick Actions Card -->
       <el-card class="actions-card">
         <div class="quick-actions">
@@ -61,30 +73,38 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
+import KRIFilters from '../components/KRIFilters.vue';
 import { getLastDayOfPreviousMonth, STATUS_VALUES } from '@/utils/helpers';
 
 export default {
   name: 'KRIPendingInput',
   components: {
-    KRITableCollectData
+    KRITableCollectData,
+    KRIFilters
+  },
+  data() {
+    return {
+      showAdvancedFilters: false
+    };
   },
   computed: {
     ...mapState('kri', ['loading', 'error', 'filters']),
-    ...mapGetters('kri', ['krisByStatus']),
+    ...mapGetters('kri', ['roleBasedFilteredKRIItems', 'availableDepartments', 'currentUser']),
     
     kriItemsForInput() {
-      // Get KRIs that need input: Pending Input + Under Rework
-      const pendingInput = this.krisByStatus(STATUS_VALUES.PENDING_INPUT);
-      const underRework = this.krisByStatus(STATUS_VALUES.UNDER_REWORK);
-      return [...pendingInput, ...underRework];
+      // Get filtered KRIs that need input: Pending Input + Under Rework
+      return this.roleBasedFilteredKRIItems.filter(item => 
+        item.collectionStatus === 'Pending Input' || 
+        item.collectionStatus === 'Under Rework'
+      );
     },
     
     pendingInputCount() {
-      return this.krisByStatus(STATUS_VALUES.PENDING_INPUT).length;
+      return this.kriItemsForInput.filter(item => item.collectionStatus === 'Pending Input').length;
     },
     
     adjustingCount() {
-      return this.krisByStatus(STATUS_VALUES.UNDER_REWORK).length;
+      return this.kriItemsForInput.filter(item => item.collectionStatus === 'Under Rework').length;
     },
     
     reportingDate() {
@@ -95,7 +115,7 @@ export default {
     await this.loadData();
   },
   methods: {
-    ...mapActions('kri', ['fetchKRIItems', 'updateFilters']),
+    ...mapActions('kri', ['fetchKRIItems', 'updateFilters', 'resetFilters', 'fetchDepartments']),
     
     async loadData() {
       if (this.$store.state.kri.kriItems.length === 0 || 
@@ -104,7 +124,10 @@ export default {
           if (this.$store.state.kri.filters.reportingDate !== this.reportingDate) {
             this.updateFilters({ reportingDate: this.reportingDate });
           }
-          await this.fetchKRIItems(this.reportingDate);
+          await Promise.all([
+            this.fetchKRIItems(this.reportingDate),
+            this.fetchDepartments()
+          ]);
         } catch (error) {
           console.error('Error loading KRI data for input:', error);
         }
@@ -113,6 +136,26 @@ export default {
     
     async refreshData() {
       await this.fetchKRIItems(this.reportingDate);
+    },
+    
+    handleFilterChange(changedFilter) {
+      this.updateFilters(changedFilter);
+      
+      // Refetch data if reporting date changed
+      if (changedFilter.reportingDate) {
+        this.fetchKRIItems(changedFilter.reportingDate);
+      }
+    },
+    
+    handleResetFilters() {
+      this.resetFilters();
+      const defaultDate = getLastDayOfPreviousMonth();
+      this.updateFilters({ reportingDate: defaultDate });
+      this.fetchKRIItems(defaultDate);
+    },
+    
+    handleToggleAdvancedFilters() {
+      this.showAdvancedFilters = !this.showAdvancedFilters;
     },
     
     handleKRIClick(kriId, reportingDate) {
@@ -173,6 +216,10 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.filter-card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 .actions-card {

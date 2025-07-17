@@ -12,6 +12,18 @@
     </div>
 
     <div class="page-content">
+      <!-- Filters Card -->
+      <el-card class="filter-card">
+        <k-r-i-filters
+          :filters="filters"
+          :show-advanced="showAdvancedFilters"
+          :available-departments="availableDepartments"
+          @filter-change="handleFilterChange"
+          @reset-filters="handleResetFilters"
+          @toggle-advanced="handleToggleAdvancedFilters"
+        />
+      </el-card>
+
       <!-- Quick Actions Card -->
       <el-card class="actions-card">
         <div class="quick-actions">
@@ -62,35 +74,58 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
+import KRIFilters from '../components/KRIFilters.vue';
 import { getLastDayOfPreviousMonth, STATUS_VALUES } from '@/utils/helpers';
 
 export default {
   name: 'KRIPendingApproval',
   components: {
-    KRITableCollectData
+    KRITableCollectData,
+    KRIFilters
+  },
+  data() {
+    return {
+      showAdvancedFilters: false
+    };
   },
   computed: {
     ...mapState('kri', ['loading', 'error', 'filters']),
-    ...mapGetters('kri', ['krisByStatus']),
+    ...mapGetters('kri', ['roleBasedFilteredKRIItems', 'availableDepartments', 'currentUser']),
     
     kriItemsForApproval() {
-      // Get KRIs that need approval: Data Provider Approval + Ready for Submission + Submitted
-      const pendingDP = this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_DATA_PROVIDER_APPROVER);
-      const readyForSubmission = this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_KRI_OWNER_APPROVER);
-      const submitted = this.krisByStatus(STATUS_VALUES.SAVED);
-      return [...pendingDP, ...readyForSubmission, ...submitted];
+      const userRole = this.currentUser.role;
+      // Get filtered KRIs that need approval: Saved + Submitted to Data Provider Approver + Submitted to KRI Owner Approver
+      const baseItems = this.roleBasedFilteredKRIItems.filter(item => 
+        item.collectionStatus === 'Saved' || 
+        item.collectionStatus === 'Submitted to Data Provider Approver' || 
+        item.collectionStatus === 'Submitted to KRI Owner Approver'
+      );
+      
+      // Additional role-based filtering for approval workflow
+      switch(userRole) {
+        case 'Data Approver':
+          return baseItems.filter(item => 
+            item.collectionStatus === 'Submitted to Data Provider Approver'
+          );
+        case 'KRI Approver':
+          return baseItems.filter(item => 
+            item.collectionStatus === 'Submitted to KRI Owner Approver'
+          );
+        default:
+          return baseItems;
+      }
     },
     
     pendingDataProviderApprovalCount() {
-      return this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_DATA_PROVIDER_APPROVER).length;
+      return this.kriItemsForApproval.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length;
     },
     
     readyForSubmissionCount() {
-      return this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_KRI_OWNER_APPROVER).length;
+      return this.kriItemsForApproval.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length;
     },
     
     submittedCount() {
-      return this.krisByStatus(STATUS_VALUES.SAVED).length;
+      return this.kriItemsForApproval.filter(item => item.collectionStatus === 'Saved').length;
     },
     
     reportingDate() {
@@ -101,7 +136,7 @@ export default {
     await this.loadData();
   },
   methods: {
-    ...mapActions('kri', ['fetchKRIItems', 'updateFilters']),
+    ...mapActions('kri', ['fetchKRIItems', 'updateFilters', 'resetFilters', 'fetchDepartments']),
     
     async loadData() {
       if (this.$store.state.kri.kriItems.length === 0 || 
@@ -110,7 +145,10 @@ export default {
           if (this.$store.state.kri.filters.reportingDate !== this.reportingDate) {
             this.updateFilters({ reportingDate: this.reportingDate });
           }
-          await this.fetchKRIItems(this.reportingDate);
+          await Promise.all([
+            this.fetchKRIItems(this.reportingDate),
+            this.fetchDepartments()
+          ]);
         } catch (error) {
           console.error('Error loading KRI data for approval:', error);
         }
@@ -119,6 +157,26 @@ export default {
     
     async refreshData() {
       await this.fetchKRIItems(this.reportingDate);
+    },
+    
+    handleFilterChange(changedFilter) {
+      this.updateFilters(changedFilter);
+      
+      // Refetch data if reporting date changed
+      if (changedFilter.reportingDate) {
+        this.fetchKRIItems(changedFilter.reportingDate);
+      }
+    },
+    
+    handleResetFilters() {
+      this.resetFilters();
+      const defaultDate = getLastDayOfPreviousMonth();
+      this.updateFilters({ reportingDate: defaultDate });
+      this.fetchKRIItems(defaultDate);
+    },
+    
+    handleToggleAdvancedFilters() {
+      this.showAdvancedFilters = !this.showAdvancedFilters;
     },
     
     handleKRIClick(kriId, reportingDate) {
@@ -179,6 +237,10 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.filter-card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 .actions-card {

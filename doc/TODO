@@ -11,22 +11,24 @@
 Inital:
 KRI status: 10 (Pending input)
 
+When Inputed an KRI, the KRI status will be set to 30 (Saved)
+
 Input KRI ->
     check if who upload the KRI
     case 1: role == KRI Owner
-        -- set KRI status to 40 (Ready for submit)
-    case 2: role == Data Provider (or role <> KRI Owner)
-        -- set KRI status to 30 (Pending approval)
+        -- set KRI status to 50 (Submitted to KRI Owner Approver)
+    case 2: role == Data Provider (owner <> data provider)
+        -- set KRI status to 40 (Submitted to Data Provider Approver)
 
-Data Provider Approver ->
-    if KRI status == 30
-        -- set KRI status to 40 (Ready for submit)
+Data Provider Approver(when owner <> data provider and status == 30) ->
+    if KRI approved by Data Provider Approver
+        -- set KRI status to 50 (Submitted to KRI Owner Approver)
     else
         -- set KRI status to 20 (Adjusting)
 
-KRI Owner/Approver ->
+KRI Approver(when owner == data provider, or owner <> data provider but status == 40) ->
     if approved
-        -- set KRI status to 50 (Approved)
+        -- set KRI status to 60 (Finalized)
     else
         -- set KRI status to 20 (Adjusting)
 
