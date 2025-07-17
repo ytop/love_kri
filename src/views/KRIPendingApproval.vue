@@ -62,7 +62,7 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
-import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, STATUS_VALUES } from '@/utils/helpers';
 
 export default {
   name: 'KRIPendingApproval',
@@ -75,22 +75,22 @@ export default {
     
     kriItemsForApproval() {
       // Get KRIs that need approval: Data Provider Approval + Ready for Submission + Submitted
-      const pendingDP = this.krisByStatus('Pending Data Provider Approval');
-      const readyForSubmission = this.krisByStatus('Ready for submission');
-      const submitted = this.krisByStatus('Submitted');
+      const pendingDP = this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_DATA_PROVIDER_APPROVER);
+      const readyForSubmission = this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_KRI_OWNER_APPROVER);
+      const submitted = this.krisByStatus(STATUS_VALUES.SAVED);
       return [...pendingDP, ...readyForSubmission, ...submitted];
     },
     
     pendingDataProviderApprovalCount() {
-      return this.krisByStatus('Pending Data Provider Approval').length;
+      return this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_DATA_PROVIDER_APPROVER).length;
     },
     
     readyForSubmissionCount() {
-      return this.krisByStatus('Ready for submission').length;
+      return this.krisByStatus(STATUS_VALUES.SUBMITTED_TO_KRI_OWNER_APPROVER).length;
     },
     
     submittedCount() {
-      return this.krisByStatus('Submitted').length;
+      return this.krisByStatus(STATUS_VALUES.SAVED).length;
     },
     
     reportingDate() {

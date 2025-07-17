@@ -6,20 +6,31 @@
         <span>Quick Actions</span>
       </div>
       <div class="actions">
-        <el-button
-          type="primary"
-          icon="el-icon-edit"
-          @click="handleApproveKRI"
-          style="width: 100%;">
-          Approve KRI
-        </el-button>
-        <el-button
-          type="danger"
-          icon="el-icon-close"
-          @click="handleRejectKRI"
-          style="width: 100%;">
-          Reject KRI
-        </el-button>
+        <div v-if="isCalculatedKRI" class="calculated-kri-notice">
+          <el-alert
+            title="Calculated KRI"
+            description="Quick actions are disabled for calculated KRIs. Please manage data elements instead."
+            type="info"
+            :closable="false"
+            show-icon>
+          </el-alert>
+        </div>
+        <template v-else>
+          <el-button
+            type="primary"
+            icon="el-icon-edit"
+            @click="handleApproveKRI"
+            style="width: 100%;">
+            Approve KRI
+          </el-button>
+          <el-button
+            type="danger"
+            icon="el-icon-close"
+            @click="handleRejectKRI"
+            style="width: 100%;">
+            Reject KRI
+          </el-button>
+        </template>
       </div>
     </el-card>
 
@@ -113,6 +124,11 @@ export default {
     completenessPercentage() {
       if (this.atomicData.length === 0) return 0;
       return Math.round((this.completeAtomicCount / this.atomicData.length) * 100);
+    },
+
+    // Determine if this is a calculated KRI (has atomic data elements)
+    isCalculatedKRI() {
+      return this.atomicData && this.atomicData.length > 0;
     },
 
     gaugeOption() {
@@ -365,6 +381,7 @@ export default {
     async handleApproveKRI() {
       if (this.kriData && this.kriData.kri_id) {
         try {
+          // TODO: Implement KRI approval logic
           console.log('Approving KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
         } catch (error) {
           console.error('Error approving KRI:', error);
@@ -377,6 +394,7 @@ export default {
     async handleRejectKRI() {
       if (this.kriData && this.kriData.kri_id) {
         try {
+          // TODO: Implement KRI rejection logic
           console.log('Rejecting KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
         } catch (error) {
           console.error('Error rejecting KRI:', error);
@@ -486,5 +504,24 @@ export default {
 
 .navigation .el-button i {
   margin-right: 0.5rem;
+}
+
+.calculated-kri-notice {
+  margin-bottom: 0.75rem;
+}
+
+.calculated-kri-notice >>> .el-alert {
+  margin: 0;
+}
+
+.calculated-kri-notice >>> .el-alert__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.calculated-kri-notice >>> .el-alert__description {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-top: 0.25rem;
 }
 </style>

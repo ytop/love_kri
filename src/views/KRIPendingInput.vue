@@ -61,7 +61,7 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
-import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, STATUS_VALUES } from '@/utils/helpers';
 
 export default {
   name: 'KRIPendingInput',
@@ -73,18 +73,18 @@ export default {
     ...mapGetters('kri', ['krisByStatus']),
     
     kriItemsForInput() {
-      // Get KRIs that need input: Pending Input + Adjusting
-      const pendingInput = this.krisByStatus('Pending Input');
-      const adjusting = this.krisByStatus('Adjusting');
-      return [...pendingInput, ...adjusting];
+      // Get KRIs that need input: Pending Input + Under Rework
+      const pendingInput = this.krisByStatus(STATUS_VALUES.PENDING_INPUT);
+      const underRework = this.krisByStatus(STATUS_VALUES.UNDER_REWORK);
+      return [...pendingInput, ...underRework];
     },
     
     pendingInputCount() {
-      return this.krisByStatus('Pending Input').length;
+      return this.krisByStatus(STATUS_VALUES.PENDING_INPUT).length;
     },
     
     adjustingCount() {
-      return this.krisByStatus('Adjusting').length;
+      return this.krisByStatus(STATUS_VALUES.UNDER_REWORK).length;
     },
     
     reportingDate() {

@@ -38,7 +38,8 @@ const state = {
     kriName: '',
     kriType: '',
     breachType: '',
-    dataProvider: ''
+    dataProvider: '',
+    department: ''
   }
 };
 
@@ -82,7 +83,8 @@ const mutations = {
       kriName: '',
       kriType: '',
       breachType: '',
-      dataProvider: ''
+      dataProvider: '',
+      department: ''
     };
   },
   // Role and Department mutations
@@ -160,7 +162,7 @@ const actions = {
           reporting_frequency: 'Monthly',
           kri_formula: 'SUM(operational_losses) / total_revenue * 100',
           kri_value: '85.5',
-          kri_status: 0, // Pending
+          kri_status: 10, // Pending Input
           created_at: new Date().toISOString()
         },
         {
@@ -179,7 +181,7 @@ const actions = {
           reporting_frequency: 'Monthly',
           kri_formula: 'PD * EAD * LGD',
           kri_value: '92.3',
-          kri_status: 1, // Submitted
+          kri_status: 40, // Submitted to Data Provider Approver
           created_at: new Date().toISOString()
         },
         {
@@ -198,7 +200,45 @@ const actions = {
           reporting_frequency: 'Daily',
           kri_formula: 'VaR_95% / Portfolio_Value * 100',
           kri_value: '78.1',
-          kri_status: 2, // Finalized
+          kri_status: 60, // Finalized
+          created_at: new Date().toISOString()
+        },
+        {
+          kri_id: 1004,
+          reporting_date: reportingDateInt,
+          kri_name: 'Liquidity Risk KRI',
+          kri_description: 'Monitors liquidity coverage ratio',
+          data_provider: 'Treasury Team',
+          kri_owner: 'Alice Brown',
+          l1_risk_type: 'Liquidity Risk',
+          l2_risk_type: 'Coverage Risk',
+          ras_metric: 'Liquidity',
+          breach_type: 'No Breach',
+          limit_value: 120,
+          warning_line_value: 110,
+          reporting_frequency: 'Monthly',
+          kri_formula: 'LCR = HQLA / Net Cash Outflows * 100',
+          kri_value: '115.2',
+          kri_status: 30, // Saved
+          created_at: new Date().toISOString()
+        },
+        {
+          kri_id: 1005,
+          reporting_date: reportingDateInt,
+          kri_name: 'Compliance Risk KRI',
+          kri_description: 'Tracks regulatory compliance violations',
+          data_provider: 'Compliance Team',
+          kri_owner: 'Charlie Wilson',
+          l1_risk_type: 'Compliance Risk',
+          l2_risk_type: 'Regulatory Risk',
+          ras_metric: 'Compliance',
+          breach_type: 'Warning',
+          limit_value: 5,
+          warning_line_value: 3,
+          reporting_frequency: 'Quarterly',
+          kri_formula: 'Number of violations / Total controls * 100',
+          kri_value: '4.2',
+          kri_status: 50, // Submitted to KRI Owner Approver
           created_at: new Date().toISOString()
         }
       ];
@@ -393,6 +433,20 @@ const getters = {
       );
     }
     
+    if (state.filters.dataProvider) {
+      filtered = filtered.filter(item => 
+        item.dataProvider.toLowerCase().includes(state.filters.dataProvider.toLowerCase())
+      );
+    }
+    
+    if (state.filters.department) {
+      filtered = filtered.filter(item => 
+        // Match either Owner or Data Provider with department
+        item.owner.toLowerCase().includes(state.filters.department.toLowerCase()) ||
+        item.dataProvider.toLowerCase().includes(state.filters.department.toLowerCase())
+      );
+    }
+    
     if (state.filters.collectionStatus) {
       filtered = filtered.filter(item => 
         item.collectionStatus === state.filters.collectionStatus
@@ -411,48 +465,44 @@ const getters = {
       );
     }
     
-    if (state.filters.department) {
-      filtered = filtered.filter(item => 
-        item.department && item.department.toLowerCase().includes(state.filters.department.toLowerCase())
-      );
-    }
-    
     return filtered;
   },
   pendingKRIsCount: (state) => {
     return state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
   },
   submittedKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Submitted').length;
+    return state.kriItems.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length;
   },
-  adjustingKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Adjusting').length;
+  underReworkKRIsCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Under Rework').length;
   },
-  pendingDataProviderApprovalCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Pending Data Provider Approval').length;
+  savedKRIsCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Saved').length;
   },
-  readyForSubmissionCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Ready for submission').length;
+  submittedToDataProviderApproverCount: (state) => {
+    return state.kriItems.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length;
   },
   finalizedKRIsCount: (state) => {
     return state.kriItems.filter(item => item.collectionStatus === 'Finalized').length;
   },
   // New getters for workflow-based counts
   inputWorkflowKRIsCount: (state) => {
-    // Sum of Pending Input + Adjusting (matches KRIPendingInput logic)
+    // Sum of Pending Input + Under Rework (matches KRIPendingInput logic)
     const pendingInput = state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
-    const adjusting = state.kriItems.filter(item => item.collectionStatus === 'Adjusting').length;
-    return pendingInput + adjusting;
+    const underRework = state.kriItems.filter(item => item.collectionStatus === 'Under Rework').length;
+    return pendingInput + underRework;
   },
   approvalWorkflowKRIsCount: (state) => {
-    // Sum of Pending Data Provider Approval + Ready for submission + Submitted (matches KRIPendingApproval logic)
-    const pendingDP = state.kriItems.filter(item => item.collectionStatus === 'Pending Data Provider Approval').length;
-    const readyForSubmission = state.kriItems.filter(item => item.collectionStatus === 'Ready for submission').length;
-    const submitted = state.kriItems.filter(item => item.collectionStatus === 'Submitted').length;
-    return pendingDP + readyForSubmission + submitted;
+    // Sum of Saved + Submitted to Data Provider Approver + Submitted to KRI Owner Approver (matches KRIPendingApproval logic)
+    const saved = state.kriItems.filter(item => item.collectionStatus === 'Saved').length;
+    const submittedToDP = state.kriItems.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length;
+    const submittedToKRI = state.kriItems.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length;
+    return saved + submittedToDP + submittedToKRI;
   },
   krisByStatus: (state) => (status) => {
-    return state.kriItems.filter(item => item.collectionStatus === status);
+    // Handle both string and numeric status filtering
+    const statusToMatch = typeof status === 'number' ? mapStatus(status) : status;
+    return state.kriItems.filter(item => item.collectionStatus === statusToMatch);
   },
   
   // Role and Department getters

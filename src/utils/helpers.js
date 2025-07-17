@@ -3,21 +3,31 @@ import { format, lastDayOfMonth, subMonths } from 'date-fns';
 // Unified Status Configuration (used for both KRI and Atomic status)
 const STATUS_CONFIG = {
   10: { label: 'Pending Input', tagType: 'warning', cssClass: 'status-pending' },
-  20: { label: 'Adjusting', tagType: 'warning', cssClass: 'status-adjusting' },
-  30: { label: 'Pending Data Provider Approval', tagType: 'info', cssClass: 'status-pending-approval' },
-  40: { label: 'Ready for submission', tagType: 'primary', cssClass: 'status-ready' },
-  50: { label: 'Submitted', tagType: 'info', cssClass: 'status-submitted' },
+  20: { label: 'Under Rework', tagType: 'warning', cssClass: 'status-adjusting' },
+  30: { label: 'Saved', tagType: 'info', cssClass: 'status-pending-approval' },
+  40: { label: 'Submitted to Data Provider Approver', tagType: 'primary', cssClass: 'status-ready' },
+  50: { label: 'Submitted to KRI Owner Approver', tagType: 'info', cssClass: 'status-submitted' },
   60: { label: 'Finalized', tagType: 'success', cssClass: 'status-approved' }
 };
 
 // Reverse mapping from status labels to numeric values
 const STATUS_LABEL_TO_NUMBER = {
   'Pending Input': 10,
-  'Adjusting': 20,
-  'Pending Data Provider Approval': 30,
-  'Ready for submission': 40,
-  'Submitted': 50,
+  'Under Rework': 20,
+  'Saved': 30,
+  'Submitted to Data Provider Approver': 40,
+  'Submitted to KRI Owner Approver': 50,
   'Finalized': 60
+};
+
+// Export status values for use in other modules
+export const STATUS_VALUES = {
+  PENDING_INPUT: 10,
+  UNDER_REWORK: 20,
+  SAVED: 30,
+  SUBMITTED_TO_DATA_PROVIDER_APPROVER: 40,
+  SUBMITTED_TO_KRI_OWNER_APPROVER: 50,
+  FINALIZED: 60
 };
 
 // Map status numbers to readable strings (works for both KRI and Atomic)
