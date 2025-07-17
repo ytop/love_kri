@@ -56,9 +56,9 @@
           
           <!-- Data Elements -->
           <el-card class="info-card" v-if="atomicData && atomicData.length > 0">
-            <div slot="header" class="card-header">
-              <span>Data Elements</span>
-            </div>
+            <!-- <div slot="header" class="card-header">
+              <span>Data Elements</span> -->
+            <!-- </div> -->
             <k-r-i-data-elements 
               :atomic-data="atomicData"
               :kri-detail="kriDetail"
