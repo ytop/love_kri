@@ -11,14 +11,25 @@
           <el-tag type="info">{{ filteredKRIItems.length }} KRIs</el-tag>
         </div>
         <div class="header-actions">
-          <el-badge :value="inputWorkflowKRIsCount" class="item" type="danger" :hidden="inputWorkflowKRIsCount === 0">
+          <el-badge v-if="showPendingInputButton" :value="inputWorkflowKRIsCount" class="item" type="danger" :hidden="inputWorkflowKRIsCount === 0">
             <!-- pending for input -->
             <el-button size="medium" @click="navigateToStatusPage('Pending')">Pending for input</el-button>
           </el-badge>
-          <el-badge :value="approvalWorkflowKRIsCount" class="item" type="danger" :hidden="approvalWorkflowKRIsCount === 0">
+          <el-badge v-if="showPendingApprovalButton" :value="approvalWorkflowKRIsCount" class="item" type="danger" :hidden="approvalWorkflowKRIsCount === 0">
             <!-- pending for approval -->
             <el-button size="medium" @click="navigateToStatusPage('Submitted')">Pending for approval</el-button>
           </el-badge>
+          <!-- Login/Logout Button -->
+          <div class="auth-section">
+            <el-button v-if="isAuthenticated" type="primary" size="medium" @click="handleLogout">
+              <i class="el-icon-switch-button"></i>
+              Logout ({{ getUserDisplayName(currentUser) }})
+            </el-button>
+            <el-button v-else type="primary" size="medium" @click="handleLogin">
+              <i class="el-icon-user"></i>
+              Login
+            </el-button>
+          </div>
         </div>
       </div>
     </div>
@@ -91,7 +102,7 @@
 
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
-import { getLastDayOfPreviousMonth, mapStatus as getStatusLabel } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, mapStatus as getStatusLabel, getUserDisplayName } from '@/utils/helpers';
 import KRIFilters from '../components/KRIFilters.vue'; // Changed from SimpleFilters
 import KRITable from '../components/KRITable.vue';
 import KRIChartView from '../components/KRIChartView.vue';
@@ -114,12 +125,70 @@ export default {
     ...mapState('kri', ['loading', 'error']),
     ...mapGetters('kri', [
       'filteredKRIItems', 
-      'inputWorkflowKRIsCount', 
-      'approvalWorkflowKRIsCount',
-      'availableDepartments'
+      'roleBasedFilteredKRIItems',
+      'availableDepartments',
+      'currentUser',
+      'isAuthenticated'
     ]),
     filters() {
       return this.$store.state.kri.filters;
+    },
+    // Calculate badge counts based on role-based filtered KRI items
+    inputWorkflowKRIsCount() {
+      const userRole = this.currentUser.role;
+      const userDepartment = this.currentUser.department;
+      
+      // Only roles that can upload KRI should see this count
+      if (!['Data Provider', 'KRI Owner', 'KRI Approver', 'Admin'].includes(userRole)) {
+        return 0;
+      }
+      
+      return this.filteredKRIItems.filter(item => {
+        const hasInputStatus = item.collectionStatus === 'Pending Input' || 
+                              item.collectionStatus === 'Under Rework';
+        
+        if (userRole === 'Data Provider') {
+          return item.dataProvider.toLowerCase() === userDepartment.toLowerCase() && hasInputStatus;
+        } else if (userRole === 'KRI Owner' || userRole === 'KRI Approver') {
+          return item.owner.toLowerCase() === userDepartment.toLowerCase() && hasInputStatus;
+        } else if (userRole === 'Admin') {
+          return hasInputStatus;
+        }
+        return false;
+      }).length;
+    },
+    approvalWorkflowKRIsCount() {
+      const userRole = this.currentUser.role;
+      const userDepartment = this.currentUser.department;
+      
+      return this.filteredKRIItems.filter(item => {
+        // Role-specific filtering
+        if (userRole === 'Data Approver') {
+          return item.dataProvider.toLowerCase() === userDepartment.toLowerCase() && 
+                 item.collectionStatus === 'Submitted to Data Provider Approver';
+        } else if (userRole === 'KRI Approver' || userRole === 'KRI Owner') {
+          return item.owner.toLowerCase() === userDepartment.toLowerCase() && 
+                 item.collectionStatus === 'Submitted to KRI Owner Approver';
+        } else if (userRole === 'Admin') {
+          return (item.dataProvider.toLowerCase() === userDepartment.toLowerCase() && 
+                  item.collectionStatus === 'Submitted to Data Provider Approver') ||
+                 (item.owner.toLowerCase() === userDepartment.toLowerCase() && 
+                  item.collectionStatus === 'Submitted to KRI Owner Approver');
+        }
+        return false;
+      }).length;
+    },
+    // Role-based button visibility
+    showPendingInputButton() {
+      const userRole = this.currentUser.role;
+      // Show for Data Provider, KRI Owner, KRI Approver, Admin (only roles that can upload KRI)
+      return ['Data Provider', 'KRI Owner', 'KRI Approver', 'Admin'].includes(userRole);
+    },
+    
+    showPendingApprovalButton() {
+      const userRole = this.currentUser.role;
+      // Show for Data Approver, KRI Approver, Admin (removed KRI Owner)
+      return ['Data Approver', 'KRI Approver', 'Admin'].includes(userRole);
     }
   },
   async created() {
@@ -142,7 +211,8 @@ export default {
       'fetchKRIItems', 
       'updateFilters', 
       'resetFilters',
-      'fetchDepartments'
+      'fetchDepartments',
+      'logoutUser'
     ]),
     
     // Helper method to access status mapping in template
@@ -202,6 +272,28 @@ export default {
         this.$router.push({ name: 'PendingKRIs' });
       } else if (status === 'Submitted') {
         this.$router.push({ name: 'SubmittedKRIs' });
+      }
+    },
+    
+    // Helper method to get user display name
+    getUserDisplayName(user) {
+      return getUserDisplayName(user);
+    },
+    
+    // Handle login button click
+    handleLogin() {
+      this.$router.push({ name: 'Login' });
+    },
+    
+    
+    // Handle logout
+    async handleLogout() {
+      try {
+        await this.logoutUser();
+        this.$message.success('Logged out successfully');
+        this.$router.push({ name: 'Login' });
+      } catch (error) {
+        this.$message.error('Logout failed');
       }
     }
   }
@@ -336,5 +428,9 @@ export default {
   line-height: 1;
   font-size: 12px;
   box-sizing: border-box;
+}
+
+.auth-section {
+  margin-left: 1rem;
 }
 </style>

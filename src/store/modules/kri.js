@@ -1,5 +1,5 @@
 import { kriService } from '@/services/kriService';
-import { mapStatus, getLastDayOfPreviousMonth } from '@/utils/helpers';
+import { mapStatus, getLastDayOfPreviousMonth, getNextStatus, canPerformAction, getInputStatus } from '@/utils/helpers';
 
 const state = {
   kriItems: [],
@@ -20,11 +20,11 @@ const state = {
   },
   departments: [],
   roles: [
-    { name: 'Admin', permissions: ['read', 'write', 'approve', 'delete'] },
-    { name: 'KRI Owner', permissions: ['read', 'write', 'approve', 'reject'] },
-    { name: 'KRI Reviewer', permissions: ['read', 'approve', 'reject'] },
+    { name: 'Admin', permissions: ['read', 'write', 'approve', 'reject', 'delete', 'input'] },
+    { name: 'KRI Owner', permissions: ['read', 'write', 'input'] },
+    { name: 'KRI Approver', permissions: ['read', 'approve', 'reject'] },
     { name: 'Data Provider', permissions: ['read', 'write'] },
-    { name: 'Data Reviewer', permissions: ['read', 'approve', 'reject'] },
+    { name: 'Data Approver', permissions: ['read', 'approve', 'reject'] },
     { name: 'Viewer', permissions: ['read'] }
   ],
   filters: {
@@ -240,6 +240,25 @@ const actions = {
           kri_value: '4.2',
           kri_status: 50, // Submitted to KRI Owner Approver
           created_at: new Date().toISOString()
+        },
+        {
+          kri_id: 1006,
+          reporting_date: reportingDateInt,
+          kri_name: 'Self-Managed Risk KRI',
+          kri_description: 'Risk where owner is also the data provider',
+          data_provider: 'David Smith',
+          kri_owner: 'David Smith', // Same as data provider
+          l1_risk_type: 'Operational Risk',
+          l2_risk_type: 'Self-Managed Risk',
+          ras_metric: 'Operational',
+          breach_type: 'No Breach',
+          limit_value: 100,
+          warning_line_value: 80,
+          reporting_frequency: 'Monthly',
+          kri_formula: 'Self-assessment score',
+          kri_value: '75.0',
+          kri_status: 10, // Pending Input
+          created_at: new Date().toISOString()
         }
       ];
       
@@ -402,6 +421,9 @@ const actions = {
       commit('SET_USER_ROLE', role);
       commit('SET_USER_DEPARTMENT', department);
       
+      // Set department filter to user's department on login
+      commit('SET_FILTERS', { department: department });
+      
       return { success: true, user };
     } catch (error) {
       commit('SET_ERROR', 'Login failed');
@@ -419,6 +441,189 @@ const actions = {
 
   updateUserDepartment({ commit }, department) {
     commit('SET_USER_DEPARTMENT', department);
+  },
+
+  // KRI Status Management Actions
+  async updateKRIStatus({ commit, state }, { kriId, reportingDate, newStatus, reason = null, changedBy = null }) {
+    try {
+      // [MOCK] Replace with API call to update KRI status
+      const user = changedBy || state.currentUser.name || 'System';
+      
+      // Find and update the KRI item
+      const kriItems = [...state.kriItems];
+      const kriIndex = kriItems.findIndex(item => 
+        item.id === String(kriId) && item.reportingDate === String(reportingDate)
+      );
+      
+      if (kriIndex !== -1) {
+        kriItems[kriIndex] = {
+          ...kriItems[kriIndex],
+          collectionStatus: mapStatus(newStatus),
+          rawData: {
+            ...kriItems[kriIndex].rawData,
+            kri_status: newStatus
+          }
+        };
+        
+        commit('SET_KRI_ITEMS', kriItems);
+        
+        // Add to audit trail (mock implementation)
+        console.log(`KRI ${kriId} status updated to ${newStatus} by ${user}${reason ? ` with reason: ${reason}` : ''}`);
+        
+        return { success: true };
+      } else {
+        throw new Error('KRI not found');
+      }
+    } catch (error) {
+      console.error('Error updating KRI status:', error);
+      commit('SET_ERROR', 'Failed to update KRI status');
+      return { success: false, error: error.message };
+    }
+  },
+
+  async approveKRI({ dispatch, state }, { kriId, reportingDate }) {
+    const userRole = state.currentUser.role;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    const currentStatus = currentKRI.rawData.kri_status;
+    const nextStatus = getNextStatus(currentStatus, 'approve');
+    
+    if (!nextStatus) {
+      return { success: false, error: 'Invalid status transition' };
+    }
+    
+    if (!canPerformAction(userRole, 'approve', currentStatus, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions' };
+    }
+    
+    return await dispatch('updateKRIStatus', {
+      kriId,
+      reportingDate,
+      newStatus: nextStatus,
+      changedBy: state.currentUser.name
+    });
+  },
+
+  async rejectKRI({ dispatch, state }, { kriId, reportingDate, reason }) {
+    const userRole = state.currentUser.role;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    const currentStatus = currentKRI.rawData.kri_status;
+    const nextStatus = getNextStatus(currentStatus, 'reject');
+    
+    if (!nextStatus) {
+      return { success: false, error: 'Invalid status transition' };
+    }
+    
+    if (!canPerformAction(userRole, 'reject', currentStatus, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions' };
+    }
+    
+    return await dispatch('updateKRIStatus', {
+      kriId,
+      reportingDate,
+      newStatus: nextStatus,
+      reason,
+      changedBy: state.currentUser.name
+    });
+  },
+
+  async saveKRIValue({ dispatch, commit, state }, { kriId, reportingDate, value }) {
+    const userRole = state.currentUser.role;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    const currentStatus = currentKRI.rawData.kri_status;
+    
+    // Check if user can perform save action
+    if (!canPerformAction(userRole, 'save', currentStatus, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions' };
+    }
+    
+    // Update to Saved (30) status
+    const savedStatus = getNextStatus(currentStatus, 'save');
+    if (!savedStatus) {
+      return { success: false, error: 'Invalid status transition' };
+    }
+    
+    // Update to Saved status
+    const savedResult = await dispatch('updateKRIStatus', {
+      kriId,
+      reportingDate,
+      newStatus: savedStatus,
+      changedBy: state.currentUser.name
+    });
+    
+    if (!savedResult.success) {
+      return savedResult;
+    }
+    
+    // Update the KRI value (mock implementation)
+    const kriItems = [...state.kriItems];
+    const kriIndex = kriItems.findIndex(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (kriIndex !== -1) {
+      kriItems[kriIndex] = {
+        ...kriItems[kriIndex],
+        kriValue: value,
+        rawData: {
+          ...kriItems[kriIndex].rawData,
+          kri_value: value
+        }
+      };
+      
+      commit('SET_KRI_ITEMS', kriItems);
+    }
+    
+    return { success: true };
+  },
+
+  async submitKRI({ dispatch, state }, { kriId, reportingDate }) {
+    const userRole = state.currentUser.role;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    const currentStatus = currentKRI.rawData.kri_status;
+    
+    // Check if user can perform submit action
+    if (!canPerformAction(userRole, 'submit', currentStatus, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions' };
+    }
+    
+    // Determine final status based on role and ownership
+    const finalStatus = getInputStatus(userRole, currentKRI);
+    
+    // Update to final status
+    return await dispatch('updateKRIStatus', {
+      kriId,
+      reportingDate,
+      newStatus: finalStatus,
+      changedBy: state.currentUser.name
+    });
   }
 };
 
@@ -426,7 +631,7 @@ const getters = {
   filteredKRIItems: (state) => {
     let filtered = [...state.kriItems];
     
-    // Apply filters
+    // Apply filters without role-based restrictions (Dashboard shows all KRIs)
     if (state.filters.kriOwner) {
       filtered = filtered.filter(item => 
         item.owner.toLowerCase().includes(state.filters.kriOwner.toLowerCase())
@@ -467,6 +672,98 @@ const getters = {
     
     return filtered;
   },
+  
+  // Role-based filtered items for PendingInput and PendingApproval pages
+  roleBasedFilteredKRIItems: (state) => {
+    const userRole = state.currentUser.role;
+    const userDepartment = state.currentUser.department;
+    const userName = state.currentUser.name;
+    
+    let filtered = [...state.kriItems];
+    
+    // Apply role-based filtering for specific pages
+    if (userRole && userDepartment) {
+      switch(userRole) {
+        case 'Data Provider':
+          // Only show KRIs where data_provider equals user's department
+          filtered = filtered.filter(item => 
+            item.dataProvider.toLowerCase() === userDepartment.toLowerCase()
+          );
+          break;
+          
+        case 'Data Approver':
+          // Only show KRIs where data_provider equals user's department
+          filtered = filtered.filter(item => 
+            item.dataProvider.toLowerCase() === userDepartment.toLowerCase()
+          );
+          break;
+          
+        case 'KRI Owner':
+          // Only show KRIs where kri_owner equals user's name or department
+          filtered = filtered.filter(item => 
+            item.owner.toLowerCase() === userName.toLowerCase() ||
+            item.owner.toLowerCase() === userDepartment.toLowerCase()
+          );
+          break;
+          
+        case 'KRI Approver':
+          // Only show KRIs where kri_owner equals user's department
+          filtered = filtered.filter(item => 
+            item.owner.toLowerCase() === userDepartment.toLowerCase()
+          );
+          break;
+          
+        case 'Admin':
+        case 'Viewer':
+        default:
+          // Admins and viewers see all KRIs
+          break;
+      }
+    }
+    // It's better to sql query to get the data if the data is too large, but consider the fact that the data is max out at 1000 rows, so it's not a big deal to filter the data here
+    
+    // Apply additional filters
+    if (state.filters.kriOwner) {
+      filtered = filtered.filter(item => 
+        item.owner.toLowerCase().includes(state.filters.kriOwner.toLowerCase())
+      );
+    }
+    
+    if (state.filters.dataProvider) {
+      filtered = filtered.filter(item => 
+        item.dataProvider.toLowerCase().includes(state.filters.dataProvider.toLowerCase())
+      );
+    }
+    
+    if (state.filters.department) {
+      filtered = filtered.filter(item => 
+        // Match either Owner or Data Provider with department
+        item.owner.toLowerCase().includes(state.filters.department.toLowerCase()) ||
+        item.dataProvider.toLowerCase().includes(state.filters.department.toLowerCase())
+      );
+    }
+    
+    if (state.filters.collectionStatus) {
+      filtered = filtered.filter(item => 
+        item.collectionStatus === state.filters.collectionStatus
+      );
+    }
+    
+    if (state.filters.l1RiskType) {
+      filtered = filtered.filter(item => 
+        item.l1RiskType.toLowerCase().includes(state.filters.l1RiskType.toLowerCase())
+      );
+    }
+    
+    if (state.filters.kriName) {
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(state.filters.kriName.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  },
+  
   pendingKRIsCount: (state) => {
     return state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
   },

@@ -4,6 +4,7 @@ import Dashboard from '../views/Dashboard.vue';
 import KRIListByStatus from '../views/KRIListByStatus.vue';
 import KRIPendingInput from '../views/KRIPendingInput.vue';
 import KRIPendingApproval from '../views/KRIPendingApproval.vue';
+import Login from '../views/Login.vue';
 import NotFound from '../views/NotFound.vue';
 
 Vue.use(Router);
@@ -11,6 +12,11 @@ Vue.use(Router);
 export default new Router({
   mode: 'history',
   routes: [
+    {
+      path: '/login',
+      name: 'Login',
+      component: Login
+    },
     {
       path: '/',
       name: 'Dashboard',

@@ -1,0 +1,283 @@
+<template>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="header-nav">
+          <el-button 
+            @click="goBack"
+            type="text"
+            icon="el-icon-arrow-left"
+            class="back-button"
+          >
+            Back
+          </el-button>
+        </div>
+        <h1>KRI Dashboard</h1>
+        <p>Key Risk Indicator Management System</p>
+      </div>
+      
+      <el-form 
+        :model="loginForm" 
+        :rules="loginRules" 
+        ref="loginForm"
+        class="login-form"
+        @submit.native.prevent="handleLogin"
+      >
+        <el-form-item prop="username">
+          <el-input
+            v-model="loginForm.username"
+            placeholder="Enter your username"
+            prefix-icon="el-icon-user"
+            size="large"
+          />
+        </el-form-item>
+        
+        <el-form-item prop="department">
+          <el-select
+            v-model="loginForm.department"
+            placeholder="Select your department"
+            size="large"
+            style="width: 100%"
+            :loading="loadingDepartments"
+          >
+            <el-option
+              v-for="dept in departments"
+              :key="dept"
+              :label="dept"
+              :value="dept"
+            />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item prop="role">
+          <el-select
+            v-model="loginForm.role"
+            placeholder="Select your role"
+            size="large"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="role in availableRoles"
+              :key="role.name"
+              :label="role.name"
+              :value="role.name"
+            >
+              <span>{{ role.name }}</span>
+              <span class="role-permissions">{{ role.permissions.join(', ') }}</span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item>
+          <el-button
+            type="primary"
+            size="large"
+            :loading="loading"
+            @click="handleLogin"
+            class="login-button"
+          >
+            Sign In
+          </el-button>
+        </el-form-item>
+      </el-form>
+      
+      <div class="login-footer">
+        <p>� 2024 KRI Dashboard. All rights reserved.</p>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapActions, mapGetters } from 'vuex';
+import { validateLoginForm } from '@/utils/helpers';
+
+export default {
+  name: 'Login',
+  data() {
+    return {
+      loginForm: {
+        username: '',
+        department: '',
+        role: ''
+      },
+      loginRules: {
+        username: [
+          { required: true, message: 'Username is required', trigger: 'blur' },
+          { min: 2, max: 50, message: 'Username must be between 2 and 50 characters', trigger: 'blur' }
+        ],
+        department: [
+          { required: true, message: 'Department is required', trigger: 'change' }
+        ],
+        role: [
+          { required: true, message: 'Role is required', trigger: 'change' }
+        ]
+      },
+      loading: false,
+      loadingDepartments: false
+    };
+  },
+  computed: {
+    ...mapGetters('kri', ['availableRoles', 'availableDepartments']),
+    departments() {
+      return this.availableDepartments;
+    }
+  },
+  async created() {
+    await this.loadDepartments();
+  },
+  methods: {
+    ...mapActions('kri', ['loginUser', 'fetchDepartments']),
+    
+    async loadDepartments() {
+      this.loadingDepartments = true;
+      try {
+        await this.fetchDepartments();
+      } catch (error) {
+        this.$message.error('Failed to load departments');
+      } finally {
+        this.loadingDepartments = false;
+      }
+    },
+    
+    async handleLogin() {
+      const valid = await this.$refs.loginForm.validate().catch(() => false);
+      if (!valid) return;
+      
+      const validationResult = validateLoginForm(this.loginForm);
+      if (!validationResult.isValid) {
+        this.$message.error(validationResult.message);
+        return;
+      }
+      
+      this.loading = true;
+      try {
+        const result = await this.loginUser(this.loginForm);
+        
+        if (result.success) {
+          this.$message.success(`Welcome, ${this.loginForm.username}!`);
+          this.$router.push({ name: 'Dashboard' });
+        } else {
+          this.$message.error(result.error || 'Login failed');
+        }
+      } catch (error) {
+        this.$message.error('Login failed. Please try again.');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    goBack() {
+      // Check if there's previous history, otherwise go to default route
+      if (window.history.length > 1) {
+        this.$router.go(-1);
+      } else {
+        // If no history, go to dashboard or home
+        this.$router.push({ name: 'Dashboard' });
+      }
+    }
+  }
+};
+</script>
+
+<style scoped>
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.login-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.header-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.back-button {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  transition: color 0.3s ease;
+}
+
+.back-button:hover {
+  color: #2c3e50;
+}
+
+.back-button .el-icon-arrow-left {
+  margin-right: 4px;
+}
+
+.login-header h1 {
+  color: #2c3e50;
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.login-header p {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.login-form {
+  margin-bottom: 20px;
+}
+
+.login-form .el-form-item {
+  margin-bottom: 20px;
+}
+
+.login-button {
+  width: 100%;
+  height: 45px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.role-permissions {
+  font-size: 0.75rem;
+  color: #909399;
+  margin-left: 10px;
+}
+
+.login-footer {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.login-footer p {
+  color: #95a5a6;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.el-select .el-input {
+  width: 100%;
+}
+</style>

@@ -56,6 +56,10 @@
                 style="width: 150px;"
               />
             </el-form-item>
+            
+            <el-button @click="resetFilters" size="small" plain class="reset-button">
+              Reset
+            </el-button>
           </div>
           
           <div class="filters-right">
@@ -73,9 +77,6 @@
       <div v-show="showAdvanced" class="advanced-filters">
         <div class="advanced-header">
           <span class="advanced-title">Advanced Filters</span>
-          <el-button @click="resetFilters" size="small" plain>
-            Reset
-          </el-button>
         </div>
         <div class="filter-row">
           <el-form :model="localFilters" :inline="true" class="filter-form">
@@ -265,11 +266,7 @@ export default {
   align-items: center;
   margin-left: auto;
   padding-left: 2rem;
-}
-
-.compact-form >>> .el-form-item {
-  /* margin-bottom: 0.5rem;
-  margin-right: 0.75rem; */
+  gap: 0.5rem;
 }
 
 .compact-form >>> .el-form-item.compact-item {
@@ -305,6 +302,12 @@ export default {
 .compact-form >>> .el-select--small .el-input__inner {
   height: 32px;
   line-height: 32px;
+}
+
+.reset-button {
+  margin-left: 1rem;
+  height: 32px;
+  align-self: center;
 }
 
 .advanced-header {
