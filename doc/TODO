@@ -1,3 +1,57 @@
-1. Inline display: Data Elements - Approve Selected - Reject Selected
-2. fix Data Elements display Provider	Evidence	Comment are all null
-3. Breach Status are confusing, need to clarify
+1. CSS optimization for KRI Detail -> Element display
+2. Multi-User support across all pages
+3. Quick Actions need to be disabled or changed for different users
+# User Role
+- Admin
+- KRI Viewer
+- Data Provider
+- Data Approver
+- KRI Owner/Approver
+
+Inital:
+KRI status: 10 (Pending input)
+
+Input KRI ->
+    check if who upload the KRI
+    case 1: role == KRI Owner
+        -- set KRI status to 40 (Ready for submit)
+    case 2: role == Data Provider (or role <> KRI Owner)
+        -- set KRI status to 30 (Pending approval)
+
+Data Provider Approver ->
+    if KRI status == 30
+        -- set KRI status to 40 (Ready for submit)
+    else
+        -- set KRI status to 20 (Adjusting)
+
+KRI Owner/Approver ->
+    if approved
+        -- set KRI status to 50 (Approved)
+    else
+        -- set KRI status to 20 (Adjusting)
+
+- KRI viewer ->
+    -- see all KRI status
+    -- cannot reject or approve
+- Data Provider ->
+    -- all KRI viewer
+    -- can upload KRI
+    -- cannot approve or reject
+-- Data Approver ->
+    -- all KRI viewer
+    -- can approve or reject KRI from Data Provider
+    -- when reject, set KRI status to 20 (Adjusting), and provide reason
+    -- when approve, set KRI status to 50 (Approved)
+-- KRI Owner/Approver ->
+    -- can approve or reject KRI from Data Provider/KRI Owner
+    -- when reject, set KRI status to 20 (Adjusting), and provide reason
+    -- when approve, set KRI status to 50 (Approved)
+    -- can input KRI value, set KRI status to 40 (Ready for submit)
+-- Admin ->
+    -- can approve or reject KRI from Any
+    -- when reject, set KRI status to 20 (Adjusting), and provide reason
+    -- when approve, set KRI status to 50 (Approved)
+    -- can input KRI value, set KRI status to 40 (Ready for submit)
+
+TODO:
+fix login page

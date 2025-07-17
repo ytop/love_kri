@@ -47,6 +47,14 @@
       />
       
       <el-table-column
+        prop="dataProvider"
+        label="Data Provider"
+        width="120"
+        sortable
+        show-overflow-tooltip
+      />
+      
+      <el-table-column
         prop="collectionStatus"
         label="Status"
         width="120"
@@ -62,14 +70,6 @@
           </el-tag>
         </template>
       </el-table-column>
-      
-      <el-table-column
-        prop="kriType"
-        label="KRI Type"
-        width="120"
-        sortable
-        show-overflow-tooltip
-      />
       
       <el-table-column
         prop="l1RiskType"

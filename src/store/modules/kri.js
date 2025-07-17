@@ -83,6 +83,7 @@ const actions = {
         id: String(kri.kri_id),
         name: kri.kri_name || '',
         owner: kri.kri_owner || '',
+        dataProvider: kri.data_provider || '',
         collectionStatus: mapStatus(kri.kri_status),
         kriType: kri.ras_metric || 'N/A',
         l1RiskType: kri.l1_risk_type || '',
