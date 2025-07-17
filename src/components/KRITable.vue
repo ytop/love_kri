@@ -119,33 +119,6 @@
         width="130"
         sortable
       />
-      
-      <el-table-column
-        prop="reportingDate"
-        label="Reporting Date"
-        width="130"
-        sortable
-      >
-        <template slot-scope="scope">
-          {{ formatReportingDate(scope.row.reportingDate) }}
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        label="Actions"
-        width="100"
-        fixed="right"
-      >
-        <template slot-scope="scope">
-          <el-button
-            type="primary"
-            size="mini"
-            @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
-          >
-            Go
-          </el-button>
-        </template>
-      </el-table-column>
     </el-table>
   </div>
 </template>
