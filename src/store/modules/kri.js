@@ -20,12 +20,6 @@ const state = {
   },
   departments: [],
   roles: [
-    { name: 'Admin', permissions: ['read', 'write', 'approve', 'reject', 'delete', 'input'] },
-    { name: 'KRI Owner', permissions: ['read', 'write', 'input'] },
-    { name: 'KRI Approver', permissions: ['read', 'approve', 'reject'] },
-    { name: 'Data Provider', permissions: ['read', 'write'] },
-    { name: 'Data Approver', permissions: ['read', 'approve', 'reject'] },
-    { name: 'Viewer', permissions: ['read'] }
   ],
   filters: {
     kriOwner: '',

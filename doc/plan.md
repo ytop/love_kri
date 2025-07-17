@@ -1,217 +1,330 @@
-# KRI Enhancement Implementation Plan
+# KRI System Refactoring Plan: Role-Based to Relationship-Based Access Control (ReBAC)
 
-## Overview
+## 🎯 Objective
 
-This plan implements a comprehensive enhancement to the KRI (Key Risk Indicator) system, focusing on improved status workflows, unified data views, and separated input/approval interfaces.
+Transform the current scattered role-based access control system into a clean, maintainable Relationship-Based Access Control (ReBAC) system that clearly separates read, write, and acknowledge permissions based on user-KRI relationships.
 
-## Phase 1: UI Improvements & Foundation
+## 📊 Current State Analysis
 
-### Step 1.1: Fix Button Spacing Issues
+### Problems Identified:
+1. **Duplicate Role Definitions**: Role logic scattered across multiple files
+   - `src/utils/helpers.js` - USER_ROLES, getRolePermissions, canPerformAction
+   - `src/services/kriService.js` - Another getRolePermissions function
+   - `src/store/modules/kri.js` - Role-based filtering logic
+   
+2. **Hardcoded Access Logic**: Business rules mixed with presentation logic
+   - Role checks directly in Vue components
+   - Status-based permissions hardcoded in helpers
+   - Department-based filtering scattered across getters
 
-- **File**: Identify components with button spacing issues
-- **Action**: Adjust CSS/styling for proper button spacing
-- **Target**: All Vue components with button layouts
-- **Estimate**: 1-2 hours
+3. **Maintenance Issues**: 
+   - Adding new roles requires changes in multiple files
+   - Permission logic is not centralized
+   - No clear separation of read/write/acknowledge permissions
 
-### Step 1.2: Database Schema Review
+## 🏗️ Target ReBAC Architecture
 
-- **File**: `doc/database.sql`
-- **Action**: Review current KRI table structure for status fields
-- **Verify**: Ensure status field can handle new numeric values (10-60)
-- **Estimate**: 30 minutes
+### Core Principles:
+1. **Relationship-Based**: Access determined by user's relationship to specific KRIs
+2. **Permission Separation**: Clear distinction between READ, WRITE, and ACKNOWLEDGE
+3. **Centralized Logic**: Single source of truth for access control
+4. **Backend-Driven**: Permissions fetched from database, not hardcoded
 
-## Phase 2: Status System Overhaul
+### Permission Types:
+- **READ**: View KRI data and details
+- **WRITE**: Input/edit KRI values and data
+- **ACKNOWLEDGE**: Approve/reject KRI submissions
 
-### Step 2.1: Update Status Constants
+### Relationship Types:
+- **OWNER**: User is the KRI owner
+- **DATA_PROVIDER**: User/department provides data for the KRI
+- **DATA_APPROVER**: User can approve data provider submissions
+- **KRI_APPROVER**: User can approve final KRI submissions
+- **DEPARTMENT_MEMBER**: User belongs to relevant department
+- **ADMIN**: User has system-wide permissions
 
-- **File**: `src/utils/helpers.js`
-- **Action**: Replace `mapKriStatus` function with new status mapping
-- **New Status Values**:
-  - 10: "Pending Input"
-  - 20: "Adjusting"
-  - 30: "Pending Data Provider Approval"
-  - 40: "Ready for submission"
-  - 50: "Submitted"
-  - 60: "Finalized"
-- **Estimate**: 1 hour
+## 📅 Implementation Plan
 
-### Step 2.2: Implement Status Workflow Logic
+### Phase 1: Database & Backend Preparation (Day 1)
 
-- **File**: `src/services/kriService.js`
-- **Action**: Create workflow functions for status transitions
-- **Workflows**:
-  - **Case 1** (Data Provider = KRI Owner): 10 → 40 → 50 → 60
-  - **Case 2** (Data Provider ≠ KRI Owner): 10 → 30 → 40 → 50 → 60
-  - **Case 3** (Rejection flows): Any approval → 20 (Adjusting)
-- **Functions to implement**:
-  - `canTransitionStatus(currentStatus, newStatus, userRole, isDataProvider)`
-  - `getNextAvailableStatuses(currentStatus, userRole, isDataProvider)`
-  - `updateKRIStatus(kriId, newStatus, comments)`
-- **Estimate**: 4-6 hours
+#### Step 1.1: Database Schema Enhancement
+**Time: 2 hours**
 
-### Step 2.3: Update Status Display Components
+Create new tables for ReBAC:
 
-- **Files**:
-  - `src/components/KRITable.vue`
-  - `src/components/KRIFilters.vue`
-  - `src/views/KRIListByStatus.vue`
-- **Action**: Update all status displays to use new status values
-- **Add**: Status-based filtering and sorting
-- **Estimate**: 3-4 hours
+```sql
+-- User-KRI Relationships table
+CREATE TABLE user_kri_relationships (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL,
+  kri_id INTEGER NOT NULL,
+  reporting_date INTEGER NOT NULL,
+  relationship_type VARCHAR(50) NOT NULL, -- OWNER, DATA_PROVIDER, DATA_APPROVER, KRI_APPROVER
+  granted_by VARCHAR(255),
+  granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NULL,
+  is_active BOOLEAN DEFAULT TRUE
+);
 
-### Step 2.4: Update Sample Data
+-- Permission definitions table
+CREATE TABLE permissions (
+  id SERIAL PRIMARY KEY,
+  permission_name VARCHAR(50) NOT NULL, -- READ, WRITE, ACKNOWLEDGE
+  description TEXT
+);
 
-- **File**: Create data migration script
-- **Action**: Convert existing status values (0,1,2) to new system (10,50,60)
-- **Test**: Verify data integrity after migration
-- **Estimate**: 2 hours
+-- Relationship permissions mapping
+CREATE TABLE relationship_permissions (
+  id SERIAL PRIMARY KEY,
+  relationship_type VARCHAR(50) NOT NULL,
+  permission_name VARCHAR(50) NOT NULL,
+  kri_status INTEGER[], -- Which statuses this permission applies to
+  conditions JSONB -- Additional conditions (e.g., same department)
+);
+```
 
-## Phase 3: Union View Implementation (Task 2)
+#### Step 1.2: Backend API Endpoints
+**Time: 3 hours**
 
-### Step 3.1: Analyze Current Data Structure
+Create new service methods:
 
-- **File**: `src/components/KRITableCollectData.vue`
-- **Action**: Review current data display and identify KRI data elements/atomic data
-- **Research**: Understand the relationship between KRI data elements and main KRI data
-- **Estimate**: 1-2 hours
+```javascript
+// In kriService.js
+async fetchUserKRIRelationships(userId, reportingDate)
+async fetchKRIPermissions(userId, kriId, reportingDate) 
+async checkUserPermission(userId, kriId, reportingDate, permissionType)
+async grantKRIAccess(userId, kriId, relationshipType, grantedBy)
+async revokeKRIAccess(userId, kriId, relationshipType)
+```
 
-### Step 3.2: Create Unified Data Service
+### Phase 2: Core ReBAC Implementation (Day 1-2)
 
-- **File**: `src/services/kriService.js`
-- **Action**: Create functions to merge KRI data with atomic/element data
-- **Functions**:
-  - `getUnifiedKRIData(kriId)`
-  - `getKRIWithElements(filters)`
-- **Estimate**: 3-4 hours
+#### Step 2.1: Create ReBAC Service
+**Time: 4 hours**
+**File: `src/services/rebacService.js`**
 
-### Step 3.3: Update Collection Data Component
+```javascript
+export class RebacService {
+  async getUserPermissions(userId, kriId, reportingDate) {
+    // Fetch user-KRI relationships from backend
+    // Return { read: boolean, write: boolean, acknowledge: boolean }
+  }
+  
+  async getFilteredKRIs(userId, permissionType = 'READ') {
+    // Return KRIs user has specified permission for
+  }
+  
+  async canUserPerformAction(userId, kriId, action, currentStatus) {
+    // Check if user can perform specific action on KRI
+  }
+}
+```
 
-- **File**: `src/components/KRITableCollectData.vue`
-- **Action**: Modify to display merged view of KRI data and elements
-- **Features**:
-  - Expandable rows for atomic data
-  - Inline editing for data elements
-  - Bulk operations for multiple elements
-- **Estimate**: 4-6 hours
+#### Step 2.2: Update Store Module
+**Time: 3 hours**
+**File: `src/store/modules/kri.js`**
 
-## Phase 4: Split Input/Approve Interface (Task 3)
+Replace role-based logic with relationship-based:
 
-### Step 4.1: Create Input Component
+```javascript
+// Remove all role-based filtering
+// Replace with ReBAC service calls
+// Update getters to use permissions instead of roles
 
-- **File**: `src/components/KRITableInput.vue` (new)
-- **Action**: Extract input functionality from `KRITableCollectData.vue`
-- **Features**:
-  - Data input forms
-  - Validation
-  - Submit for approval actions
-  - Status: "Pending Input" → "Ready for submission"
-- **Estimate**: 4-5 hours
+getters: {
+  readableKRIs: (state) => {
+    // Return KRIs user can read
+  },
+  writableKRIs: (state) => {
+    // Return KRIs user can write to
+  },
+  approvableKRIs: (state) => {
+    // Return KRIs user can approve
+  }
+}
+```
 
-### Step 4.2: Create Approval Component
+#### Step 2.3: Clean Up Duplicate Code
+**Time: 2 hours**
 
-- **File**: `src/components/KRITableApprove.vue` (new)
-- **Action**: Extract approval functionality from `KRITableCollectData.vue`
-- **Features**:
-  - Review submitted data
-  - Approve/Reject actions with comments
-  - Rework comments functionality
-  - Status transitions for approval workflow
-- **Estimate**: 4-5 hours
+1. **Remove from `src/utils/helpers.js`**:
+   - USER_ROLES constant
+   - getRolePermissions function
+   - canPerformAction function (replace with ReBAC calls)
 
-### Step 4.3: Update Button Names and Actions
+2. **Remove from `src/services/kriService.js`**:
+   - getRolePermissions method
+   - Role-specific authentication logic
 
-- **Files**: New input and approve components
-- **Action**: Update button labels to reflect new workflow
-- **Button Updates**:
-  - "Submit for Approval" (Input component)
-  - "Approve", "Reject", "Request Rework" (Approve component)
-- **Estimate**: 1-2 hours
+3. **Update `src/store/modules/kri.js`**:
+   - Remove role-based getters
+   - Simplify user state (remove role field, keep relationships)
 
-### Step 4.4: Add Rework Comments System
+### Phase 3: Frontend Integration (Day 2)
 
-- **File**: `src/components/KRITableApprove.vue`
-- **Action**: Implement comments system for rework requests
-- **Features**:
-  - Comment input for rejections
-  - Comment history display
-  - Comment notifications
-- **Database**: May need comments table/field
-- **Estimate**: 3-4 hours
+#### Step 3.1: Update Components
+**Time: 4 hours**
 
-### Step 4.5: Update Collection Data Router
+**Files to update:**
+- `src/views/Dashboard.vue`
+- `src/views/KRIPendingInput.vue`
+- `src/views/KRIPendingApproval.vue`
+- `src/components/KRITable.vue`
+- `src/components/KRITableCollectData.vue`
 
-- **File**: `src/components/KRITableCollectData.vue`
-- **Action**: Convert to router component that loads Input or Approve based on user role/status
-- **Logic**: Route to appropriate component based on KRI status and user permissions
-- **Estimate**: 2-3 hours
+**Changes:**
+- Replace role checks with permission checks
+- Use ReBAC service for filtering
+- Update button visibility logic
 
-## Phase 5: Integration & Testing
+#### Step 3.2: Update Login System
+**Time: 2 hours**
+**File: `src/views/Login.vue`**
 
-### Step 5.1: Update Store/State Management
+```javascript
+// Remove role selection
+// Fetch user relationships after login
+// Update user state with permissions instead of roles
+```
 
-- **File**: `src/store/modules/kri.js`
-- **Action**: Update Vuex store to handle new status workflows and component interactions
-- **Add**: Actions for status transitions, comment management
-- **Estimate**: 2-3 hours
+### Phase 4: Testing & Migration (Day 2-3)
 
-### Step 5.2: Update Routing
+#### Step 4.1: Create Migration Script
+**Time: 3 hours**
+**File: `scripts/migrateToReBAC.js`**
 
-- **File**: `src/router/index.js`
-- **Action**: Add routes for new input/approve components
-- **Consider**: Role-based route guards
-- **Estimate**: 1 hour
+```javascript
+// Script to migrate existing role-based data to relationships
+// Map current users to appropriate KRI relationships
+// Populate user_kri_relationships table
+```
 
-### Step 5.3: Component Integration Testing
+#### Step 4.2: Unit Tests
+**Time: 4 hours**
+**File: `tests/rebac.test.js`**
 
-- **Action**: Test all components work together with new status system
-- **Test Cases**:
-  - Status transitions for each workflow case
-  - Input → Approve workflow
-  - Rejection → Rework flow
-  - Union view data display
-- **Estimate**: 4-6 hours
+Test ReBAC service methods:
+- Permission checking
+- Relationship management
+- KRI filtering
 
-### Step 5.4: Database Testing & Migration
+#### Step 4.3: Integration Testing
+**Time: 2 hours**
 
-- **Action**: Test all database operations with new status values
-- **Verify**: Data integrity and proper status transitions
-- **Estimate**: 2-3 hours
+Test complete workflows:
+- User login and permission loading
+- KRI filtering by permissions
+- Action permission checking
 
-## Phase 6: Final Polish & Documentation
+### Phase 5: Documentation & Cleanup (Day 3)
 
-### Step 6.1: Error Handling & Validation
+#### Step 5.1: Update Documentation
+**Time: 2 hours**
 
-- **Action**: Add comprehensive error handling for status transitions
-- **Add**: User-friendly error messages
-- **Estimate**: 2-3 hours
+1. **Create `doc/ReBAC_GUIDE.md`**:
+   - How to add new relationships
+   - Permission matrix
+   - Troubleshooting guide
 
-### Step 6.2: User Experience Testing
+2. **Update `README.md`**:
+   - New architecture overview
+   - Setup instructions
 
-- **Action**: Test complete user workflows
-- **Verify**: Intuitive navigation between input/approve modes
-- **Estimate**: 2-3 hours
+#### Step 5.2: Code Cleanup
+**Time: 1 hour**
 
-### Step 6.3: Documentation Update
+- Remove commented-out role-based code
+- Clean up unused imports
+- Update component comments
 
-- **Files**: Update README.md and create user guide
-- **Action**: Document new workflows and component usage
-- **Estimate**: 2 hours
+## 🔄 Detailed ReBAC Permission Matrix
 
-## Total Estimated Time: 50-70 hours
+| Relationship Type | KRI Status | READ | WRITE | ACKNOWLEDGE |
+|------------------|------------|------|-------|-------------|
+| OWNER | All | ✓ | ✓ (10,20) | ✗ |
+| DATA_PROVIDER | All | ✓ | ✓ (10,20,30) | ✗ |
+| DATA_APPROVER | All | ✓ | ✗ | ✓ (40) |
+| KRI_APPROVER | All | ✓ | ✗ | ✓ (50) |
+| DEPARTMENT_MEMBER | All | ✓ | ✗ | ✗ |
+| ADMIN | All | ✓ | ✓ | ✓ |
 
-## Dependencies & Risks
+## 🚀 Migration Strategy
 
-1. **Database Schema**: May need schema changes for comments system
-2. **User Roles**: Need clear definition of user roles and permissions
-3. **Data Migration**: Existing production data needs careful migration
-4. **Testing**: Extensive testing required due to workflow complexity
+### Backward Compatibility:
+1. Keep role field in user object during transition
+2. Implement both systems in parallel
+3. Gradual migration with feature flags
+4. Remove role-based system after verification
 
-## Success Criteria
+### Data Migration:
+1. **Current Users → Relationships**:
+   - Data Provider → DATA_PROVIDER relationship for their department's KRIs
+   - KRI Owner → OWNER relationship for their KRIs
+   - Data Approver → DATA_APPROVER for their department
+   - KRI Approver → KRI_APPROVER for their department
 
-- [ ] All 6 status values properly implemented and functional
-- [ ] Status workflows correctly enforce business rules
-- [ ] Union view displays merged KRI and element data
-- [ ] Input/Approve components provide clear separation of concerns
-- [ ] Rework comments system enables proper feedback loop
-- [ ] UI improvements enhance user experience
-- [ ] All existing functionality preserved
+### Rollback Plan:
+1. Keep original role-based code in separate branch
+2. Database backup before migration
+3. Quick rollback procedure documented
+
+## 📊 Success Metrics
+
+1. **Code Quality**:
+   - Reduce role-related code duplication by 80%
+   - Centralize access control to 1 service
+   - Improve test coverage to >90%
+
+2. **Performance**:
+   - Reduce permission check time
+   - Optimize database queries
+   - Improve page load times
+
+3. **Maintainability**:
+   - Single place to add new relationship types
+   - Clear permission rules
+   - Easier testing and debugging
+
+## ⚠️ Risks & Mitigation
+
+1. **Risk**: Complex migration breaks existing functionality
+   **Mitigation**: Parallel implementation with feature toggle
+
+2. **Risk**: Performance impact from additional database queries
+   **Mitigation**: Implement caching layer for permissions
+
+3. **Risk**: User confusion with new permission system
+   **Mitigation**: Clear documentation and gradual rollout
+
+## 📝 Implementation Checklist
+
+### Day 1:
+- [ ] Create database schema for ReBAC
+- [ ] Implement backend API endpoints
+- [ ] Create RebacService class
+- [ ] Update store module structure
+
+### Day 2:
+- [ ] Update all Vue components
+- [ ] Modify login system
+- [ ] Create migration script
+- [ ] Write unit tests
+
+### Day 3:
+- [ ] Run integration tests
+- [ ] Update documentation
+- [ ] Clean up old code
+- [ ] Deploy to staging environment
+
+### Post-Implementation:
+- [ ] Monitor performance metrics
+- [ ] Gather user feedback
+- [ ] Plan additional relationship types
+- [ ] Consider advanced ReBAC features
+
+---
+
+**Estimated Total Time**: 3 days (24 hours)
+**Priority**: High
+**Dependencies**: Database access, staging environment
+**Reviewer**: System architect, Security team
