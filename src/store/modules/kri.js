@@ -446,7 +446,7 @@ const actions = {
   // KRI Status Management Actions
   async updateKRIStatus({ commit, state }, { kriId, reportingDate, newStatus, reason = null, changedBy = null }) {
     try {
-      // In a real app, this would make an API call to update KRI status
+      // [MOCK] Replace with API call to update KRI status
       const user = changedBy || state.currentUser.name || 'System';
       
       // Find and update the KRI item
