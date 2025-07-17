@@ -61,7 +61,7 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
-import { getLastDayOfPreviousMonth, STATUS_VALUES, mapStatus } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, STATUS_VALUES } from '@/utils/helpers';
 
 export default {
   name: 'KRIPendingInput',
