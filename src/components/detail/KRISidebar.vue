@@ -6,17 +6,20 @@
         <span>Quick Actions</span>
       </div>
       <div class="actions">
-        <el-button type="primary" style="width: 100%;">
-          <i class="el-icon-edit"></i>
+        <el-button
+          type="primary"
+          icon="el-icon-edit"
+          @click="handleApproveKRI"
+          style="width: 100%;">
           Approve KRI
         </el-button>
-            <el-button
-              type="danger"
-              icon="el-icon-close"
-              @click="handleRejectKRI"
-              style="width: 100%;">
-              Reject KRI
-            </el-button>
+        <el-button
+          type="danger"
+          icon="el-icon-close"
+          @click="handleRejectKRI"
+          style="width: 100%;">
+          Reject KRI
+        </el-button>
       </div>
     </el-card>
 
@@ -113,6 +116,98 @@ export default {
     },
 
     gaugeOption() {
+      const currentValue = Math.floor(this.kriData.kri_value || NaN);
+      const warningLine = Math.floor(this.kriData.warning_line_value || NaN);
+      const limitValue = Math.floor(this.kriData.limit_value || NaN);
+      
+      // Validate critical KRI values
+      const hasValidCurrentValue = Number.isFinite(currentValue);
+      const hasValidWarningLine = Number.isFinite(warningLine);
+      const hasValidLimitValue = Number.isFinite(limitValue) && limitValue > 0;
+      
+      // Return invalid gauge state if any critical value is missing or invalid
+      if (!hasValidCurrentValue || !hasValidWarningLine || !hasValidLimitValue) {
+        console.warn('Invalid KRI data:', this.kriData);
+        return {
+          series: [
+            {
+              type: 'gauge',
+              center: ['50%', '60%'],
+              startAngle: 200,
+              endAngle: -20,
+              min: 0,
+              max: 100,
+              splitNumber: 5,
+              axisLine: {
+                lineStyle: {
+                  width: 18,
+                  color: [[1, '#e5e7eb']]  // Gray for invalid state
+                }
+              },
+              progress: {
+                show: false
+              },
+              pointer: {
+                show: false
+              },
+              axisTick: {
+                distance: -25,
+                splitNumber: 5,
+                lineStyle: {
+                  width: 1,
+                  color: '#999'
+                }
+              },
+              splitLine: {
+                distance: -25,
+                length: 8,
+                lineStyle: {
+                  width: 1,
+                  color: '#bbb'
+                }
+              },
+              axisLabel: {
+                distance: -10,
+                color: '#999',
+                fontSize: 9
+              },
+              anchor: {
+                show: false
+              },
+              title: {
+                show: true,
+                offsetCenter: [0, '30%'],
+                fontSize: 12,
+                color: '#666'
+              },
+              detail: {
+                width: '60%',
+                lineHeight: 30,
+                borderRadius: 6,
+                offsetCenter: [0, '60%'],
+                fontSize: 16,
+                fontWeight: 'bold',
+                formatter: 'Invalid',
+                color: '#6b7280'
+              },
+              data: [
+                {
+                  value: 0,
+                  name: 'Invalid Data'
+                }
+              ]
+            }
+          ]
+        };
+      }
+      
+      // Calculate gauge segments based on actual thresholds
+      const warningPercent = (warningLine / limitValue) * 100;
+      const segments = [
+        [warningPercent / 100, '#67C23A'],  // Green up to warning line
+        [1, '#F56C6C']                      // Red from warning line to limit
+      ];
+      
       return {
         series: [
           {
@@ -121,29 +216,25 @@ export default {
             startAngle: 200,
             endAngle: -20,
             min: 0,
-            max: 100,
-            splitNumber: 10, // More granularity for segments
+            max: limitValue,
+            splitNumber: 5,
             axisLine: {
               lineStyle: {
                 width: 18,
-                color: [ // Segment colors
-                  [0.3, '#67C23A'], // Green for 0-30%
-                  [0.7, '#E6A23C'], // Yellow for 30-70%
-                  [1, '#F56C6C']    // Red for 70-100%
-                ]
+                color: segments
               }
             },
             progress: {
               show: true,
               width: 18,
-              itemStyle: { // Ensure progress color matches the current segment
+              itemStyle: {
                 color: 'auto'
               }
             },
-            pointer: { // Make pointer visible but shorter to avoid text overlap
+            pointer: {
               show: true,
-              width: 5,
-              length: '45%', // Shortened pointer so it doesn't reach text area
+              width: 6,
+              length: '65%',
               itemStyle: {
                 color: 'auto'
               }
@@ -156,43 +247,43 @@ export default {
                 color: '#999'
               }
             },
-            splitLine: { // Keep split lines for visual cues
-              distance: -25, // Adjusted distance
-              length: 8,    // Adjusted length
+            splitLine: {
+              distance: -25,
+              length: 8,
               lineStyle: {
                 width: 1,
-                color: '#bbb' // Slightly darker color
+                color: '#bbb'
               }
             },
-            axisLabel: { // Show labels for thresholds
-              distance: -10, // Adjusted distance
-              color: 'auto', // Use segment colors or a default
+            axisLabel: {
+              distance: -10,
+              color: 'auto',
               fontSize: 9
             },
             anchor: {
               show: false
             },
-            title: { // Title for context if needed, e.g. "Breach Level"
+            title: {
               show: true,
-              offsetCenter: [0, '30%'], // Move title to bottom area
+              offsetCenter: [0, '30%'],
               fontSize: 12,
               color: '#666'
             },
-            detail: { // Prominent value display
+            detail: {
               valueAnimation: true,
               width: '60%',
-              lineHeight: 30, // Adjusted line height
-              borderRadius: 6,  // Adjusted border radius
-              offsetCenter: [0, '60%'], // Move detail to bottom area below pointer reach
-              fontSize: 20, // Larger font size
-              fontWeight: 'bold', // Bolder font
-              formatter: '{value}%',
-              color: 'auto' // Color based on segment
+              lineHeight: 30,
+              borderRadius: 6,
+              offsetCenter: [0, '60%'],
+              fontSize: 20,
+              fontWeight: 'bold',
+              formatter: '{value}',
+              color: 'auto'
             },
             data: [
               {
-                value: 67, // Placeholder value
-                name: 'Status' // Optional name for title
+                value: currentValue,
+                name: 'Breach Level'
               }
             ]
           }
@@ -271,14 +362,28 @@ export default {
       if (percentage >= 60) return '#e6a23c';
       return '#f56c6c';
     },
-    handleRejectKRI() {
+    async handleApproveKRI() {
       if (this.kriData && this.kriData.kri_id) {
-        console.log('Reject KRI button clicked for KRI ID:', this.kriData.kri_id);
-        // In a real application, this would likely dispatch a Vuex action
-        // or call a service to reject the KRI.
-        // It might also involve showing a confirmation modal.
+        try {
+          console.log('Approving KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
+        } catch (error) {
+          console.error('Error approving KRI:', error);
+          this.$message.error('Failed to approve KRI');
+        }
       } else {
-        console.log('Reject KRI button clicked, but KRI data or KRI ID is missing.');
+        this.$message.error('KRI data or KRI ID is missing');
+      }
+    },
+    async handleRejectKRI() {
+      if (this.kriData && this.kriData.kri_id) {
+        try {
+          console.log('Rejecting KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
+        } catch (error) {
+          console.error('Error rejecting KRI:', error);
+          this.$message.error('Failed to reject KRI');
+        }
+      } else {
+        this.$message.error('KRI data or KRI ID is missing');
       }
     }
   }
