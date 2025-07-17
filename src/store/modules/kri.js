@@ -10,6 +10,23 @@ const state = {
   historicalData: [],
   loading: false,
   error: null,
+  // User role and department management
+  currentUser: {
+    id: null,
+    name: '',
+    role: '',
+    department: '',
+    permissions: []
+  },
+  departments: [],
+  roles: [
+    { name: 'Admin', permissions: ['read', 'write', 'approve', 'delete'] },
+    { name: 'KRI Owner', permissions: ['read', 'write', 'approve', 'reject'] },
+    { name: 'KRI Reviewer', permissions: ['read', 'approve', 'reject'] },
+    { name: 'Data Provider', permissions: ['read', 'write'] },
+    { name: 'Data Reviewer', permissions: ['read', 'approve', 'reject'] },
+    { name: 'Viewer', permissions: ['read'] }
+  ],
   filters: {
     kriOwner: '',
     collectionStatus: '',
@@ -66,6 +83,31 @@ const mutations = {
       kriType: '',
       breachType: '',
       dataProvider: ''
+    };
+  },
+  // Role and Department mutations
+  SET_CURRENT_USER(state, user) {
+    state.currentUser = { ...state.currentUser, ...user };
+  },
+  SET_USER_ROLE(state, role) {
+    state.currentUser.role = role;
+    // Set permissions based on role
+    const roleConfig = state.roles.find(r => r.name === role);
+    state.currentUser.permissions = roleConfig ? roleConfig.permissions : [];
+  },
+  SET_USER_DEPARTMENT(state, department) {
+    state.currentUser.department = department;
+  },
+  SET_DEPARTMENTS(state, departments) {
+    state.departments = departments;
+  },
+  LOGOUT_USER(state) {
+    state.currentUser = {
+      id: null,
+      name: '',
+      role: '',
+      department: '',
+      permissions: []
     };
   }
 };
@@ -166,6 +208,7 @@ const actions = {
         id: String(kri.kri_id),
         name: kri.kri_name || '',
         owner: kri.kri_owner || '',
+        dataProvider: kri.data_provider || '',
         collectionStatus: mapStatus(kri.kri_status),
         kriType: kri.ras_metric || 'N/A',
         l1RiskType: kri.l1_risk_type || '',
@@ -176,7 +219,6 @@ const actions = {
         reportingDate: String(kri.reporting_date),
         limitValue: kri.limit_value,
         warningLineValue: kri.warning_line_value,
-        dataProvider: kri.data_provider,
         rawData: kri
       }));
       commit('SET_KRI_ITEMS', mockData);
@@ -285,6 +327,58 @@ const actions = {
 
   resetFilters({ commit }) {
     commit('RESET_FILTERS');
+  },
+
+  // Role and Department actions
+  async fetchDepartments({ commit }) {
+    try {
+      const departments = await kriService.fetchUniqueDepartments();
+      commit('SET_DEPARTMENTS', departments);
+      return departments;
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      commit('SET_ERROR', 'Failed to fetch departments');
+      // Return fallback departments if service fails
+      const fallbackDepartments = [
+        'Enterprise Risk Management(Virtual)'
+      ];
+      commit('SET_DEPARTMENTS', fallbackDepartments);
+      return fallbackDepartments;
+    }
+  },
+
+  async loginUser({ commit }, { username, department, role }) {
+    try {
+      // In a real app, this would make an API call to authenticate
+      const user = {
+        id: Date.now(),
+        name: username,
+        role: role,
+        department: department,
+        permissions: []
+      };
+      
+      commit('SET_CURRENT_USER', user);
+      commit('SET_USER_ROLE', role);
+      commit('SET_USER_DEPARTMENT', department);
+      
+      return { success: true, user };
+    } catch (error) {
+      commit('SET_ERROR', 'Login failed');
+      return { success: false, error: error.message };
+    }
+  },
+
+  logoutUser({ commit }) {
+    commit('LOGOUT_USER');
+  },
+
+  updateUserRole({ commit }, role) {
+    commit('SET_USER_ROLE', role);
+  },
+
+  updateUserDepartment({ commit }, department) {
+    commit('SET_USER_DEPARTMENT', department);
   }
 };
 
@@ -314,6 +408,12 @@ const getters = {
     if (state.filters.kriName) {
       filtered = filtered.filter(item => 
         item.name.toLowerCase().includes(state.filters.kriName.toLowerCase())
+      );
+    }
+    
+    if (state.filters.department) {
+      filtered = filtered.filter(item => 
+        item.department && item.department.toLowerCase().includes(state.filters.department.toLowerCase())
       );
     }
     
@@ -353,6 +453,32 @@ const getters = {
   },
   krisByStatus: (state) => (status) => {
     return state.kriItems.filter(item => item.collectionStatus === status);
+  },
+  
+  // Role and Department getters
+  currentUser: (state) => state.currentUser,
+  userRole: (state) => state.currentUser.role,
+  userDepartment: (state) => state.currentUser.department,
+  userPermissions: (state) => state.currentUser.permissions,
+  isAuthenticated: (state) => !!state.currentUser.id,
+  
+  availableRoles: (state) => state.roles,
+  availableDepartments: (state) => state.departments,
+  
+  hasPermission: (state) => (permission) => {
+    return state.currentUser.permissions.includes(permission);
+  },
+  
+  krisByDepartment: (state) => (department) => {
+    return state.kriItems.filter(item => item.department === department);
+  },
+  
+  departmentCounts: (state) => {
+    const counts = {};
+    state.departments.forEach(dept => {
+      counts[dept] = state.kriItems.filter(item => item.department === dept).length;
+    });
+    return counts;
   }
 };
 
