@@ -5,7 +5,9 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-
+permissions:
+  contents: read
+  issues: write
 jobs:
   verify-deployment:
     runs-on: ubuntu-latest
