@@ -1,9 +1,6 @@
 <template>
   <div class="data-elements">
     <div class="actions-toolbar">
-        <div class="left-title">
-            <h4>Data Elements</h4>
-        </div>
         <div class="right-actions">
             <button class="btn btn-success" id="approveSelectedBtn" @click="approveSelectedRows">Approve Selected</button>
             <button class="btn btn-danger" id="rejectSelectedBtn" @click="rejectSelectedRows">Reject Selected</button>
@@ -156,7 +153,7 @@ export default {
     align-items: center;
     flex-wrap: wrap;
     gap: 16px;
-    margin-bottom: 15pt;
+    margin-bottom: 20px;
 }
 
 .actions-toolbar .right-actions {
@@ -258,7 +255,7 @@ export default {
     background-color: #f8f9fa;
     padding: 16px;
     border-radius: 8px;
-    margin: 15px 0;
+    margin: 24px 0;
     border: 1px solid #e2e8f0;
 }
 .formula-result-section h4 {

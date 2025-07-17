@@ -88,22 +88,5 @@ export const kriService = {
       throw new Error('Failed to fetch audit trail');
     }
     return data;
-  },
-
-  // Login method - fetch unique departments from owner column
-  async fetchUniqueDepartments() {
-    const { data, error } = await supabase
-      .from('kri_item')
-      .select('kri_owner')
-      .not('kri_owner', 'is', null);
-    
-    if (error) {
-      console.error('Error fetching departments:', error);
-      throw new Error('Failed to fetch departments');
-    }
-    
-    // Extract unique departments
-    const uniqueDepartments = [...new Set(data.map(item => item.kri_owner))];
-    return uniqueDepartments.sort();
   }
 };

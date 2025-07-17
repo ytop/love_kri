@@ -56,9 +56,9 @@
           
           <!-- Data Elements -->
           <el-card class="info-card" v-if="atomicData && atomicData.length > 0">
-            <!-- <div slot="header" class="card-header">
-              <span>Data Elements</span> -->
-            <!-- </div> -->
+            <div slot="header" class="card-header">
+              <span>Data Elements</span>
+            </div>
             <k-r-i-data-elements 
               :atomic-data="atomicData"
               :kri-detail="kriDetail"
@@ -295,6 +295,12 @@ export default {
   }
 }
 
+.simple-actions-card .el-card__header { /* Target header of the simple actions card if more specific styling is needed */
+  /* For example, if the header padding needs adjustment: */
+  /* padding: 10px 20px; */
+  /* Or if the title needs a different style: */
+  /* font-size: 1rem; */
+}
 
 .simple-actions-card .simple-actions-content {
   display: flex;
@@ -303,6 +309,12 @@ export default {
   align-items: center; /* Align items vertically */
   justify-content: flex-start; /* Align buttons to the start of the container */
   padding: 10px 0; /* Add some padding within the content area of the card */
+}
+
+.simple-actions-card .el-button {
+  /* Ensure buttons have a consistent look if not already covered by global El-UI styles */
+  /* For example, if you want to enforce a certain margin or size: */
+  /* margin-right: 10px; */ /* gap property on parent is better */
 }
 
 /* If the card itself needs specific margin when it appears: */
