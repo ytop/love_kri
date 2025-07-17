@@ -40,24 +40,59 @@ jobs:
       - name: Check build size and validate structure
         run: |
           echo "Starting build process..."
+          
+          # Clean any previous build artifacts
+          rm -rf dist
+          
+          # Run the build
           npm run build
           echo "Build completed successfully"
           
+          # Wait a moment for file system to stabilize
+          sleep 2
+          
+          # List what was actually created
+          echo "Contents of dist directory:"
+          ls -la dist/ || echo "dist directory does not exist"
+          
           # Check if dist directory exists and has content
           if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
-            echo "Build failed - dist directory is missing or empty"
+            echo "❌ Build failed - dist directory is missing or empty"
             exit 1
           fi
-          # Check if main files exist
+          
+          # Check if main files exist with detailed output
+          echo "Checking for required files..."
+          
           if [ ! -f "dist/index.html" ]; then
-            echo "Build validation failed - index.html not found"
+            echo "❌ Build validation failed - index.html not found"
+            echo "Files in dist:"
+            find dist -name "*.html" -type f || echo "No HTML files found"
             exit 1
+          else
+            echo "✅ index.html found"
           fi
+          
           if [ ! -f "dist/bundle.js" ]; then
-            echo "Build validation failed - bundle.js not found"
+            echo "❌ Build validation failed - bundle.js not found"
+            echo "JavaScript files in dist:"
+            find dist -name "*.js" -type f || echo "No JS files found"
             exit 1
+          else
+            echo "✅ bundle.js found"
           fi
-          echo "Build validation passed"
+          
+          # Check file sizes
+          INDEX_SIZE=$(stat -c%s "dist/index.html" 2>/dev/null || stat -f%z "dist/index.html" 2>/dev/null || echo "0")
+          BUNDLE_SIZE=$(stat -c%s "dist/bundle.js" 2>/dev/null || stat -f%z "dist/bundle.js" 2>/dev/null || echo "0")
+          
+          echo "File sizes: index.html: ${INDEX_SIZE} bytes, bundle.js: ${BUNDLE_SIZE} bytes"
+          
+          if [ "$INDEX_SIZE" -lt 100 ] || [ "$BUNDLE_SIZE" -lt 1000 ]; then
+            echo "⚠️ Warning: Generated files seem unusually small"
+          fi
+          
+          echo "✅ Build validation passed"
 
       - name: Run development server (startup check)
         run: |
