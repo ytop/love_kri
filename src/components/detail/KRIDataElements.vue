@@ -36,9 +36,9 @@
                         {{ mapAtomicStatus(item.atomic_status) }}
                     </el-tag>
                 </td>
-                <td>{{ item.provider_name || 'N/A' }}</td> <!-- Placeholder for provider, defaults to N/A -->
-                <td><span class="icon upload-icon">[ICON_UPLOAD]</span></td> <!-- Placeholder for icon -->
-                <td><span class="icon comment-icon">[ICON_COMMENT]</span></td> <!-- Placeholder for icon -->
+                <td>{{ getProviderName(item) }}</td>
+                <td>{{ getEvidenceInfo(item) }}</td>
+                <td>{{ getCommentInfo(item) }}</td>
             </tr>
         </tbody>
     </table>
@@ -62,6 +62,14 @@ export default {
     atomicData: {
       type: Array,
       required: true
+    },
+    kriDetail: {
+      type: Object,
+      required: true
+    },
+    evidenceData: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
@@ -103,6 +111,22 @@ export default {
       }
       console.log('Rejecting selected items:', this.selectedItems);
       // Similar to approve, this would involve backend interaction.
+    },
+
+    getProviderName(_item) {
+      // Provider information comes from the main KRI detail
+      return this.kriDetail.data_provider || 'Not specified';
+    },
+
+    getEvidenceInfo(_item) {
+      // Evidence count from service data
+      const evidenceCount = this.evidenceData.length;
+      return evidenceCount > 0 ? `${evidenceCount} file(s)` : 'No evidence';
+    },
+
+    getCommentInfo(item) {
+      // Comments from atomic metadata or audit trail
+      return item.comment || item.atomic_metadata || 'No comment';
     }
   },
   watch: {

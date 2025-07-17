@@ -30,10 +30,12 @@
       </el-col>
       <el-col :span="12">
         <div class="info-item">
-          <label>Breach Type</label>
-          <el-tag :type="getBreachTagType(kriData.breach_type || 'No Breach')" size="small" class="status-tag">
-            {{ kriData.breach_type || 'No Breach' }}
-          </el-tag>
+          <label>Breach Status</label>
+          <el-tooltip :content="getBreachDescription(kriData.breach_type || 'No Breach')" placement="top">
+            <el-tag :type="getBreachTagType(kriData.breach_type || 'No Breach')" size="small" class="status-tag">
+              {{ getBreachDisplayText(kriData.breach_type || 'No Breach') }}
+            </el-tag>
+          </el-tooltip>
         </div>
       </el-col>
     </el-row>
@@ -41,6 +43,8 @@
 </template>
 
 <script>
+import { getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/helpers';
+
 export default {
   name: 'KRIOverview',
   props: {
@@ -50,18 +54,9 @@ export default {
     }
   },
   methods: {
-    getBreachTagType(breachType) {
-      switch (breachType) {
-      case 'No Breach':
-        return 'success';
-      case 'Warning':
-        return 'warning';
-      case 'Limit':
-        return 'danger';
-      default:
-        return '';
-      }
-    }
+    getBreachTagType,
+    getBreachDisplayText,
+    getBreachDescription
   }
 };
 </script>

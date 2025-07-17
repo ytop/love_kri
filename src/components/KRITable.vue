@@ -94,12 +94,15 @@
         sortable
       >
         <template slot-scope="scope">
-          <el-tag
-            :type="getBreachTagType(scope.row.breachType)"
-            size="small"
-          >
-            {{ scope.row.breachType }}
-          </el-tag>
+          <el-tooltip :content="getBreachDescription(scope.row.breachType)" placement="top">
+            <el-tag
+              :type="getBreachTagType(scope.row.breachType)"
+              size="small"
+              class="status-tag"
+            >
+              {{ getBreachDisplayText(scope.row.breachType) }}
+            </el-tag>
+          </el-tooltip>
         </template>
       </el-table-column>
       
@@ -148,8 +151,7 @@
 </template>
 
 <script>
-import { formatDateFromInt } from '@/utils/helpers';
-import { getStatusTagTypeFromLabel } from '@/utils/helpers';
+import { formatDateFromInt, getStatusTagTypeFromLabel, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/helpers';
 
 export default {
   name: 'KRITable',
@@ -191,18 +193,9 @@ export default {
       return getStatusTagTypeFromLabel(status);
     },
     
-    getBreachTagType(breachType) {
-      switch (breachType) {
-      case 'No Breach':
-        return 'success';
-      case 'Warning':
-        return 'warning';
-      case 'Limit':
-        return 'danger';
-      default:
-        return '';
-      }
-    },
+    getBreachTagType,
+    getBreachDisplayText,
+    getBreachDescription,
     
     formatReportingDate(dateInt) {
       return formatDateFromInt(dateInt);

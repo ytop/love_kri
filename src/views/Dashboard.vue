@@ -301,6 +301,17 @@ export default {
 }
 
 .header-actions >>> .el-badge__content {
+  /* ensure the badge is on top of the button */
   z-index: 10;
+  /* ensure the text is centered */
+  padding: 0 6px;
+  height: 18px;
+  min-width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 12px;
+  box-sizing: border-box;
 }
 </style>

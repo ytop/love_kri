@@ -68,3 +68,45 @@ export const formatDateFromInt = (dateInt) => {
   const day = dateString.substring(6, 8);
   return `${year}-${month}-${day}`;
 };
+
+// Breach Status Configuration
+const BREACH_STATUS_CONFIG = {
+  'No Breach': {
+    label: 'No Breach',
+    tagType: 'success',
+    description: 'KRI value is within acceptable limits'
+  },
+  'Warning': {
+    label: 'Warning Level',
+    tagType: 'warning',
+    description: 'KRI value has exceeded the warning threshold'
+  },
+  'Limit': {
+    label: 'Limit Breach',
+    tagType: 'danger',
+    description: 'KRI value has exceeded the limit threshold'
+  },
+  'Critical': {
+    label: 'Critical Breach',
+    tagType: 'danger',
+    description: 'KRI value has significantly exceeded limits'
+  }
+};
+
+// Get breach status display text
+export const getBreachDisplayText = (breachType) => {
+  const config = BREACH_STATUS_CONFIG[breachType] || BREACH_STATUS_CONFIG['No Breach'];
+  return config.label;
+};
+
+// Get breach status tag type for Element UI
+export const getBreachTagType = (breachType) => {
+  const config = BREACH_STATUS_CONFIG[breachType] || BREACH_STATUS_CONFIG['No Breach'];
+  return config.tagType;
+};
+
+// Get breach status description
+export const getBreachDescription = (breachType) => {
+  const config = BREACH_STATUS_CONFIG[breachType] || BREACH_STATUS_CONFIG['No Breach'];
+  return config.description;
+};

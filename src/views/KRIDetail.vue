@@ -59,7 +59,11 @@
             <div slot="header" class="card-header">
               <span>Data Elements</span>
             </div>
-            <k-r-i-data-elements :atomic-data="atomicData" />
+            <k-r-i-data-elements 
+              :atomic-data="atomicData"
+              :kri-detail="kriDetail"
+              :evidence-data="evidenceData"
+            />
           </el-card>
           
           <!-- Simple Actions Card (if no data elements) -->
@@ -86,15 +90,15 @@
           </el-card>
 
           <!-- Evidence and Audit -->
-          <el-card class="info-card">
-            <div slot="header" class="card-header">
-              <span>Evidence & Audit Trail</span>
-            </div>
+          <!-- <el-card class="info-card"> -->
+            <!-- <div slot="header" class="card-header">
+              <span>Evidence & Audit Trail</span> # kind of redundant
+            </div> -->
             <k-r-i-evidence-audit 
               :evidence-data="evidenceData"
               :audit-data="auditTrailData"
             />
-          </el-card>
+          <!-- </el-card> -->
         </div>
         
         <!-- Sidebar -->
