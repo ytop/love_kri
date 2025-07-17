@@ -5,15 +5,27 @@
       <el-form :model="filters" :inline="true" class="filter-form compact-form">
         <div class="filters-container">
           <div class="filters-left">
-            <el-form-item label="KRI Owner" class="compact-item">
-              <el-input
-                v-model="localFilters.kriOwner"
-                placeholder="Owner name"
+            <el-form-item label="Department" class="compact-item">
+              <el-select
+                v-model="localFilters.department"
+                placeholder="Select Department"
                 clearable
-                @input="onFilterChange"
+                @change="onFilterChange"
                 size="small"
-                style="width: 150px;"
-              />
+                style="width: 200px;"
+              >
+                <el-option
+                  key="all"
+                  label="All Departments"
+                  value="">
+                </el-option>
+                <el-option
+                  v-for="department in availableDepartments"
+                  :key="department"
+                  :label="department"
+                  :value="department">
+                </el-option>
+              </el-select>
             </el-form-item>
             
             <el-form-item label="Collection Status" class="compact-item">
@@ -152,6 +164,15 @@
                 @input="onFilterChange"
               />
             </el-form-item>
+            
+            <el-form-item label="KRI Owner">
+              <el-input
+                v-model="localFilters.kriOwner"
+                placeholder="Enter owner name"
+                clearable
+                @input="onFilterChange"
+              />
+            </el-form-item>
           </el-form>
         </div>
       </div>
@@ -170,6 +191,10 @@ export default {
     showAdvanced: {
       type: Boolean,
       default: false
+    },
+    availableDepartments: {
+      type: Array,
+      default: () => []
     }
   },
   data() {

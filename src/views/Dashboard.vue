@@ -3,18 +3,20 @@
     <!-- Header -->
     <div class="dashboard-header">
       <div class="header-content">
-        <div class="header-info">
-          <h1>KRI Dashboard</h1>
-          <p>Monitor and manage key risk indicators</p>
-        </div>
-        <div class="header-stats">
+                  <div class="header-info">
+            <h1>KRI Dashboard</h1>
+            <p>Monitor and manage key risk indicators</p>
+          </div>
+          <div class="header-stats">
           <el-tag type="info">{{ filteredKRIItems.length }} KRIs</el-tag>
         </div>
         <div class="header-actions">
           <el-badge :value="inputWorkflowKRIsCount" class="item" type="danger" :hidden="inputWorkflowKRIsCount === 0">
+            <!-- pending for input -->
             <el-button size="medium" @click="navigateToStatusPage('Pending')">Pending for input</el-button>
           </el-badge>
           <el-badge :value="approvalWorkflowKRIsCount" class="item" type="danger" :hidden="approvalWorkflowKRIsCount === 0">
+            <!-- pending for approval -->
             <el-button size="medium" @click="navigateToStatusPage('Submitted')">Pending for approval</el-button>
           </el-badge>
         </div>
@@ -27,6 +29,7 @@
         <k-r-i-filters
           :filters="filters"
           :show-advanced="showAdvancedFilters"
+          :available-departments="availableDepartments"
           @filter-change="handleFilterChange"
           @reset-filters="handleResetFilters"
           @toggle-advanced="handleToggleAdvancedFilters"
@@ -88,7 +91,7 @@
 
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
-import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, mapStatus as getStatusLabel } from '@/utils/helpers';
 import KRIFilters from '../components/KRIFilters.vue'; // Changed from SimpleFilters
 import KRITable from '../components/KRITable.vue';
 import KRIChartView from '../components/KRIChartView.vue';
@@ -109,7 +112,12 @@ export default {
   },
   computed: {
     ...mapState('kri', ['loading', 'error']),
-    ...mapGetters('kri', ['filteredKRIItems', 'inputWorkflowKRIsCount', 'approvalWorkflowKRIsCount']),
+    ...mapGetters('kri', [
+      'filteredKRIItems', 
+      'inputWorkflowKRIsCount', 
+      'approvalWorkflowKRIsCount',
+      'availableDepartments'
+    ]),
     filters() {
       return this.$store.state.kri.filters;
     }
@@ -119,15 +127,28 @@ export default {
     const defaultDate = getLastDayOfPreviousMonth();
     this.updateFilters({ reportingDate: defaultDate });
     
-    // Fetch initial data
+    // Fetch initial data and departments
     try {
-      await this.fetchKRIItems(defaultDate);
+      await Promise.all([
+        this.fetchKRIItems(defaultDate),
+        this.fetchDepartments()
+      ]);
     } catch (error) {
-      console.error('Error loading KRI data:', error);
+      console.error('Error loading data:', error);
     }
   },
   methods: {
-    ...mapActions('kri', ['fetchKRIItems', 'updateFilters', 'resetFilters']),
+    ...mapActions('kri', [
+      'fetchKRIItems', 
+      'updateFilters', 
+      'resetFilters',
+      'fetchDepartments'
+    ]),
+    
+    // Helper method to access status mapping in template
+    mapStatus(status) {
+      return getStatusLabel(status);
+    },
     
     handleFilterChange(changedFilter) {
       this.updateFilters(changedFilter);
@@ -232,6 +253,8 @@ export default {
   color: #64748b;
   margin: 0.25rem 0 0 0;
 }
+
+
 
 .dashboard-content {
   max-width: 1400px;
