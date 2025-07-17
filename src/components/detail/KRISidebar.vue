@@ -365,6 +365,7 @@ export default {
     async handleApproveKRI() {
       if (this.kriData && this.kriData.kri_id) {
         try {
+          // TODO: Implement KRI approval logic
           console.log('Approving KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
         } catch (error) {
           console.error('Error approving KRI:', error);
@@ -377,6 +378,7 @@ export default {
     async handleRejectKRI() {
       if (this.kriData && this.kriData.kri_id) {
         try {
+          // TODO: Implement KRI rejection logic
           console.log('Rejecting KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
         } catch (error) {
           console.error('Error rejecting KRI:', error);
