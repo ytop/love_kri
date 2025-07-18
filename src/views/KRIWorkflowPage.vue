@@ -1,12 +1,12 @@
 <template>
-  <div class="kri-pending-approval">
+  <div class="kri-workflow-page">
     <!-- Header -->
     <div class="page-header">
       <div class="header-content">
         <el-button icon="el-icon-arrow-left" @click="goBack" class="back-button">Back to Dashboard</el-button>
         <div class="header-info">
-          <h1>KRIs Pending Approval</h1>
-          <p>{{ kriItemsForApproval.length }} KRIs requiring approval</p>
+          <h1>{{ pageTitle }}</h1>
+          <p>{{ workflowItems.length }} {{ workflowDescription }}</p>
         </div>
       </div>
     </div>
@@ -17,7 +17,6 @@
         <k-r-i-filters
           :filters="filters"
           :show-advanced="showAdvancedFilters"
-          :available-departments="availableDepartments"
           @filter-change="handleFilterChange"
           @reset-filters="handleResetFilters"
           @toggle-advanced="handleToggleAdvancedFilters"
@@ -33,18 +32,24 @@
             <el-button size="small" icon="el-icon-download">Export List</el-button>
           </div>
           <div class="status-info">
-            <el-tag type="info" size="small" class="status-tag">{{ pendingDataProviderApprovalCount }} Pending DP Approval</el-tag>
-            <el-tag type="primary" size="small" class="status-tag">{{ readyForSubmissionCount }} Ready for Submission</el-tag>
-            <el-tag type="info" size="small" class="status-tag">{{ submittedCount }} Submitted</el-tag>
+            <el-tag 
+              v-for="status in statusTags" 
+              :key="status.label"
+              :type="status.type" 
+              size="small" 
+              class="status-tag"
+            >
+              {{ status.count }} {{ status.label }}
+            </el-tag>
           </div>
         </div>
       </el-card>
 
-      <!-- KRI Approval Table -->
+      <!-- KRI Table -->
       <el-card class="table-card">
         <div slot="header" class="table-header">
-          <span>KRIs Requiring Approval</span>
-          <el-tooltip content="Click any KRI to review and approve/reject" placement="top">
+          <span>{{ tableTitle }}</span>
+          <el-tooltip :content="tableTooltip" placement="top">
             <i class="el-icon-info table-info-icon"></i>
           </el-tooltip>
         </div>
@@ -57,12 +62,12 @@
           </el-alert>
         </div>
         <k-r-i-table-collect-data
-          :data="kriItemsForApproval"
+          :data="workflowItems"
           :loading="loading"
           @row-click="handleKRIClick"
         />
-        <div v-if="!loading && kriItemsForApproval.length === 0 && !error" class="no-data-message">
-          <el-empty description="No KRIs pending approval at this time">
+        <div v-if="!loading && workflowItems.length === 0 && !error" class="no-data-message">
+          <el-empty :description="emptyMessage">
             <el-button type="primary" @click="goBack">Go to Dashboard</el-button>
           </el-empty>
         </div>
@@ -75,10 +80,10 @@
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
 import KRIFilters from '../components/KRIFilters.vue';
-import { getLastDayOfPreviousMonth, STATUS_VALUES } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth } from '@/utils/helpers';
 
 export default {
-  name: 'KRIPendingApproval',
+  name: 'KRIWorkflowPage',
   components: {
     KRITableCollectData,
     KRIFilters
@@ -89,43 +94,93 @@ export default {
     };
   },
   computed: {
-    ...mapState('kri', ['loading', 'error', 'filters']),
-    ...mapGetters('kri', ['roleBasedFilteredKRIItems', 'availableDepartments', 'currentUser']),
+    ...mapState('kri', ['loading', 'error', 'filters', 'currentUser']),
+    ...mapGetters('kri', ['filteredKRIItems']),
     
-    kriItemsForApproval() {
-      const userRole = this.currentUser.role;
-      // Get filtered KRIs that need approval: Saved + Submitted to Data Provider Approver + Submitted to KRI Owner Approver
-      const baseItems = this.roleBasedFilteredKRIItems.filter(item => 
-        item.collectionStatus === 'Saved' || 
-        item.collectionStatus === 'Submitted to Data Provider Approver' || 
-        item.collectionStatus === 'Submitted to KRI Owner Approver'
-      );
+    pageTitle() {
+      return 'Pending KRIs';
+    },
+    
+    workflowDescription() {
+      return 'KRIs requiring your action';
+    },
+    
+    tableTitle() {
+      return 'KRIs Requiring Action';
+    },
+    
+    tableTooltip() {
+      return 'Click any KRI to take action or view details';
+    },
+    
+    emptyMessage() {
+      return 'No KRIs pending your action at this time';
+    },
+    
+    workflowItems() {
+      const userPermissions = this.currentUser.permissions;
       
-      // Additional role-based filtering for approval workflow
-      switch(userRole) {
-        case 'Data Approver':
-          return baseItems.filter(item => 
-            item.collectionStatus === 'Submitted to Data Provider Approver'
-          );
-        case 'KRI Approver':
-          return baseItems.filter(item => 
-            item.collectionStatus === 'Submitted to KRI Owner Approver'
-          );
-        default:
-          return baseItems;
+      if (!userPermissions) {
+        return [];
       }
+      
+      return this.filteredKRIItems.filter(item => {
+        const key = `${item.id}_${item.reportingDate}`;
+        
+        // Check if user has any permission for this KRI
+        const hasEditPermission = userPermissions[key]?.includes('edit') || false;
+        const hasReviewPermission = userPermissions[key]?.includes('review') || false;
+        const hasAcknowledgePermission = userPermissions[key]?.includes('acknowledge') || false;
+        
+        // Show KRIs that the user can act on based on status and permissions
+        if (hasEditPermission && (
+          item.collectionStatus === 'Pending Input' || 
+          item.collectionStatus === 'Under Rework' ||
+          item.collectionStatus === 'Saved'
+        )) {
+          return true;
+        }
+        
+        if (hasReviewPermission && item.collectionStatus === 'Submitted to Data Provider Approver') {
+          return true;
+        }
+        
+        if (hasAcknowledgePermission && item.collectionStatus === 'Submitted to KRI Owner Approver') {
+          return true;
+        }
+        
+        return false;
+      });
     },
     
-    pendingDataProviderApprovalCount() {
-      return this.kriItemsForApproval.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length;
-    },
-    
-    readyForSubmissionCount() {
-      return this.kriItemsForApproval.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length;
-    },
-    
-    submittedCount() {
-      return this.kriItemsForApproval.filter(item => item.collectionStatus === 'Saved').length;
+    statusTags() {
+      return [
+        {
+          label: 'Pending Input',
+          type: 'warning',
+          count: this.workflowItems.filter(item => item.collectionStatus === 'Pending Input').length
+        },
+        {
+          label: 'Under Rework',
+          type: 'warning',
+          count: this.workflowItems.filter(item => item.collectionStatus === 'Under Rework').length
+        },
+        {
+          label: 'Saved',
+          type: 'info',
+          count: this.workflowItems.filter(item => item.collectionStatus === 'Saved').length
+        },
+        {
+          label: 'Pending DP Approval',
+          type: 'info',
+          count: this.workflowItems.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length
+        },
+        {
+          label: 'Pending KRI Owner Approval',
+          type: 'primary',
+          count: this.workflowItems.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length
+        }
+      ].filter(tag => tag.count > 0);
     },
     
     reportingDate() {
@@ -145,11 +200,9 @@ export default {
           if (this.$store.state.kri.filters.reportingDate !== this.reportingDate) {
             this.updateFilters({ reportingDate: this.reportingDate });
           }
-          await Promise.all([
-            this.fetchKRIItems(this.reportingDate),
-          ]);
+          await this.fetchKRIItems(this.reportingDate);
         } catch (error) {
-          console.error('Error loading KRI data for approval:', error);
+          console.error('Error loading KRI data for pending workflow:', error);
         }
       }
     },
@@ -193,7 +246,7 @@ export default {
 </script>
 
 <style scoped>
-.kri-pending-approval {
+.kri-workflow-page {
   min-height: 100vh;
   background-color: #f1f5f9;
 }
@@ -272,6 +325,10 @@ export default {
   flex-wrap: wrap;
 }
 
+.status-tag {
+  margin-right: 0.5rem;
+}
+
 .table-card {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
@@ -283,6 +340,9 @@ export default {
 .table-header {
   font-weight: 600;
   color: #374151;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .error-message, .no-data-message {
@@ -294,4 +354,4 @@ export default {
   color: #9ca3af;
   margin-left: 0.5rem;
 }
-</style> 
+</style>

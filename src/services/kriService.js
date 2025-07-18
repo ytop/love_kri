@@ -90,36 +90,44 @@ export const kriService = {
     return data;
   },
 
-  // Login method - fetch unique departments from owner column
-  async fetchUniqueDepartments() {
-    const { data, error } = await supabase
-      .from('kri_item')
-      .select('kri_owner')
-      .not('kri_owner', 'is', null);
-    
-    if (error) {
-      console.error('Error fetching departments:', error);
-      throw new Error('Failed to fetch departments');
-    }
-    
-    // Extract unique departments
-    const uniqueDepartments = [...new Set(data.map(item => item.kri_owner))];
-    return uniqueDepartments.sort();
-  },
 
   // Authentication and user management
-  async authenticateUser(username, department, role) {
+  async authenticateUser(username) {
     try {
-      // In a real application, this would validate credentials against a user database
-      // For now, we'll create a mock authentication
+      // Get user from kri_user table
+      const { data: userData, error: userError } = await supabase
+        .from('kri_user')
+        .select('UUID, User_ID, User_Name, Department')
+        .eq('User_ID', username.trim())
+        .single();
+
+      if (userError) {
+        console.error('User not found:', userError);
+        return { success: false, error: 'User not found' };
+      }
+
+      // Get user permissions from kri_user_permission table
+      const { data: permissionData, error: permissionError } = await supabase
+        .from('kri_user_permission')
+        .select('kri_id, reporting_date, actions, effect, condition')
+        .eq('user_uuid', userData.UUID)
+        .eq('effect', true);
+
+      if (permissionError) {
+        console.error('Error fetching permissions:', permissionError);
+        // Continue with empty permissions if permission fetch fails
+      }
+
+      // Process permissions into a usable format
+      const permissions = this.processUserPermissions(permissionData || []);
+
       const user = {
-        id: Date.now(),
-        username: username.trim(),
-        name: username.trim(),
-        department: department.trim(),
-        role: role.trim(),
+        uuid: userData.UUID,
+        name: userData.User_Name || userData.User_ID,
+        department: userData.Department,
+        userId: userData.User_ID,
         loginTime: new Date().toISOString(),
-        permissions: this.getRolePermissions(role)
+        permissions: permissions
       };
       
       return { success: true, user };
@@ -129,151 +137,46 @@ export const kriService = {
     }
   },
 
-  // Get role permissions
-  getRolePermissions(roleName) {
-    const rolePermissions = {
-      'Admin': ['read', 'write', 'approve', 'delete'],
-      'KRI Owner': ['read', 'write', 'approve', 'reject'],
-      'KRI Reviewer': ['read', 'approve', 'reject'],
-      'Data Provider': ['read', 'write'],
-      'Data Reviewer': ['read', 'approve', 'reject'],
-      'Viewer': ['read']
-    };
-    
-    return rolePermissions[roleName] || [];
+  // Process user permissions from database into KRI-specific format
+  processUserPermissions(permissionData) {
+    const permissions = {};
+
+    permissionData.forEach(permission => {
+      const actions = permission.actions.split(',').map(action => action.trim());
+      const key = `${permission.kri_id}_${permission.reporting_date}`;
+      
+      if (!permissions[key]) {
+        permissions[key] = [];
+      }
+      permissions[key].push(...actions);
+    });
+
+    // Remove duplicates for each KRI
+    Object.keys(permissions).forEach(key => {
+      permissions[key] = [...new Set(permissions[key])];
+    });
+
+    return permissions;
   },
 
+  // Check if user has specific permission for a KRI
+  hasPermission(userPermissions, action, kriId, reportingDate) {
+    const key = `${kriId}_${reportingDate}`;
+    return userPermissions[key]?.includes(action) || false;
+  },
+
+
   // Session management
-  async validateSession(sessionToken) {
+  async validateSession(_sessionToken) {
     // In a real application, this would validate the session token
     // For now, we'll return a mock validation
     return { valid: true, user: null };
   },
 
   // Logout
-  async logout(sessionToken) {
+  async logout(_sessionToken) {
     // In a real application, this would invalidate the session
     return { success: true };
   },
 
-  // KRI Status Update Methods
-  async updateKRIStatus(kriId, reportingDate, newStatus, reason = null, changedBy = null) {
-    try {
-      const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-      
-      // In a real application, this would update the database
-      // For now, we'll return a mock successful response
-      const updateData = {
-        kri_id: parseInt(kriId),
-        reporting_date: reportingDateAsInt,
-        new_status: newStatus,
-        reason: reason,
-        changed_by: changedBy || 'System',
-        changed_at: new Date().toISOString()
-      };
-      
-      console.log('Updating KRI status:', updateData);
-      
-      return { success: true, data: updateData };
-    } catch (error) {
-      console.error('Error updating KRI status:', error);
-      return { success: false, error: 'Failed to update KRI status' };
-    }
-  },
-
-  async updateKRIValue(kriId, reportingDate, value, changedBy = null) {
-    try {
-      const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-      
-      // In a real application, this would update the database
-      // For now, we'll return a mock successful response
-      const updateData = {
-        kri_id: parseInt(kriId),
-        reporting_date: reportingDateAsInt,
-        kri_value: value,
-        changed_by: changedBy || 'System',
-        changed_at: new Date().toISOString()
-      };
-      
-      console.log('Updating KRI value:', updateData);
-      
-      return { success: true, data: updateData };
-    } catch (error) {
-      console.error('Error updating KRI value:', error);
-      return { success: false, error: 'Failed to update KRI value' };
-    }
-  },
-
-  async addAuditTrailEntry(kriId, reportingDate, action, oldValue, newValue, reason = null, changedBy = null) {
-    try {
-      const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-      
-      // In a real application, this would insert into the audit trail table
-      const auditEntry = {
-        kri_id: parseInt(kriId),
-        reporting_date: reportingDateAsInt,
-        action: action,
-        field_name: 'kri_status',
-        old_value: oldValue,
-        new_value: newValue,
-        reason: reason,
-        changed_by: changedBy || 'System',
-        changed_at: new Date().toISOString()
-      };
-      
-      console.log('Adding audit trail entry:', auditEntry);
-      
-      return { success: true, data: auditEntry };
-    } catch (error) {
-      console.error('Error adding audit trail entry:', error);
-      return { success: false, error: 'Failed to add audit trail entry' };
-    }
-  },
-
-  // Save KRI value (to status 30)
-  async saveKRIValue(kriId, reportingDate, value, changedBy = null) {
-    try {
-      const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-      
-      // In a real application, this would update the database
-      const updateData = {
-        kri_id: parseInt(kriId),
-        reporting_date: reportingDateAsInt,
-        kri_value: value,
-        new_status: 30, // Saved
-        changed_by: changedBy || 'System',
-        changed_at: new Date().toISOString()
-      };
-      
-      console.log('Saving KRI value:', updateData);
-      
-      return { success: true, data: updateData };
-    } catch (error) {
-      console.error('Error saving KRI value:', error);
-      return { success: false, error: 'Failed to save KRI value' };
-    }
-  },
-
-  // Submit KRI (from status 30 to final status)
-  async submitKRI(kriId, reportingDate, finalStatus, changedBy = null) {
-    try {
-      const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-      
-      // In a real application, this would update the database
-      const updateData = {
-        kri_id: parseInt(kriId),
-        reporting_date: reportingDateAsInt,
-        new_status: finalStatus,
-        changed_by: changedBy || 'System',
-        changed_at: new Date().toISOString()
-      };
-      
-      console.log('Submitting KRI:', updateData);
-      
-      return { success: true, data: updateData };
-    } catch (error) {
-      console.error('Error submitting KRI:', error);
-      return { success: false, error: 'Failed to submit KRI' };
-    }
-  }
 };

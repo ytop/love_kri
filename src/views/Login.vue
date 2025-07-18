@@ -32,42 +32,6 @@
           />
         </el-form-item>
         
-        <el-form-item prop="department">
-          <el-select
-            v-model="loginForm.department"
-            placeholder="Select your department"
-            size="large"
-            style="width: 100%"
-            :loading="loadingDepartments"
-          >
-            <el-option
-              v-for="dept in departments"
-              :key="dept"
-              :label="dept"
-              :value="dept"
-            />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item prop="role">
-          <el-select
-            v-model="loginForm.role"
-            placeholder="Select your role"
-            size="large"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="role in availableRoles"
-              :key="role.name"
-              :label="role.name"
-              :value="role.name"
-            >
-              <span>{{ role.name }}</span>
-              <span class="role-permissions">{{ role.permissions.join(', ') }}</span>
-            </el-option>
-          </el-select>
-        </el-form-item>
-        
         <el-form-item>
           <el-button
             type="primary"
@@ -89,7 +53,7 @@
 </template>
 
 <script>
-import { mapActions, mapGetters } from 'vuex';
+import { mapActions } from 'vuex';
 import { validateLoginForm } from '@/utils/helpers';
 
 export default {
@@ -97,49 +61,20 @@ export default {
   data() {
     return {
       loginForm: {
-        username: '',
-        department: '',
-        role: ''
+        username: ''
       },
       loginRules: {
         username: [
           { required: true, message: 'Username is required', trigger: 'blur' },
           { min: 2, max: 50, message: 'Username must be between 2 and 50 characters', trigger: 'blur' }
         ],
-        department: [
-          { required: true, message: 'Department is required', trigger: 'change' }
-        ],
-        role: [
-          { required: true, message: 'Role is required', trigger: 'change' }
-        ]
       },
-      loading: false,
-      loadingDepartments: false
+      loading: false
     };
   },
-  computed: {
-    ...mapGetters('kri', ['availableRoles', 'availableDepartments']),
-    departments() {
-      return this.availableDepartments;
-    }
-  },
-  async created() {
-    await this.loadDepartments();
-  },
   methods: {
-    ...mapActions('kri', ['loginUser', 'fetchDepartments']),
-    
-    async loadDepartments() {
-      this.loadingDepartments = true;
-      try {
-        await this.fetchDepartments();
-      } catch (error) {
-        this.$message.error('Failed to load departments');
-      } finally {
-        this.loadingDepartments = false;
-      }
-    },
-    
+    ...mapActions('kri', ['loginUser']),
+
     async handleLogin() {
       const valid = await this.$refs.loginForm.validate().catch(() => false);
       if (!valid) return;

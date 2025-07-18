@@ -74,18 +74,18 @@ export const KRIAuditTrailSchema = {
 export const KRIStatus = {
   PENDING_INPUT: 10,
   ADJUSTING: 20,
-  PENDING_DATA_PROVIDER_APPROVAL: 30,
-  READY_FOR_SUBMISSION: 40,
-  SUBMITTED: 50,
+  SAVED: 30,
+  SUBMITTED_TO_KRI_OWNER_APPROVER: 40,
+  SUBMITTED_TO_DATA_PROVIDER_APPROVER: 50,
   FINALIZED: 60
 };
 
 export const AtomicStatus = {
   PENDING_INPUT: 10,
   ADJUSTING: 20,
-  PENDING_DATA_PROVIDER_APPROVAL: 30,
-  READY_FOR_SUBMISSION: 40,
-  SUBMITTED: 50,
+  SAVED: 30,
+  SUBMITTED_TO_DATA_PROVIDER_APPROVER: 40,
+  SUBMITTED_TO_KRI_OWNER_APPROVER: 50,
   FINALIZED: 60
 };
 
@@ -97,12 +97,12 @@ export const mapKriStatus = (status) => {
     return 'Pending Input';
   case KRIStatus.ADJUSTING:
     return 'Adjusting';
-  case KRIStatus.PENDING_DATA_PROVIDER_APPROVAL:
-    return 'Pending Data Provider Approval';
-  case KRIStatus.READY_FOR_SUBMISSION:
-    return 'Ready for submission';
-  case KRIStatus.SUBMITTED:
-    return 'Submitted';
+  case KRIStatus.SAVED:
+    return 'Saved';
+  case KRIStatus.SUBMITTED_TO_DATA_PROVIDER_APPROVER:
+    return 'Submitted to Data Provider Approver';
+  case KRIStatus.SUBMITTED_TO_KRI_OWNER_APPROVER:
+    return 'Submitted to KRI Owner Approver';
   case KRIStatus.FINALIZED:
     return 'Finalized';
   default:

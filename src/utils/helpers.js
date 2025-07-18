@@ -121,30 +121,21 @@ export const getBreachDescription = (breachType) => {
   return config.description;
 };
 
-// User role configuration
-export const USER_ROLES = {
-  ADMIN: 'Admin',
-  KRI_OWNER: 'KRI Owner',
-  KRI_APPROVER: 'KRI Approver',
-  DATA_PROVIDER: 'Data Provider',
-  DATA_APPROVER: 'Data Approver',
-  VIEWER: 'Viewer'
+// User permissions configuration
+export const USER_PERMISSIONS = {
+  VIEW: 'view',
+  EDIT: 'edit',
+  REVIEW: 'review',
+  ACKNOWLEDGE: 'acknowledge',
+  DELETE: 'delete'
 };
 
 // Validate login form
 export const validateLoginForm = (loginForm) => {
-  const { username, department, role } = loginForm;
+  const { username } = loginForm;
   
   if (!username || username.trim().length < 2) {
     return { isValid: false, message: 'Username must be at least 2 characters long' };
-  }
-  
-  if (!department || department.trim().length === 0) {
-    return { isValid: false, message: 'Department is required' };
-  }
-  
-  if (!role || role.trim().length === 0) {
-    return { isValid: false, message: 'Role is required' };
   }
   
   return { isValid: true, message: 'Valid' };
@@ -162,34 +153,24 @@ export const hasPermission = (user, permission) => {
   return user.permissions.includes(permission);
 };
 
-// Get role permissions
-export const getRolePermissions = (roleName) => {
-  const rolePermissions = {
-    'Admin': ['read', 'write', 'approve', 'reject', 'delete', 'save', 'submit'],
-    'KRI Owner': ['read', 'write', 'save', 'submit'],
-    'KRI Approver': ['read', 'approve', 'reject'],
-    'Data Provider': ['read', 'write', 'save', 'submit'],
-    'Data Approver': ['read', 'approve', 'reject'],
-    'Viewer': ['read']
-  };
-  
-  return rolePermissions[roleName] || [];
-};
-
 // Check if KRI owner equals data provider
 export const isOwnerDataProvider = (kriItem) => {
   if (!kriItem) return false;
   return kriItem.owner === kriItem.dataProvider;
 };
 
-// Get status after input based on role and ownership
-export const getInputStatus = (userRole, kriItem) => {
-  if (userRole === 'KRI Owner') {
-    return 50; // Submitted to KRI Owner Approver
-  } else if (userRole === 'Data Provider' && !isOwnerDataProvider(kriItem)) {
-    return 40; // Submitted to Data Provider Approver
+// Get status after input - determine whether to go to Data Provider Approver or KRI Owner Approver
+export const getInputStatus = (userPermissions, kriItem) => {
+  if (!kriItem) {
+    return 40; // Default to Data Provider Approver
   }
-  return 30; // Default to Saved (this shouldn't happen in normal flow)
+  
+  // Business logic: If KRI owner is the same as data provider, skip Data Provider Approver
+  if (isOwnerDataProvider(kriItem)) {
+    return 50; // Submit directly to KRI Owner Approver
+  } else {
+    return 40; // Submit to Data Provider Approver first
+  }
 };
 
 // Status transition logic
@@ -205,9 +186,11 @@ export const getNextStatus = (currentStatus, action) => {
       30: null // Will be determined by getInputStatus based on role
     },
     // Approve transitions
+    review: {
+      30: 40, // Saved → Submitted to Data Provider Approver
+    },
     approve: {
       40: 50, // Submitted to Data Provider Approver → Submitted to KRI Owner Approver
-      50: 60  // Submitted to KRI Owner Approver → Finalized
     },
     // Reject transitions
     reject: {
@@ -220,53 +203,32 @@ export const getNextStatus = (currentStatus, action) => {
 };
 
 // Check if user can perform action on KRI with current status
-export const canPerformAction = (userRole, action, currentStatus, kriItem = null) => {
-  const permissions = getRolePermissions(userRole);
+export const canPerformAction = (userPermissions, action, currentStatus, kriItem = null) => {
+  // Check if user has the KRI-specific permission
+  if (!kriItem) {
+    return false;
+  }
   
-  // Check if user has the basic permission
-  if (!permissions.includes(action)) {
+  const key = `${kriItem.id}_${kriItem.reportingDate}`;
+  const hasPermission = userPermissions[key]?.includes(action) || false;
+  
+  if (!hasPermission) {
     return false;
   }
 
-  // Additional role-specific checks
+  // Additional status-based checks
   switch (action) {
-  case 'save':
-    // KRI Owner, Data Provider, and Admin can save values
-    return ['KRI Owner', 'Data Provider', 'Admin'].includes(userRole) && [10, 20].includes(currentStatus);
+  case 'edit':
+    // Can edit in Pending Input and Under Rework status
+    return [10, 20].includes(currentStatus);
   
-  case 'submit':
-    // KRI Owner, Data Provider, and Admin can submit from Saved status
-    return ['KRI Owner', 'Data Provider', 'Admin'].includes(userRole) && currentStatus === 30;
+  case 'review':
+    // Data Provider Approver - can review status 40
+    return currentStatus === 40;
   
-  case 'approve':
-    // Data Approver can approve status 40 (when owner ≠ data provider)
-    if (userRole === 'Data Approver') {
-      return currentStatus === 40 && kriItem && !isOwnerDataProvider(kriItem);
-    }
-    // KRI Approver can approve status 50
-    if (userRole === 'KRI Approver') {
-      return currentStatus === 50;
-    }
-    // Admin can approve both
-    if (userRole === 'Admin') {
-      return [40, 50].includes(currentStatus);
-    }
-    return false;
-  
-  case 'reject':
-    // Data Approver can reject status 40 (when owner ≠ data provider)
-    if (userRole === 'Data Approver') {
-      return currentStatus === 40 && kriItem && !isOwnerDataProvider(kriItem);
-    }
-    // KRI Approver can reject status 50
-    if (userRole === 'KRI Approver') {
-      return currentStatus === 50;
-    }
-    // Admin can reject both
-    if (userRole === 'Admin') {
-      return [40, 50].includes(currentStatus);
-    }
-    return false;
+  case 'acknowledge':
+    // KRI Owner Approver - can acknowledge status 50
+    return currentStatus === 50;
   
   default:
     return true;
@@ -274,23 +236,23 @@ export const canPerformAction = (userRole, action, currentStatus, kriItem = null
 };
 
 // Get available actions for user and KRI status
-export const getAvailableActions = (userRole, currentStatus, kriItem = null) => {
+export const getAvailableActions = (userPermissions, currentStatus, kriItem = null) => {
   const actions = [];
   
-  if (canPerformAction(userRole, 'save', currentStatus, kriItem)) {
+  if (canPerformAction(userPermissions, 'save', currentStatus, kriItem)) {
     actions.push('save');
   }
-  
-  if (canPerformAction(userRole, 'submit', currentStatus, kriItem)) {
-    actions.push('submit');
+
+  if (canPerformAction(userPermissions, 'edit', currentStatus, kriItem)) {
+    actions.push('edit');
   }
   
-  if (canPerformAction(userRole, 'approve', currentStatus, kriItem)) {
-    actions.push('approve');
+  if (canPerformAction(userPermissions, 'acknowledge', currentStatus, kriItem)) {
+    actions.push('acknowledge');
   }
   
-  if (canPerformAction(userRole, 'reject', currentStatus, kriItem)) {
-    actions.push('reject');
+  if (canPerformAction(userPermissions, 'review', currentStatus, kriItem)) {
+    actions.push('review');
   }
   
   return actions;

@@ -77,28 +77,17 @@ const mutations = {
       department: ''
     };
   },
-  // Role and Department mutations
+  // User management mutations
   SET_CURRENT_USER(state, user) {
     state.currentUser = { ...state.currentUser, ...user };
   },
-  SET_USER_ROLE(state, role) {
-    state.currentUser.role = role;
-    // Set permissions based on role
-    const roleConfig = state.roles.find(r => r.name === role);
-    state.currentUser.permissions = roleConfig ? roleConfig.permissions : [];
-  },
-  SET_USER_DEPARTMENT(state, department) {
-    state.currentUser.department = department;
-  },
-  SET_DEPARTMENTS(state, departments) {
-    state.departments = departments;
+  SET_USER_PERMISSIONS(state, permissions) {
+    state.currentUser.permissions = permissions;
   },
   LOGOUT_USER(state) {
     state.currentUser = {
-      id: null,
+      uuid: null,
       name: '',
-      role: '',
-      department: '',
       permissions: []
     };
   }
@@ -283,43 +272,19 @@ const actions = {
     commit('RESET_FILTERS');
   },
 
-  // Role and Department actions
-  async fetchDepartments({ commit }) {
-    try {
-      const departments = await kriService.fetchUniqueDepartments();
-      commit('SET_DEPARTMENTS', departments);
-      return departments;
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-      commit('SET_ERROR', 'Failed to fetch departments');
-      // Return fallback departments if service fails
-      const fallbackDepartments = [
-        'Enterprise Risk Management(Virtual)'
-      ];
-      commit('SET_DEPARTMENTS', fallbackDepartments);
-      return fallbackDepartments;
-    }
-  },
 
-  async loginUser({ commit }, { username, department, role }) {
+  async loginUser({ commit }, { username }) {
     try {
-      // In a real app, this would make an API call to authenticate
-      const user = {
-        id: Date.now(),
-        name: username,
-        role: role,
-        department: department,
-        permissions: []
-      };
+      // Authenticate user using the database
+      const result = await kriService.authenticateUser(username);
       
-      commit('SET_CURRENT_USER', user);
-      commit('SET_USER_ROLE', role);
-      commit('SET_USER_DEPARTMENT', department);
-      
-      // Set department filter to user's department on login
-      commit('SET_FILTERS', { department: department });
-      
-      return { success: true, user };
+      if (result.success) {
+        commit('SET_CURRENT_USER', result.user);
+        return { success: true, user: result.user };
+      } else {
+        commit('SET_ERROR', result.error);
+        return { success: false, error: result.error };
+      }
     } catch (error) {
       commit('SET_ERROR', 'Login failed');
       return { success: false, error: error.message };
@@ -330,12 +295,8 @@ const actions = {
     commit('LOGOUT_USER');
   },
 
-  updateUserRole({ commit }, role) {
-    commit('SET_USER_ROLE', role);
-  },
-
-  updateUserDepartment({ commit }, department) {
-    commit('SET_USER_DEPARTMENT', department);
+  updateUserPermissions({ commit }, permissions) {
+    commit('SET_USER_PERMISSIONS', permissions);
   },
 
   // KRI Status Management Actions
@@ -377,7 +338,7 @@ const actions = {
   },
 
   async approveKRI({ dispatch, state }, { kriId, reportingDate }) {
-    const userRole = state.currentUser.role;
+    const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
       item.id === String(kriId) && item.reportingDate === String(reportingDate)
     );
@@ -393,7 +354,9 @@ const actions = {
       return { success: false, error: 'Invalid status transition' };
     }
     
-    if (!canPerformAction(userRole, 'approve', currentStatus, currentKRI)) {
+    // Check permission based on status - review for 40, acknowledge for 50
+    const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
+    if (!canPerformAction(userPermissions, requiredPermission, currentStatus, currentKRI)) {
       return { success: false, error: 'Insufficient permissions' };
     }
     
@@ -406,7 +369,7 @@ const actions = {
   },
 
   async rejectKRI({ dispatch, state }, { kriId, reportingDate, reason }) {
-    const userRole = state.currentUser.role;
+    const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
       item.id === String(kriId) && item.reportingDate === String(reportingDate)
     );
@@ -422,7 +385,9 @@ const actions = {
       return { success: false, error: 'Invalid status transition' };
     }
     
-    if (!canPerformAction(userRole, 'reject', currentStatus, currentKRI)) {
+    // Check permission based on status - review for 40, acknowledge for 50
+    const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
+    if (!canPerformAction(userPermissions, requiredPermission, currentStatus, currentKRI)) {
       return { success: false, error: 'Insufficient permissions' };
     }
     
@@ -436,7 +401,7 @@ const actions = {
   },
 
   async saveKRIValue({ dispatch, commit, state }, { kriId, reportingDate, value }) {
-    const userRole = state.currentUser.role;
+    const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
       item.id === String(kriId) && item.reportingDate === String(reportingDate)
     );
@@ -448,7 +413,7 @@ const actions = {
     const currentStatus = currentKRI.rawData.kri_status;
     
     // Check if user can perform save action
-    if (!canPerformAction(userRole, 'save', currentStatus, currentKRI)) {
+    if (!canPerformAction(userPermissions, 'edit', currentStatus, currentKRI)) {
       return { success: false, error: 'Insufficient permissions' };
     }
     
@@ -493,7 +458,7 @@ const actions = {
   },
 
   async submitKRI({ dispatch, state }, { kriId, reportingDate }) {
-    const userRole = state.currentUser.role;
+    const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
       item.id === String(kriId) && item.reportingDate === String(reportingDate)
     );
@@ -505,12 +470,12 @@ const actions = {
     const currentStatus = currentKRI.rawData.kri_status;
     
     // Check if user can perform submit action
-    if (!canPerformAction(userRole, 'submit', currentStatus, currentKRI)) {
+    if (!canPerformAction(userPermissions, 'acknowledge', currentStatus, currentKRI)) {
       return { success: false, error: 'Insufficient permissions' };
     }
     
-    // Determine final status based on role and ownership
-    const finalStatus = getInputStatus(userRole, currentKRI);
+    // Determine final status based on permissions
+    const finalStatus = getInputStatus(userPermissions, currentKRI);
     
     // Update to final status
     return await dispatch('updateKRIStatus', {
@@ -611,13 +576,6 @@ const getters = {
     return state.kriItems.filter(item => item.collectionStatus === statusToMatch);
   },
   
-  departmentCounts: (state) => {
-    const counts = {};
-    state.departments.forEach(dept => {
-      counts[dept] = state.kriItems.filter(item => item.department === dept).length;
-    });
-    return counts;
-  }
 };
 
 export default {

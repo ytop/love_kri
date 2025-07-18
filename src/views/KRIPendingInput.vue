@@ -115,7 +115,7 @@ export default {
     await this.loadData();
   },
   methods: {
-    ...mapActions('kri', ['fetchKRIItems', 'updateFilters', 'resetFilters', 'fetchDepartments']),
+    ...mapActions('kri', ['fetchKRIItems', 'updateFilters', 'resetFilters']),
     
     async loadData() {
       if (this.$store.state.kri.kriItems.length === 0 || 
@@ -126,7 +126,6 @@ export default {
           }
           await Promise.all([
             this.fetchKRIItems(this.reportingDate),
-            this.fetchDepartments()
           ]);
         } catch (error) {
           console.error('Error loading KRI data for input:', error);

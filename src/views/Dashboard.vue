@@ -11,13 +11,8 @@
           <el-tag type="info">{{ filteredKRIItems.length }} KRIs</el-tag>
         </div>
         <div class="header-actions">
-          <el-badge v-if="showPendingInputButton" :value="inputWorkflowKRIsCount" class="item" type="danger" :hidden="inputWorkflowKRIsCount === 0">
-            <!-- pending for input -->
-            <el-button size="medium" @click="navigateToStatusPage('Pending')">Pending for input</el-button>
-          </el-badge>
-          <el-badge v-if="showPendingApprovalButton" :value="approvalWorkflowKRIsCount" class="item" type="danger" :hidden="approvalWorkflowKRIsCount === 0">
-            <!-- pending for approval -->
-            <el-button size="medium" @click="navigateToStatusPage('Submitted')">Pending for approval</el-button>
+          <el-badge v-if="showPendingButton" :value="totalPendingKRIsCount" class="item" type="danger" :hidden="totalPendingKRIsCount === 0">
+            <el-button size="medium" @click="navigateToStatusPage()">Pending KRIs</el-button>
           </el-badge>
           <!-- Login/Logout Button -->
           <div class="auth-section">
@@ -40,7 +35,6 @@
         <k-r-i-filters
           :filters="filters"
           :show-advanced="showAdvancedFilters"
-          :available-departments="availableDepartments"
           @filter-change="handleFilterChange"
           @reset-filters="handleResetFilters"
           @toggle-advanced="handleToggleAdvancedFilters"
@@ -124,71 +118,63 @@ export default {
   computed: {
     ...mapState('kri', ['loading', 'error']),
     ...mapGetters('kri', [
-      'filteredKRIItems', 
-      'roleBasedFilteredKRIItems',
-      'availableDepartments',
-      'currentUser',
-      'isAuthenticated'
+      'filteredKRIItems'
     ]),
+    currentUser() {
+      return this.$store.state.kri.currentUser;
+    },
+    isAuthenticated() {
+      return !!this.currentUser.uuid;
+    },
     filters() {
       return this.$store.state.kri.filters;
     },
-    // Calculate badge counts based on role-based filtered KRI items
-    inputWorkflowKRIsCount() {
-      const userRole = this.currentUser.role;
-      const userDepartment = this.currentUser.department;
+    // Calculate total pending KRIs count based on user permissions
+    totalPendingKRIsCount() {
+      const userPermissions = this.currentUser.permissions;
       
-      // Only roles that can upload KRI should see this count
-      if (!['Data Provider', 'KRI Owner', 'KRI Approver', 'Admin'].includes(userRole)) {
+      if (!userPermissions) {
         return 0;
       }
       
       return this.filteredKRIItems.filter(item => {
-        const hasInputStatus = item.collectionStatus === 'Pending Input' || 
-                              item.collectionStatus === 'Under Rework';
+        const key = `${item.id}_${item.reportingDate}`;
         
-        if (userRole === 'Data Provider') {
-          return item.dataProvider.toLowerCase() === userDepartment.toLowerCase() && hasInputStatus;
-        } else if (userRole === 'KRI Owner' || userRole === 'KRI Approver') {
-          return item.owner.toLowerCase() === userDepartment.toLowerCase() && hasInputStatus;
-        } else if (userRole === 'Admin') {
-          return hasInputStatus;
+        // Check if user has any permission for this KRI
+        const hasEditPermission = userPermissions[key]?.includes('edit') || false;
+        const hasReviewPermission = userPermissions[key]?.includes('review') || false;
+        const hasAcknowledgePermission = userPermissions[key]?.includes('acknowledge') || false;
+        
+        // Show KRIs that the user can act on based on status and permissions
+        if (hasEditPermission && (
+          item.collectionStatus === 'Pending Input' || 
+          item.collectionStatus === 'Under Rework' ||
+          item.collectionStatus === 'Saved'
+        )) {
+          return true;
         }
+        
+        if (hasReviewPermission && item.collectionStatus === 'Submitted to Data Provider Approver') {
+          return true;
+        }
+        
+        if (hasAcknowledgePermission && item.collectionStatus === 'Submitted to KRI Owner Approver') {
+          return true;
+        }
+        
         return false;
       }).length;
-    },
-    approvalWorkflowKRIsCount() {
-      const userRole = this.currentUser.role;
-      const userDepartment = this.currentUser.department;
-      
-      return this.filteredKRIItems.filter(item => {
-        // Role-specific filtering
-        if (userRole === 'Data Approver') {
-          return item.dataProvider.toLowerCase() === userDepartment.toLowerCase() && 
-                 item.collectionStatus === 'Submitted to Data Provider Approver';
-        } else if (userRole === 'KRI Approver' || userRole === 'KRI Owner') {
-          return item.owner.toLowerCase() === userDepartment.toLowerCase() && 
-                 item.collectionStatus === 'Submitted to KRI Owner Approver';
-        } else if (userRole === 'Admin') {
-          return (item.dataProvider.toLowerCase() === userDepartment.toLowerCase() && 
-                  item.collectionStatus === 'Submitted to Data Provider Approver') ||
-                 (item.owner.toLowerCase() === userDepartment.toLowerCase() && 
-                  item.collectionStatus === 'Submitted to KRI Owner Approver');
-        }
-        return false;
-      }).length;
-    },
-    // Role-based button visibility
-    showPendingInputButton() {
-      const userRole = this.currentUser.role;
-      // Show for Data Provider, KRI Owner, KRI Approver, Admin (only roles that can upload KRI)
-      return ['Data Provider', 'KRI Owner', 'KRI Approver', 'Admin'].includes(userRole);
     },
     
-    showPendingApprovalButton() {
-      const userRole = this.currentUser.role;
-      // Show for Data Approver, KRI Approver, Admin (removed KRI Owner)
-      return ['Data Approver', 'KRI Approver', 'Admin'].includes(userRole);
+    // Show pending button if user has any permissions
+    showPendingButton() {
+      const userPermissions = this.currentUser.permissions;
+      if (!userPermissions) return false;
+      
+      // Check if user has any permission for any KRI
+      return Object.values(userPermissions).some(permissions => 
+        permissions.includes('edit') || permissions.includes('review') || permissions.includes('acknowledge')
+      );
     }
   },
   async created() {
@@ -200,7 +186,6 @@ export default {
     try {
       await Promise.all([
         this.fetchKRIItems(defaultDate),
-        this.fetchDepartments()
       ]);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -211,7 +196,6 @@ export default {
       'fetchKRIItems', 
       'updateFilters', 
       'resetFilters',
-      'fetchDepartments',
       'logoutUser'
     ]),
     
@@ -267,12 +251,8 @@ export default {
         params: { id: kriId, date: reportingDate }
       });
     },
-    navigateToStatusPage(status) {
-      if (status === 'Pending') {
-        this.$router.push({ name: 'PendingKRIs' });
-      } else if (status === 'Submitted') {
-        this.$router.push({ name: 'SubmittedKRIs' });
-      }
+    navigateToStatusPage() {
+      this.$router.push({ name: 'PendingKRIs' });
     },
     
     // Helper method to get user display name
