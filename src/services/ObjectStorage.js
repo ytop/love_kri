@@ -453,11 +453,11 @@ export class StorageFactory {
 */
 
 // export for real Supabase Storage Provider
-import { supabase } from './supabase';
-export const supabaseStorage = new SupabaseStorageProvider(supabase, { bucketName: 'evidence' });
-
-
 // Usage example
+
+// import { supabase } from './supabase';
+// export const supabaseStorage = new SupabaseStorageProvider(supabase, { bucketName: 'evidence' });
+
 // supabaseStorage.uploadFile(new File(['test'], 'test.txt'), 'test.txt');
 // supabaseStorage.downloadFile('https://vyrojgsjtyitolvzwznl.supabase.co/storage/v1/object/public/evidence/1/20250718/1721339000_test.txt');
 // supabaseStorage.deleteFile('https://vyrojgsjtyitolvzwznl.supabase.co/storage/v1/object/public/evidence/1/20250718/1721339000_test.txt');
