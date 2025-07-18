@@ -3,6 +3,7 @@
 .codesandbox/tasks.json
 .gemini
 .claude
+.vscode
 
 node_modules/
 dist/
