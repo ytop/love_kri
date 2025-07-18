@@ -115,6 +115,28 @@ export const getBreachDescription = (breachType) => {
   return config.description;
 };
 
+// Calculate breach status based on KRI value, warning line, and limit value
+export const calculateBreachStatus = (kriValue, warningLineValue, limitValue) => {
+  // Convert values to numbers
+  const value = parseFloat(kriValue);
+  const warning = parseFloat(warningLineValue);
+  const limit = parseFloat(limitValue);
+
+  // Return 'No Breach' if any value is invalid
+  if (isNaN(value) || isNaN(warning) || isNaN(limit)) {
+    return 'No Breach';
+  }
+
+  // Check breach levels
+  if (value >= limit) {
+    return 'Limit';
+  } else if (value >= warning) {
+    return 'Warning';
+  } else {
+    return 'No Breach';
+  }
+};
+
 // User permissions configuration
 export const USER_PERMISSIONS = {
   VIEW: 'view',

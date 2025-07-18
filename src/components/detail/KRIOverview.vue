@@ -68,6 +68,15 @@
                   :loading="inputLoading">
                   Submit
                 </el-button>
+                <el-button
+                  v-if="[10, 20].includes(kriData.kri_status)"
+                  type="success"
+                  icon="el-icon-upload"
+                  @click="handleSaveAndSubmit"
+                  :loading="inputLoading"
+                  :disabled="!isValidInput">
+                  Save and Submit
+                </el-button>
               </div>
             </el-form-item>
           </el-form>
@@ -85,11 +94,14 @@
       <el-col :span="12">
         <div class="info-item">
           <label>Breach Status</label>
-          <el-tooltip :content="getBreachDescription(kriData.breach_type || 'No Breach')" placement="top">
-            <el-tag :type="getBreachTagType(kriData.breach_type || 'No Breach')" size="small" class="status-tag">
-              {{ getBreachDisplayText(kriData.breach_type || 'No Breach') }}
+          <el-tooltip :content="getBreachDescription(dynamicBreachStatus)" placement="top">
+            <el-tag :type="getBreachTagType(dynamicBreachStatus)" size="small" class="status-tag">
+              {{ getBreachDisplayText(dynamicBreachStatus) }}
             </el-tag>
           </el-tooltip>
+          <span v-if="dynamicBreachStatus !== (kriData.breach_type || 'No Breach')" class="breach-preview">
+            (Preview)
+          </span>
         </div>
       </el-col>
     </el-row>
@@ -98,7 +110,7 @@
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import { getBreachTagType, getBreachDisplayText, getBreachDescription, mapStatus, getStatusTagType, canPerformAction, formatDateFromInt } from '@/utils/helpers';
+import { getBreachTagType, getBreachDisplayText, getBreachDescription, mapStatus, getStatusTagType, canPerformAction, calculateBreachStatus } from '@/utils/helpers';
 
 export default {
   name: 'KRIOverview',
@@ -133,6 +145,18 @@ export default {
     
     isValidInput() {
       return this.inputForm.kriValue !== null && this.inputForm.kriValue !== '';
+    },
+
+    // Calculate dynamic breach status based on current input
+    dynamicBreachStatus() {
+      if (this.inputForm.kriValue !== null && this.inputForm.kriValue !== '') {
+        return calculateBreachStatus(
+          this.inputForm.kriValue,
+          this.kriData.warning_line_value,
+          this.kriData.limit_value
+        );
+      }
+      return this.kriData.breach_type || 'No Breach';
     }
   },
   watch: {
@@ -207,6 +231,48 @@ export default {
       } finally {
         this.inputLoading = false;
       }
+    },
+
+    async handleSaveAndSubmit() {
+      if (!this.isValidInput) {
+        this.$message.warning('Please enter a valid KRI value');
+        return;
+      }
+      
+      this.inputLoading = true;
+      
+      try {
+        // Step 1: Save the value
+        const saveResult = await this.saveKRIValue({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          value: this.inputForm.kriValue.toString()
+        });
+        
+        if (!saveResult.success) {
+          this.$message.error(saveResult.error || 'Failed to save KRI value');
+          return;
+        }
+        
+        // Step 2: Submit the KRI
+        const submitResult = await this.submitKRI({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date
+        });
+        
+        if (submitResult.success) {
+          this.$message.success('KRI value saved and submitted successfully');
+          // Emit event to parent to refresh data
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(submitResult.error || 'Failed to submit KRI');
+        }
+      } catch (error) {
+        console.error('Save and submit error:', error);
+        this.$message.error('Failed to save and submit KRI value');
+      } finally {
+        this.inputLoading = false;
+      }
     }
   }
 };
@@ -268,6 +334,17 @@ export default {
 .action-buttons {
   display: flex;
   gap: 0.75rem;
+}
+
+.action-buttons .el-button + .el-button {
+  margin-left: 10px;
+}
+
+.breach-preview {
+  color: #909399;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  font-style: italic;
 }
 
 .info-item {

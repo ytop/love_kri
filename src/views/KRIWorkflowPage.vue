@@ -33,15 +33,28 @@
             <el-button size="small" icon="el-icon-download">Export List</el-button>
           </div>
           <div class="status-info">
-            <el-tag 
-              v-for="status in statusTags" 
-              :key="status.label"
-              :type="status.type" 
-              size="small" 
-              class="status-tag"
-            >
-              {{ status.count }} {{ status.label }}
-            </el-tag>
+            <!-- Filter Warning -->
+            <el-alert
+              v-if="hasActiveFilters"
+              title="Filters Active"
+              description="Some KRIs may be hidden due to active filters. Reset filters to see all pending items."
+              type="warning"
+              size="small"
+              :closable="false"
+              show-icon
+              class="filter-warning">
+            </el-alert>
+            <div class="status-tags">
+              <el-tag 
+                v-for="status in statusTags" 
+                :key="status.key"
+                :type="status.type" 
+                size="small" 
+                class="status-tag"
+              >
+                {{ status.label }}
+              </el-tag>
+            </div>
           </div>
         </div>
       </el-card>
@@ -66,6 +79,8 @@
           :data="workflowItems"
           :loading="loading"
           @row-click="handleKRIClick"
+          @data-updated="refreshData"
+          @selection-change="handleSelectionChange"
         />
         <div v-if="!loading && workflowItems.length === 0 && !error" class="no-data-message">
           <el-empty :description="emptyMessage">
@@ -91,7 +106,8 @@ export default {
   },
   data() {
     return {
-      showAdvancedFilters: false
+      showAdvancedFilters: false,
+      selectedKRIs: [] // Track selected KRIs for batch operations
     };
   },
   computed: {
@@ -155,33 +171,63 @@ export default {
     },
     
     statusTags() {
-      return [
+      // Define stable order and mapping
+      const statusDefinitions = [
         {
+          key: 'pending-input',
           label: 'Pending Input',
-          type: 'warning',
-          count: this.workflowItems.filter(item => item.collectionStatus === 'Pending Input').length
+          mappedStatus: 'Pending Input',
+          type: 'warning'
         },
         {
+          key: 'under-rework',
           label: 'Under Rework',
-          type: 'warning',
-          count: this.workflowItems.filter(item => item.collectionStatus === 'Under Rework').length
+          mappedStatus: 'Under Rework', 
+          type: 'warning'
         },
         {
+          key: 'saved',
           label: 'Saved',
-          type: 'info',
-          count: this.workflowItems.filter(item => item.collectionStatus === 'Saved').length
+          mappedStatus: 'Saved',
+          type: 'info'
         },
         {
+          key: 'pending-dp',
           label: 'Pending DP Approval',
-          type: 'info',
-          count: this.workflowItems.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length
+          mappedStatus: 'Submitted to Data Provider Approver',
+          type: 'info'
         },
         {
+          key: 'pending-owner',
           label: 'Pending KRI Owner Approval',
-          type: 'primary',
-          count: this.workflowItems.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length
+          mappedStatus: 'Submitted to KRI Owner Approver',
+          type: 'primary'
         }
-      ].filter(tag => tag.count > 0);
+      ];
+      
+      return statusDefinitions.map(def => {
+        const totalCount = this.workflowItems.filter(item => item.collectionStatus === def.mappedStatus).length;
+        const selectedCount = this.selectedKRIs.filter(item => item.collectionStatus === def.mappedStatus).length;
+        
+        // Only show tags that have items
+        if (totalCount === 0) {
+          return null;
+        }
+        
+        return {
+          key: def.key,
+          label: selectedCount > 0 ? `${def.label} (${selectedCount}/${totalCount})` : `${totalCount} ${def.label}`,
+          type: def.type,
+          count: totalCount,
+          selectedCount: selectedCount
+        };
+      }).filter(tag => tag !== null);
+    },
+    
+    // Check if filters other than reportingDate are active
+    hasActiveFilters() {
+      const { reportingDate, ...otherFilters } = this.filters;
+      return Object.values(otherFilters).some(value => value && value.toString().trim() !== '');
     },
     
     reportingDate() {
@@ -237,6 +283,10 @@ export default {
         name: 'KRIDetail',
         params: { id: kriId, date: reportingDate }
       });
+    },
+    
+    handleSelectionChange(selection) {
+      this.selectedKRIs = selection;
     },
     
     goBack() {
@@ -322,8 +372,21 @@ export default {
 
 .status-info {
   display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.status-tags {
+  display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-warning {
+  margin-bottom: 0.5rem;
+  width: 100%;
 }
 
 .status-tag {
