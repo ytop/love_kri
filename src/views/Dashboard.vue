@@ -35,6 +35,7 @@
         <k-r-i-filters
           :filters="filters"
           :show-advanced="showAdvancedFilters"
+          :available-departments="availableDepartments"
           @filter-change="handleFilterChange"
           @reset-filters="handleResetFilters"
           @toggle-advanced="handleToggleAdvancedFilters"
@@ -118,7 +119,8 @@ export default {
   computed: {
     ...mapState('kri', ['loading', 'error']),
     ...mapGetters('kri', [
-      'filteredKRIItems'
+      'filteredKRIItems',
+      'availableDepartments'
     ]),
     currentUser() {
       return this.$store.state.kri.currentUser;

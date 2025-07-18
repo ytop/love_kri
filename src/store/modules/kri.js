@@ -576,6 +576,24 @@ const getters = {
     return state.kriItems.filter(item => item.collectionStatus === statusToMatch);
   },
   
+  // Get available departments from KRI_OWNER and DATA_PROVIDER fields
+  availableDepartments: (state) => {
+    const departments = new Set();
+    
+    state.kriItems.forEach(item => {
+      // Add KRI Owner as department option
+      if (item.owner) {
+        departments.add(item.owner);
+      }
+      // Add Data Provider as department option
+      if (item.dataProvider) {
+        departments.add(item.dataProvider);
+      }
+    });
+    
+    return Array.from(departments).sort();
+  },
+  
 };
 
 export default {

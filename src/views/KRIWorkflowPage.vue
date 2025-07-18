@@ -17,6 +17,7 @@
         <k-r-i-filters
           :filters="filters"
           :show-advanced="showAdvancedFilters"
+          :available-departments="availableDepartments"
           @filter-change="handleFilterChange"
           @reset-filters="handleResetFilters"
           @toggle-advanced="handleToggleAdvancedFilters"
@@ -95,7 +96,7 @@ export default {
   },
   computed: {
     ...mapState('kri', ['loading', 'error', 'filters', 'currentUser']),
-    ...mapGetters('kri', ['filteredKRIItems']),
+    ...mapGetters('kri', ['filteredKRIItems', 'availableDepartments']),
     
     pageTitle() {
       return 'Pending KRIs';
