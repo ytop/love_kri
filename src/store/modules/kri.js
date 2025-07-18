@@ -417,7 +417,7 @@ const actions = {
     });
   },
 
-  async saveKRIValue({ dispatch, commit, state }, { kriId, reportingDate, value }) {
+  async saveKRIValue({ commit, state }, { kriId, reportingDate, value }) {
     console.log('saveKRIValue called with:', { kriId, reportingDate, value });
     
     const userPermissions = state.currentUser.permissions;
@@ -461,10 +461,12 @@ const actions = {
           ...kriItems[kriIndex],
           kriValue: value,
           collectionStatus: mapStatus(30), // Saved status
+          breachType: updatedKRI.breach_type, // Update breach type from server response
           rawData: {
             ...kriItems[kriIndex].rawData,
             kri_value: value,
-            kri_status: 30
+            kri_status: 30,
+            breach_type: updatedKRI.breach_type
           }
         };
         
@@ -477,7 +479,8 @@ const actions = {
           commit('SET_KRI_DETAIL', {
             ...state.kriDetail,
             kri_value: value,
-            kri_status: 30
+            kri_status: 30,
+            breach_type: updatedKRI.breach_type
           });
         }
       }

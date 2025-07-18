@@ -69,11 +69,11 @@ Function GetNextStatus(tabName As String, iPrevStatus As Integer) As Integer
         GetNextStatus = -1
     End If
 
-
-case 1: 10 --> 30 --> 
+case 1: 10 --> 30 -->
 
 change status
-change sample data,
+
+
 
 =============== task 2 ===================================
 

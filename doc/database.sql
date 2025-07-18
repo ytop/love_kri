@@ -11,9 +11,9 @@ CREATE TABLE public.kri_atomic (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT kri_atomic_pkey PRIMARY KEY (kri_id, atomic_id, reporting_date),
   CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
+  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
   CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
-  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
-  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date)
+  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date)
 );
 CREATE TABLE public.kri_audit_trail (
   audit_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -65,6 +65,7 @@ CREATE TABLE public.kri_item (
   kri_value text,
   kri_status integer,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_calculated_kri boolean NOT NULL DEFAULT false,
   CONSTRAINT kri_item_pkey PRIMARY KEY (kri_id, reporting_date)
 );
 CREATE TABLE public.kri_user (
@@ -84,7 +85,6 @@ CREATE TABLE public.kri_user_permission (
   condition json,
   created_date timestamp without time zone DEFAULT now(),
   update_date timestamp without time zone DEFAULT now(),
-  CONSTRAINT kri_user_permission_pkey PRIMARY KEY (user_uuid, kri_id, reporting_date, actions),
   CONSTRAINT kri_user_permission_user_uuid_fkey FOREIGN KEY (user_uuid) REFERENCES public.kri_user(UUID),
   CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
   CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),

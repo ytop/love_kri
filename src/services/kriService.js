@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { StorageFactory } from './ObjectStorage';
+import { calculateBreachStatus } from '@/utils/helpers';
 
 export const kriService = {
   // Initialize storage provider
@@ -127,11 +128,29 @@ export const kriService = {
     const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
     
     try {
+      // First get the current KRI data to obtain limits and old breach status
+      const { data: currentKRI, error: fetchError } = await supabase
+        .from('kri_item')
+        .select('breach_type, warning_line_value, limit_value')
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching current KRI data:', fetchError);
+        throw new Error('Failed to fetch current KRI data');
+      }
+
+      // Calculate new breach status based on KRI value and limits
+      const newBreachStatus = calculateBreachStatus(kriValue, currentKRI.warning_line_value, currentKRI.limit_value);
+      const oldBreachStatus = currentKRI.breach_type;
+
       const { data, error } = await supabase
         .from('kri_item')
         .update({
           kri_value: kriValue,
-          kri_status: 30 // Saved status
+          kri_status: 30, // Saved status
+          breach_type: newBreachStatus
         })
         .eq('kri_id', parseInt(kriId))
         .eq('reporting_date', reportingDateAsInt)
@@ -143,8 +162,13 @@ export const kriService = {
         throw new Error('Failed to save KRI value');
       }
 
-      // Add audit trail entry
+      // Add audit trail entry for KRI value change
       await this.addAuditTrailEntry(kriId, reportingDate, 'save', 'kri_value', null, kriValue, changedBy, 'Data saved');
+
+      // Add audit trail entry for breach status change if it changed
+      if (oldBreachStatus !== newBreachStatus) {
+        await this.addAuditTrailEntry(kriId, reportingDate, 'save', 'breach_type', oldBreachStatus, newBreachStatus, changedBy, `Breach status recalculated: ${oldBreachStatus} → ${newBreachStatus}`);
+      }
 
       return data;
     } catch (error) {
