@@ -469,6 +469,28 @@ export default {
       }
     };
   },
+  watch: {
+    users: {
+      handler() {
+        this.$nextTick(() => {
+          setTimeout(() => {
+            this.setupTableAnimations();
+          }, 100);
+        });
+      },
+      deep: true
+    },
+    permissions: {
+      handler() {
+        this.$nextTick(() => {
+          setTimeout(() => {
+            this.setupTableAnimations();
+          }, 100);
+        });
+      },
+      deep: true
+    }
+  },
   computed: {
     userDialogTitle() {
       return this.isEditingUser ? 'Edit User' : 'Add User';
@@ -1085,22 +1107,76 @@ export default {
     },
     
     setupTableAnimations() {
-      // Setup table row stagger animations
+      // Setup table row stagger animations and hover effects
       this.$nextTick(() => {
         try {
-          const rows = document.querySelectorAll('.enhanced-table .el-table__body tr');
-          if (rows && rows.length > 0) {
-            rows.forEach((row, index) => {
-              if (row && row.style) {
-                row.style.animationDelay = `${index * 0.1}s`;
-                row.classList.add('table-row-animate');
-              }
-            });
-          }
+          // Use a more aggressive selector to find all table rows
+          const tables = document.querySelectorAll('.admin-management .enhanced-table');
+          tables.forEach(table => {
+            const rows = table.querySelectorAll('tbody tr');
+            if (rows && rows.length > 0) {
+              rows.forEach((row, index) => {
+                if (row && row.style) {
+                  row.style.animationDelay = `${index * 0.1}s`;
+                  row.classList.add('table-row-animate');
+                  
+                  // Remove existing listeners to prevent duplicates
+                  row.removeEventListener('mouseenter', this.handleRowHover);
+                  row.removeEventListener('mouseleave', this.handleRowLeave);
+                  
+                  // Add JavaScript hover effects as primary method
+                  row.addEventListener('mouseenter', this.handleRowHover);
+                  row.addEventListener('mouseleave', this.handleRowLeave);
+                }
+              });
+            }
+          });
         } catch (error) {
           console.warn('Table animation setup failed:', error);
         }
       });
+    },
+    
+    handleRowHover(e) {
+      const row = e.currentTarget;
+      row.style.background = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
+      row.style.transform = 'translateX(8px)';
+      row.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.2)';
+      row.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+      row.style.position = 'relative';
+      row.style.zIndex = '10';
+      
+      // Add left border accent
+      if (!row.querySelector('.hover-accent')) {
+        const accent = document.createElement('div');
+        accent.className = 'hover-accent';
+        accent.style.cssText = `
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 100%;
+          width: 5px;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          border-radius: 0 3px 3px 0;
+          z-index: 11;
+          pointer-events: none;
+        `;
+        row.appendChild(accent);
+      }
+    },
+    
+    handleRowLeave(e) {
+      const row = e.currentTarget;
+      row.style.background = '';
+      row.style.transform = '';
+      row.style.boxShadow = '';
+      row.style.zIndex = '';
+      
+      // Remove accent border
+      const accent = row.querySelector('.hover-accent');
+      if (accent) {
+        accent.remove();
+      }
     }
   }
 };
@@ -1853,39 +1929,64 @@ export default {
   height: 48px;
 }
 
-/* Table Row Styles */
-.enhanced-table >>> .el-table__body tr {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  height: 60px;
-  position: relative;
+/* Table Row Styles with Maximum Specificity */
+.admin-management .enhanced-table table tbody tr {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  height: 60px !important;
+  position: relative !important;
+  cursor: pointer !important;
 }
 
-/* Primary hover effect */
-.enhanced-table >>> .el-table__body tr:hover {
+.admin-management .enhanced-table table tbody tr:hover {
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
-  transform: translateX(5px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  transform: translateX(8px) !important;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2) !important;
+  z-index: 10 !important;
 }
 
-/* Fallback hover styles for better compatibility */
-.enhanced-table .el-table__body tr:hover {
+.admin-management .enhanced-table table tbody tr:hover::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  height: 100% !important;
+  width: 5px !important;
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  border-radius: 0 3px 3px 0 !important;
+  z-index: 11 !important;
+}
+
+/* Alternative approach using CSS variables and direct targeting */
+.admin-management .section-card .el-table .el-table__body-wrapper .el-table__body tbody tr:hover {
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
-  transform: translateX(5px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  transform: translateX(8px) !important;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2) !important;
 }
 
-/* Hover border accent */
-.enhanced-table >>> .el-table__body tr:hover::before,
-.enhanced-table .el-table__body tr:hover::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  width: 4px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  border-radius: 0 2px 2px 0;
-  z-index: 1;
+/* Nuclear option - highest specificity possible */
+.admin-management .management-sections .section-card .table-container .enhanced-table .el-table__body-wrapper .el-table__body tbody tr:hover,
+.admin-management .user-section .table-container .enhanced-table tbody tr:hover,
+.admin-management .permission-section .table-container .enhanced-table tbody tr:hover,
+html body .admin-management .enhanced-table tbody tr:hover {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  transform: translateX(8px) !important;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* For the hover accent border */
+html body .admin-management .enhanced-table tbody tr:hover::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  height: 100% !important;
+  width: 5px !important;
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  border-radius: 0 3px 3px 0 !important;
+  z-index: 11 !important;
 }
 
 .enhanced-table >>> .el-table__body td {
@@ -2280,31 +2381,31 @@ export default {
     width: 100%;
   }
 
-  .user-section .enhanced-table /deep/ .el-table__body td {
-    padding: 12px 10px;
-  }
-  
-  .user-section .enhanced-table /deep/ .el-table__header th {
-    padding: 14px 10px;
-    height: 48px;
-  }
-  
-  .user-section .enhanced-table /deep/ .el-table__body tr {
-    height: 58px;
-  }
-  
-  .permission-section .enhanced-table /deep/ .el-table__body td {
-    padding: 8px 10px;
-  }
-  
-  .permission-section .enhanced-table /deep/ .el-table__header th {
-    padding: 10px 10px;
-    height: 42px;
-  }
-  
-  .permission-section .enhanced-table /deep/ .el-table__body tr {
-    height: 50px;
-  }
+      .user-section .enhanced-table >>> .el-table__body td {
+      padding: 12px 10px;
+    }
+    
+    .user-section .enhanced-table >>> .el-table__header th {
+      padding: 14px 10px;
+      height: 48px;
+    }
+    
+    .user-section .enhanced-table >>> .el-table__body tr {
+      height: 58px;
+    }
+    
+    .permission-section .enhanced-table >>> .el-table__body td {
+      padding: 8px 10px;
+    }
+    
+    .permission-section .enhanced-table >>> .el-table__header th {
+      padding: 10px 10px;
+      height: 42px;
+    }
+    
+    .permission-section .enhanced-table >>> .el-table__body tr {
+      height: 50px;
+    }
 
   .user-id-cell,
   .user-cell {

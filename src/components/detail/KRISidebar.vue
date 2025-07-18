@@ -258,9 +258,17 @@ export default {
     },
 
     gaugeOption() {
-      const currentValue = Math.floor(this.kriData.kri_value || NaN);
-      const warningLine = Math.floor(this.kriData.warning_line_value || NaN);
-      const limitValue = Math.floor(this.kriData.limit_value || NaN);
+      // Helper function to parse values, handling "N/A" and other non-numeric strings
+      const parseValue = (value) => {
+        if (value === null || value === undefined || value === 'N/A' || value === '') {
+          return NaN;
+        }
+        return parseFloat(value);
+      };
+      
+      const currentValue = Math.floor(parseValue(this.kriData.kri_value) || NaN);
+      const warningLine = Math.floor(parseValue(this.kriData.warning_line_value) || NaN);
+      const limitValue = Math.floor(parseValue(this.kriData.limit_value) || NaN);
       
       // Validate critical KRI values
       const hasValidCurrentValue = Number.isFinite(currentValue);
@@ -269,7 +277,14 @@ export default {
       
       // Return invalid gauge state if any critical value is missing or invalid
       if (!hasValidCurrentValue || !hasValidWarningLine || !hasValidLimitValue) {
-        console.warn('Invalid KRI data:', this.kriData);
+        console.log('KRI gauge disabled due to missing/invalid values:', {
+          kri_value: this.kriData.kri_value,
+          warning_line_value: this.kriData.warning_line_value,
+          limit_value: this.kriData.limit_value,
+          currentValue,
+          warningLine,
+          limitValue
+        });
         return {
           series: [
             {

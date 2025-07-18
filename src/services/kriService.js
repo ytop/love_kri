@@ -302,12 +302,34 @@ export const kriService = {
       if (!permissions[key]) {
         permissions[key] = [];
       }
-      permissions[key].push(...actions);
-    });
-
-    // Remove duplicates for each KRI
-    Object.keys(permissions).forEach(key => {
-      permissions[key] = [...new Set(permissions[key])];
+      
+      // Store each action with its effect value
+      actions.forEach(action => {
+        const existingPermission = permissions[key].find(p => 
+          typeof p === 'object' && p.action === action
+        );
+        
+        const newPermission = {
+          action: action,
+          effect: permission.effect,
+          condition: permission.condition
+        };
+        
+        if (existingPermission) {
+          // Handle conflict: if we have both true and false effects for same action
+          if (existingPermission.effect !== permission.effect) {
+            console.log(`Permission conflict detected for ${key} action '${action}': both allow and deny permissions exist. Prioritizing denial.`);
+            existingPermission.effect = false; // Prioritize denial
+          }
+        } else {
+          permissions[key].push(newPermission);
+        }
+        
+        // Also add simple string format for backward compatibility
+        if (!permissions[key].includes(action)) {
+          permissions[key].push(action);
+        }
+      });
     });
 
     return permissions;

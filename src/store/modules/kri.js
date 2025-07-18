@@ -1,5 +1,5 @@
 import { kriService } from '@/services/kriService';
-import { mapStatus, getLastDayOfPreviousMonth, getNextStatus, canPerformAction, formatDateFromInt } from '@/utils/helpers';
+import { mapStatus, getLastDayOfPreviousMonth, getNextStatus, canPerformAction, formatDateFromInt, canViewKRI } from '@/utils/helpers';
 
 const state = {
   kriItems: [],
@@ -569,6 +569,13 @@ const getters = {
   filteredKRIItems: (state) => {
     let filtered = [...state.kriItems];
     
+    // First, filter based on view permissions
+    if (state.currentUser && state.currentUser.permissions) {
+      filtered = filtered.filter(item => 
+        canViewKRI(state.currentUser.permissions, item.id, item.reportingDate)
+      );
+    }
+    
     if (state.filters.kriOwner) {
       filtered = filtered.filter(item => 
         item.owner.toLowerCase().includes(state.filters.kriOwner.toLowerCase())
@@ -613,7 +620,16 @@ const getters = {
   krisByStatus: (state) => (status) => {
     // Handle both string and numeric status filtering
     const statusToMatch = typeof status === 'number' ? mapStatus(status) : status;
-    return state.kriItems.filter(item => item.collectionStatus === statusToMatch);
+    let filtered = state.kriItems.filter(item => item.collectionStatus === statusToMatch);
+    
+    // Also filter based on view permissions
+    if (state.currentUser && state.currentUser.permissions) {
+      filtered = filtered.filter(item => 
+        canViewKRI(state.currentUser.permissions, item.id, item.reportingDate)
+      );
+    }
+    
+    return filtered;
   },
   
   // Get available departments from KRI_OWNER and DATA_PROVIDER fields

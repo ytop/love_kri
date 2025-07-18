@@ -187,6 +187,44 @@ export const hasPermission = (user, permission) => {
   return user.permissions.includes(permission);
 };
 
+// Check if user can view a specific KRI based on permissions with effect field
+export const canViewKRI = (userPermissions, kriId, reportingDate) => {
+  if (!userPermissions || !kriId || !reportingDate) return true; // Default: allow view
+  
+  const key = `${kriId}_${reportingDate}`;
+  const permissions = userPermissions[key] || [];
+  
+  // Check for view permissions with different effects
+  const viewPermissions = permissions.filter(perm => 
+    typeof perm === 'object' && perm.action === 'view'
+  );
+  
+  if (viewPermissions.length === 0) {
+    return true; // Default: allow view if no explicit view permissions
+  }
+  
+  // Check for conflicting permissions (both true and false effect)
+  const allowPermissions = viewPermissions.filter(perm => perm.effect === true);
+  const denyPermissions = viewPermissions.filter(perm => perm.effect === false);
+  
+  if (allowPermissions.length > 0 && denyPermissions.length > 0) {
+    console.log(`Permission conflict for KRI ${kriId}_${reportingDate}: both allow and deny view permissions exist. Denying access.`);
+    return false; // Prioritize denial when there's conflict
+  }
+  
+  // If only deny permissions exist, deny access
+  if (denyPermissions.length > 0) {
+    return false;
+  }
+  
+  // If only allow permissions exist, allow access
+  if (allowPermissions.length > 0) {
+    return true;
+  }
+  
+  return true; // Default fallback
+};
+
 // Check if KRI owner equals data provider
 export const isOwnerDataProvider = (kriItem) => {
   if (!kriItem) return false;
