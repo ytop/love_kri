@@ -37,12 +37,12 @@
                 size="small"
                 style="width: 180px;"
               >
-                <el-option label="Pending Input" value="Pending Input" />
-                <el-option label="Adjusting" value="Adjusting" />
-                <el-option label="Pending Data Provider Approval" value="Pending Data Provider Approval" />
-                <el-option label="Ready for submission" value="Ready for submission" />
-                <el-option label="Submitted" value="Submitted" />
-                <el-option label="Finalized" value="Finalized" />
+                <el-option 
+                  v-for="option in collectionStatusOptions" 
+                  :key="option.value"
+                  :label="option.label" 
+                  :value="option.value" 
+                />
               </el-select>
             </el-form-item>
             
@@ -182,6 +182,8 @@
 </template>
 
 <script>
+import { COLLECTION_STATUS_OPTIONS } from '@/utils/helpers';
+
 export default {
   name: 'KRIFilters',
   props: {
@@ -200,7 +202,8 @@ export default {
   },
   data() {
     return {
-      localFilters: { ...this.filters }
+      localFilters: { ...this.filters },
+      collectionStatusOptions: COLLECTION_STATUS_OPTIONS
     };
   },
   computed: {

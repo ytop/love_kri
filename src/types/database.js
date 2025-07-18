@@ -73,16 +73,16 @@ export const KRIAuditTrailSchema = {
 // Enum definitions for status fields
 export const KRIStatus = {
   PENDING_INPUT: 10,
-  ADJUSTING: 20,
+  UNDER_REWORK: 20,
   SAVED: 30,
-  SUBMITTED_TO_KRI_OWNER_APPROVER: 40,
-  SUBMITTED_TO_DATA_PROVIDER_APPROVER: 50,
+  SUBMITTED_TO_DATA_PROVIDER_APPROVER: 40,
+  SUBMITTED_TO_KRI_OWNER_APPROVER: 50,
   FINALIZED: 60
 };
 
 export const AtomicStatus = {
   PENDING_INPUT: 10,
-  ADJUSTING: 20,
+  UNDER_REWORK: 20,
   SAVED: 30,
   SUBMITTED_TO_DATA_PROVIDER_APPROVER: 40,
   SUBMITTED_TO_KRI_OWNER_APPROVER: 50,
@@ -95,8 +95,8 @@ export const mapKriStatus = (status) => {
   switch (status) {
   case KRIStatus.PENDING_INPUT:
     return 'Pending Input';
-  case KRIStatus.ADJUSTING:
-    return 'Adjusting';
+  case KRIStatus.UNDER_REWORK:
+    return 'Under Rework';
   case KRIStatus.SAVED:
     return 'Saved';
   case KRIStatus.SUBMITTED_TO_DATA_PROVIDER_APPROVER:
@@ -111,14 +111,20 @@ export const mapKriStatus = (status) => {
 };
 
 export const mapAtomicStatus = (status) => {
-  if (status === null || status === undefined) return 'Unknown';
+  if (status === null || status === undefined) return 'Pending Input';
   switch (status) {
-  case AtomicStatus.INACTIVE:
-    return 'Inactive';
-  case AtomicStatus.ACTIVE:
-    return 'Active';
-  case AtomicStatus.VALIDATED:
-    return 'Validated';
+  case AtomicStatus.PENDING_INPUT:
+    return 'Pending Input';
+  case AtomicStatus.UNDER_REWORK:
+    return 'Under Rework';
+  case AtomicStatus.SAVED:
+    return 'Saved';
+  case AtomicStatus.SUBMITTED_TO_DATA_PROVIDER_APPROVER:
+    return 'Submitted to Data Provider Approver';
+  case AtomicStatus.SUBMITTED_TO_KRI_OWNER_APPROVER:
+    return 'Submitted to KRI Owner Approver';
+  case AtomicStatus.FINALIZED:
+    return 'Finalized';
   default:
     return `Status ${status}`;
   }

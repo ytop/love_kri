@@ -37,7 +37,7 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
-import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, COLLECTION_STATUS_OPTIONS } from '@/utils/helpers';
 
 export default {
   name: 'KRIListByStatus',
@@ -49,7 +49,8 @@ export default {
       type: String,
       required: true,
       validator: function (value) {
-        return ['Pending Input', 'Adjusting', 'Pending Data Provider Approval', 'Ready for submission', 'Submitted', 'Finalized', 'Pending', 'Submitted'].indexOf(value) !== -1;
+        const validStatuses = COLLECTION_STATUS_OPTIONS.map(option => option.value);
+        return validStatuses.indexOf(value) !== -1;
       }
     }
   },

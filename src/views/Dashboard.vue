@@ -122,6 +122,7 @@ export default {
       'filteredKRIItems',
       'availableDepartments'
     ]),
+    ...mapState('kri', ['kriItems']),
     currentUser() {
       return this.$store.state.kri.currentUser;
     },
@@ -139,7 +140,7 @@ export default {
         return 0;
       }
       
-      return this.filteredKRIItems.filter(item => {
+      return this.kriItems.filter(item => {
         const key = `${item.id}_${item.reportingDate}`;
         
         // Check if user has any permission for this KRI

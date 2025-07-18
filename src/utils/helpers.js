@@ -1,4 +1,5 @@
 import { format, lastDayOfMonth, subMonths } from 'date-fns';
+import { KRIStatus } from '@/types/database';
 
 // Unified Status Configuration (used for both KRI and Atomic status)
 const STATUS_CONFIG = {
@@ -20,15 +21,8 @@ const STATUS_LABEL_TO_NUMBER = {
   'Finalized': 60
 };
 
-// Export status values for use in other modules
-export const STATUS_VALUES = {
-  PENDING_INPUT: 10,
-  UNDER_REWORK: 20,
-  SAVED: 30,
-  SUBMITTED_TO_DATA_PROVIDER_APPROVER: 40,
-  SUBMITTED_TO_KRI_OWNER_APPROVER: 50,
-  FINALIZED: 60
-};
+// Export status values for use in other modules (from database.js)
+export const STATUS_VALUES = KRIStatus;
 
 // Map status numbers to readable strings (works for both KRI and Atomic)
 export const mapStatus = (status) => {
@@ -257,3 +251,13 @@ export const getAvailableActions = (userPermissions, currentStatus, kriItem = nu
   
   return actions;
 };
+
+// Collection Status options for filters
+export const COLLECTION_STATUS_OPTIONS = [
+  { label: 'Pending Input', value: 'Pending Input' },
+  { label: 'Under Rework', value: 'Under Rework' },
+  { label: 'Saved', value: 'Saved' },
+  { label: 'Submitted to Data Provider Approver', value: 'Submitted to Data Provider Approver' },
+  { label: 'Submitted to KRI Owner Approver', value: 'Submitted to KRI Owner Approver' },
+  { label: 'Finalized', value: 'Finalized' }
+];
