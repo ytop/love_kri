@@ -57,7 +57,14 @@
               />
             </el-form-item>
             
-            <el-button @click="resetFilters" size="small" plain class="reset-button">
+            <el-button 
+              @click="resetFilters" 
+              size="small" 
+              :type="hasActiveFilters ? 'warning' : ''"
+              :plain="!hasActiveFilters"
+              class="reset-button"
+              :class="{ 'reset-button-active': hasActiveFilters }"
+            >
               Reset
             </el-button>
           </div>
@@ -214,6 +221,20 @@ export default {
       set(value) {
         this.localFilters.reportingDate = value;
       }
+    },
+    hasActiveFilters() {
+      // Check if any filter has a non-empty value (excluding reportingDate which is always set)
+      return this.localFilters.department ||
+             this.localFilters.collectionStatus ||
+             this.localFilters.l1RiskType ||
+             this.localFilters.kriId ||
+             this.localFilters.reportingCycle ||
+             this.localFilters.l2RiskType ||
+             this.localFilters.kriName ||
+             this.localFilters.kriType ||
+             this.localFilters.breachType ||
+             this.localFilters.dataProvider ||
+             this.localFilters.kriOwner;
     }
   },
   watch: {
@@ -252,23 +273,26 @@ export default {
 
 .filters-container {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  gap: 1rem;
 }
 
 .filters-left {
   display: flex;
   align-items: center;
-  flex: 0 0 auto;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
   gap: 1.5rem;
+  min-width: 0;
 }
 
 .filters-right {
   display: flex;
   align-items: center;
-  margin-left: auto;
-  padding-left: 2rem;
+  flex: 0 0 auto;
   gap: 0.5rem;
 }
 
@@ -311,6 +335,12 @@ export default {
   margin-left: 1rem;
   height: 32px;
   align-self: center;
+  transition: all 0.3s ease;
+}
+
+.reset-button-active {
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(230, 162, 60, 0.2);
 }
 
 .advanced-header {
@@ -341,5 +371,93 @@ export default {
 .advanced-filters >>> .el-form-item__label {
   font-weight: 500;
   color: #374151;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .filters-left {
+    gap: 1rem;
+  }
+  
+  .compact-item {
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (max-width: 992px) {
+  .filters-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .filters-left {
+    justify-content: flex-start;
+    gap: 1rem;
+  }
+  
+  .filters-right {
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+  
+  .compact-form >>> .el-form-item.compact-item {
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  
+  .compact-form >>> .el-form-item.compact-item {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+  
+  .compact-form >>> .el-form-item__label {
+    margin-bottom: 0.25rem;
+    padding: 0;
+    height: auto;
+    line-height: 1.4;
+  }
+  
+  .compact-form >>> .el-form-item__content {
+    width: 100%;
+    height: auto;
+  }
+  
+  .compact-item .el-select,
+  .compact-item .el-input {
+    width: 100% !important;
+  }
+  
+  .reset-button {
+    margin-left: 0;
+    margin-top: 0.5rem;
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .kri-filters {
+    padding: 0.5rem;
+  }
+  
+  .filters-container {
+    gap: 0.75rem;
+  }
+  
+  .filters-left {
+    gap: 0.5rem;
+  }
+  
+  .compact-form >>> .el-form-item__label {
+    font-size: 0.8rem;
+  }
 }
 </style>

@@ -45,6 +45,9 @@
       <!-- Action Toolbar -->
       <div class="action-toolbar">
         <div class="toolbar-left">
+          <el-button @click="handleRefresh" icon="el-icon-refresh">
+            Refresh
+          </el-button>
           <el-button @click="showChartView = true" icon="el-icon-s-data">
             Chart View
           </el-button>
@@ -277,6 +280,18 @@ export default {
         this.$router.push({ name: 'Login' });
       } catch (error) {
         this.$message.error('Logout failed');
+      }
+    },
+    
+    // Handle refresh button click
+    async handleRefresh() {
+      try {
+        const currentReportingDate = this.filters.reportingDate || getLastDayOfPreviousMonth();
+        await this.fetchKRIItems(currentReportingDate);
+        this.$message.success('Data refreshed successfully');
+      } catch (error) {
+        this.$message.error('Failed to refresh data');
+        console.error('Refresh error:', error);
       }
     }
   }
