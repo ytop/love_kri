@@ -90,8 +90,162 @@ export const kriService = {
     return data;
   },
 
+  // Save KRI value (update status to 30 - Saved)
+  async saveKRIValue(kriId, reportingDate, kriValue, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      const { data, error } = await supabase
+        .from('kri_item')
+        .update({
+          kri_value: kriValue,
+          kri_status: 30 // Saved status
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving KRI value:', error);
+        throw new Error('Failed to save KRI value');
+      }
+
+      // Add audit trail entry
+      await this.addAuditTrailEntry(kriId, reportingDate, 'save', 'kri_value', null, kriValue, changedBy, 'Data saved');
+
+      return data;
+    } catch (error) {
+      console.error('Save KRI value error:', error);
+      throw error;
+    }
+  },
+
+  // Submit KRI value (update status based on workflow logic)
+  async submitKRIValue(kriId, reportingDate, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // First get the current KRI to determine next status
+      const { data: currentKRI, error: fetchError } = await supabase
+        .from('kri_item')
+        .select('*')
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .single();
+
+      if (fetchError) {
+        throw new Error('Failed to fetch current KRI data');
+      }
+
+      // Determine next status based on business logic
+      let nextStatus = 40; // Default to Data Provider Approver
+      
+      // If KRI owner is the same as data provider, skip to KRI Owner Approver
+      if (currentKRI.kri_owner === currentKRI.data_provider) {
+        nextStatus = 50; // Submit directly to KRI Owner Approver
+      }
+
+      const { data, error } = await supabase
+        .from('kri_item')
+        .update({
+          kri_status: nextStatus
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error submitting KRI:', error);
+        throw new Error('Failed to submit KRI');
+      }
+
+      // Add audit trail entry
+      const statusLabel = nextStatus === 40 ? 'Submitted to Data Provider Approver' : 'Submitted to KRI Owner Approver';
+      await this.addAuditTrailEntry(kriId, reportingDate, 'submit', 'kri_status', currentKRI.kri_status, nextStatus, changedBy, `KRI submitted - ${statusLabel}`);
+
+      return data;
+    } catch (error) {
+      console.error('Submit KRI error:', error);
+      throw error;
+    }
+  },
+
+  // Update KRI status (for approve/reject actions)
+  async updateKRIStatus(kriId, reportingDate, newStatus, changedBy, reason = null) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Get current status for audit trail
+      const { data: currentKRI, error: fetchError } = await supabase
+        .from('kri_item')
+        .select('kri_status')
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .single();
+
+      if (fetchError) {
+        throw new Error('Failed to fetch current KRI status');
+      }
+
+      const { data, error } = await supabase
+        .from('kri_item')
+        .update({
+          kri_status: newStatus
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating KRI status:', error);
+        throw new Error('Failed to update KRI status');
+      }
+
+      // Add audit trail entry
+      const comment = reason ? `Status updated: ${reason}` : 'Status updated';
+      await this.addAuditTrailEntry(kriId, reportingDate, 'status_change', 'kri_status', currentKRI.kri_status, newStatus, changedBy, comment);
+
+      return data;
+    } catch (error) {
+      console.error('Update KRI status error:', error);
+      throw error;
+    }
+  },
+
+  // Add audit trail entry
+  async addAuditTrailEntry(kriId, reportingDate, action, fieldName, oldValue, newValue, changedBy, comment = null) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      const { error } = await supabase
+        .from('kri_audit_trail')
+        .insert({
+          kri_id: parseInt(kriId),
+          reporting_date: reportingDateAsInt,
+          action: action,
+          field_name: fieldName,
+          old_value: oldValue ? String(oldValue) : null,
+          new_value: newValue ? String(newValue) : null,
+          changed_by: changedBy,
+          comment: comment
+        });
+
+      if (error) {
+        console.error('Error adding audit trail entry:', error);
+        // Don't throw error for audit trail failures to avoid breaking main operations
+      }
+    } catch (error) {
+      console.error('Audit trail error:', error);
+      // Don't throw error for audit trail failures
+    }
+  },
 
   // Authentication and user management
+  // TODO: Add user authentication and permission management
+  // Really, Can't protect it using only username... even without password...
   async authenticateUser(username) {
     try {
       // Get user from kri_user table

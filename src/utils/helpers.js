@@ -200,21 +200,33 @@ export const getNextStatus = (currentStatus, action) => {
 export const canPerformAction = (userPermissions, action, currentStatus, kriItem = null) => {
   // Check if user has the KRI-specific permission
   if (!kriItem) {
+    console.log('canPerformAction: No kriItem provided');
     return false;
   }
   
   const key = `${kriItem.id}_${kriItem.reportingDate}`;
   const hasPermission = userPermissions[key]?.includes(action) || false;
   
+  // Debug logging
+  console.log('Permission Check:', {
+    key,
+    action,
+    currentStatus,
+    availablePermissions: userPermissions[key],
+    hasPermission,
+    allUserPermissions: userPermissions
+  });
+  
   if (!hasPermission) {
+    console.log(`canPerformAction: No ${action} permission for ${key}`);
     return false;
   }
 
   // Additional status-based checks
   switch (action) {
   case 'edit':
-    // Can edit in Pending Input and Under Rework status
-    return [10, 20].includes(currentStatus);
+    // Can edit in Pending Input, Under Rework, and Saved status
+    return [10, 20, 30].includes(currentStatus);
   
   case 'review':
     // Data Provider Approver - can review status 40
@@ -225,7 +237,8 @@ export const canPerformAction = (userPermissions, action, currentStatus, kriItem
     return currentStatus === 50;
   
   default:
-    return true;
+    console.log(`canPerformAction: Unknown action ${action}, returning false`); // TODO: Should change to Failed Open?
+    return false;
   }
 };
 

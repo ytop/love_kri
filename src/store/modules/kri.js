@@ -1,5 +1,5 @@
 import { kriService } from '@/services/kriService';
-import { mapStatus, getLastDayOfPreviousMonth, getNextStatus, canPerformAction, getInputStatus } from '@/utils/helpers';
+import { mapStatus, getLastDayOfPreviousMonth, getNextStatus, canPerformAction, formatDateFromInt } from '@/utils/helpers';
 
 const state = {
   kriItems: [],
@@ -210,7 +210,7 @@ const actions = {
         reporting_frequency: 'Monthly',
         kri_formula: 'Mock Formula',
         kri_value: '75.5',
-        kri_status: 1,
+        kri_status: 10,
         created_at: new Date().toISOString()
       };
       
@@ -302,10 +302,22 @@ const actions = {
   // KRI Status Management Actions
   async updateKRIStatus({ commit, state }, { kriId, reportingDate, newStatus, reason = null, changedBy = null }) {
     try {
-      // [MOCK] Replace with API call to update KRI status
       const user = changedBy || state.currentUser.name || 'System';
       
-      // Find and update the KRI item
+      // Use kriService to update KRI status
+      // Convert integer date to YYYY-MM-DD format for kriService
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.updateKRIStatus with:', { kriId, formattedDate, newStatus, user, reason });
+      
+      const updatedKRI = await kriService.updateKRIStatus(
+        kriId, 
+        formattedDate, 
+        newStatus, 
+        user, 
+        reason
+      );
+      
+      // Update local state
       const kriItems = [...state.kriItems];
       const kriIndex = kriItems.findIndex(item => 
         item.id === String(kriId) && item.reportingDate === String(reportingDate)
@@ -323,16 +335,21 @@ const actions = {
         
         commit('SET_KRI_ITEMS', kriItems);
         
-        // Add to audit trail (mock implementation)
-        console.log(`KRI ${kriId} status updated to ${newStatus} by ${user}${reason ? ` with reason: ${reason}` : ''}`);
-        
-        return { success: true };
-      } else {
-        throw new Error('KRI not found');
+        // Update kriDetail if it's the same KRI
+        if (state.kriDetail && 
+            String(state.kriDetail.kri_id) === String(kriId) && 
+            String(state.kriDetail.reporting_date) === String(reportingDate)) {
+          commit('SET_KRI_DETAIL', {
+            ...state.kriDetail,
+            kri_status: newStatus
+          });
+        }
       }
+      
+      return { success: true, data: updatedKRI };
     } catch (error) {
       console.error('Error updating KRI status:', error);
-      commit('SET_ERROR', 'Failed to update KRI status');
+      commit('SET_ERROR', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -401,12 +418,15 @@ const actions = {
   },
 
   async saveKRIValue({ dispatch, commit, state }, { kriId, reportingDate, value }) {
+    console.log('saveKRIValue called with:', { kriId, reportingDate, value });
+    
     const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
       item.id === String(kriId) && item.reportingDate === String(reportingDate)
     );
     
     if (!currentKRI) {
+      console.log('KRI not found in saveKRIValue:', { kriId: String(kriId), reportingDate: String(reportingDate) });
       return { success: false, error: 'KRI not found' };
     }
     
@@ -417,73 +437,131 @@ const actions = {
       return { success: false, error: 'Insufficient permissions' };
     }
     
-    // Update to Saved (30) status
-    const savedStatus = getNextStatus(currentStatus, 'save');
-    if (!savedStatus) {
-      return { success: false, error: 'Invalid status transition' };
-    }
-    
-    // Update to Saved status
-    const savedResult = await dispatch('updateKRIStatus', {
-      kriId,
-      reportingDate,
-      newStatus: savedStatus,
-      changedBy: state.currentUser.name
-    });
-    
-    if (!savedResult.success) {
-      return savedResult;
-    }
-    
-    // Update the KRI value (mock implementation)
-    const kriItems = [...state.kriItems];
-    const kriIndex = kriItems.findIndex(item => 
-      item.id === String(kriId) && item.reportingDate === String(reportingDate)
-    );
-    
-    if (kriIndex !== -1) {
-      kriItems[kriIndex] = {
-        ...kriItems[kriIndex],
-        kriValue: value,
-        rawData: {
-          ...kriItems[kriIndex].rawData,
-          kri_value: value
-        }
-      };
+    try {
+      // Use kriService to save value and update status to Saved (30)
+      // Convert integer date to YYYY-MM-DD format for kriService
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.saveKRIValue with:', { kriId, formattedDate, value });
       
-      commit('SET_KRI_ITEMS', kriItems);
+      const updatedKRI = await kriService.saveKRIValue(
+        kriId, 
+        formattedDate, 
+        value, 
+        state.currentUser.name
+      );
+      
+      // Update local state
+      const kriItems = [...state.kriItems];
+      const kriIndex = kriItems.findIndex(item => 
+        item.id === String(kriId) && item.reportingDate === String(reportingDate)
+      );
+      
+      if (kriIndex !== -1) {
+        kriItems[kriIndex] = {
+          ...kriItems[kriIndex],
+          kriValue: value,
+          collectionStatus: mapStatus(30), // Saved status
+          rawData: {
+            ...kriItems[kriIndex].rawData,
+            kri_value: value,
+            kri_status: 30
+          }
+        };
+        
+        commit('SET_KRI_ITEMS', kriItems);
+        
+        // Update kriDetail if it's the same KRI
+        if (state.kriDetail && 
+            String(state.kriDetail.kri_id) === String(kriId) && 
+            String(state.kriDetail.reporting_date) === String(reportingDate)) {
+          commit('SET_KRI_DETAIL', {
+            ...state.kriDetail,
+            kri_value: value,
+            kri_status: 30
+          });
+        }
+      }
+      
+      return { success: true, data: updatedKRI };
+    } catch (error) {
+      console.error('Error saving KRI value:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
     }
-    
-    return { success: true };
   },
 
-  async submitKRI({ dispatch, state }, { kriId, reportingDate }) {
+  async submitKRI({ commit, state }, { kriId, reportingDate }) {
+    console.log('submitKRI called with:', { kriId, reportingDate });
+    
     const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
       item.id === String(kriId) && item.reportingDate === String(reportingDate)
     );
     
     if (!currentKRI) {
+      console.log('KRI not found in submitKRI:', { kriId: String(kriId), reportingDate: String(reportingDate) });
       return { success: false, error: 'KRI not found' };
     }
     
     const currentStatus = currentKRI.rawData.kri_status;
     
+    // Check if user can perform submit action (should be from Saved status)
+    if (currentStatus !== 30) {
+      return { success: false, error: 'KRI must be saved before submission' };
+    }
+    
     // Check if user can perform submit action
-    if (!canPerformAction(userPermissions, 'acknowledge', currentStatus, currentKRI)) {
+    if (!canPerformAction(userPermissions, 'edit', currentStatus, currentKRI)) {
       return { success: false, error: 'Insufficient permissions' };
     }
     
-    // Determine final status based on permissions
-    const finalStatus = getInputStatus(userPermissions, currentKRI);
-    
-    // Update to final status
-    return await dispatch('updateKRIStatus', {
-      kriId,
-      reportingDate,
-      newStatus: finalStatus,
-      changedBy: state.currentUser.name
-    });
+    try {
+      // Use kriService to submit KRI
+      // Convert integer date to YYYY-MM-DD format for kriService
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.submitKRIValue with:', { kriId, formattedDate });
+      
+      const updatedKRI = await kriService.submitKRIValue(
+        kriId, 
+        formattedDate, 
+        state.currentUser.name
+      );
+      
+      // Update local state
+      const kriItems = [...state.kriItems];
+      const kriIndex = kriItems.findIndex(item => 
+        item.id === String(kriId) && item.reportingDate === String(reportingDate)
+      );
+      
+      if (kriIndex !== -1) {
+        kriItems[kriIndex] = {
+          ...kriItems[kriIndex],
+          collectionStatus: mapStatus(updatedKRI.kri_status),
+          rawData: {
+            ...kriItems[kriIndex].rawData,
+            kri_status: updatedKRI.kri_status
+          }
+        };
+        
+        commit('SET_KRI_ITEMS', kriItems);
+        
+        // Update kriDetail if it's the same KRI
+        if (state.kriDetail && 
+            String(state.kriDetail.kri_id) === String(kriId) && 
+            String(state.kriDetail.reporting_date) === String(reportingDate)) {
+          commit('SET_KRI_DETAIL', {
+            ...state.kriDetail,
+            kri_status: updatedKRI.kri_status
+          });
+        }
+      }
+      
+      return { success: true, data: updatedKRI };
+    } catch (error) {
+      console.error('Error submitting KRI:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
   }
 };
 
@@ -532,44 +610,6 @@ const getters = {
     return filtered;
   },
   
-  // 10
-  pendingKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
-  },
-  // 50
-  submittedKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length;
-  },
-  // 20
-  underReworkKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Under Rework').length;
-  },
-  // 30
-  savedKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Saved').length;
-  },
-  // 40
-  submittedToDataProviderApproverCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length;
-  },
-  // 60
-  finalizedKRIsCount: (state) => {
-    return state.kriItems.filter(item => item.collectionStatus === 'Finalized').length;
-  },
-  // New getters for workflow-based counts
-  inputWorkflowKRIsCount: (state) => {
-    // Sum of Pending Input + Under Rework (matches KRIPendingInput logic)
-    const saved = state.kriItems.filter(item => item.collectionStatus === 'Saved').length;
-    const pendingInput = state.kriItems.filter(item => item.collectionStatus === 'Pending Input').length;
-    const underRework = state.kriItems.filter(item => item.collectionStatus === 'Under Rework').length;
-    return pendingInput + underRework + saved;
-  },
-  approvalWorkflowKRIsCount: (state) => {
-    // Sum of Saved + Submitted to Data Provider Approver + Submitted to KRI Owner Approver (matches KRIPendingApproval logic)
-    const submittedToDP = state.kriItems.filter(item => item.collectionStatus === 'Submitted to Data Provider Approver').length;
-    const submittedToKRI = state.kriItems.filter(item => item.collectionStatus === 'Submitted to KRI Owner Approver').length;
-    return submittedToDP + submittedToKRI;
-  },
   krisByStatus: (state) => (status) => {
     // Handle both string and numeric status filtering
     const statusToMatch = typeof status === 'number' ? mapStatus(status) : status;

@@ -16,20 +16,95 @@
           </el-alert>
         </div>
         <template v-else>
-          <el-button
-            type="primary"
-            icon="el-icon-edit"
-            @click="handleApproveKRI"
-            style="width: 100%;">
-            Approve KRI
-          </el-button>
-          <el-button
-            type="danger"
-            icon="el-icon-close"
-            @click="handleRejectKRI"
-            style="width: 100%;">
-            Reject KRI
-          </el-button>
+          <!-- Data Input Actions for Pending Input/Under Rework status -->
+          <template v-if="showDataInputActions">
+            <div class="data-input-actions">
+              <el-form :model="inputForm" size="small">
+                <el-form-item label="KRI Value">
+                  <el-input-number
+                    v-model="inputForm.kriValue"
+                    placeholder="Enter value"
+                    :precision="2"
+                    style="width: 100%"
+                    :disabled="actionLoading">
+                  </el-input-number>
+                </el-form-item>
+                <div class="action-buttons">
+                  <el-button
+                    type="primary"
+                    icon="el-icon-check"
+                    @click="handleSave"
+                    :loading="actionLoading"
+                    :disabled="!isValidInput"
+                    size="small"
+                    style="width: 100%;">
+                    Save
+                  </el-button>
+                  <el-button
+                    v-if="kriData.kri_status === 30"
+                    type="success"
+                    icon="el-icon-upload"
+                    @click="handleSubmit"
+                    :loading="actionLoading"
+                    size="small"
+                    style="width: 100%;">
+                    Submit
+                  </el-button>
+                </div>
+              </el-form>
+            </div>
+          </template>
+          
+          <!-- Review Actions for Data Provider Approver -->
+          <template v-if="showReviewActions">
+            <el-button
+              type="primary"
+              icon="el-icon-check"
+              @click="handleApproveKRI"
+              :loading="actionLoading"
+              style="width: 100%;">
+              Approve
+            </el-button>
+            <el-button
+              type="danger"
+              icon="el-icon-close"
+              @click="handleRejectKRI"
+              :loading="actionLoading"
+              style="width: 100%;">
+              Reject
+            </el-button>
+          </template>
+          
+          <!-- Acknowledge Actions for KRI Owner Approver -->
+          <template v-if="showAcknowledgeActions">
+            <el-button
+              type="primary"
+              icon="el-icon-check"
+              @click="handleAcknowledgeKRI"
+              :loading="actionLoading"
+              style="width: 100%;">
+              Acknowledge
+            </el-button>
+            <el-button
+              type="danger"
+              icon="el-icon-close"
+              @click="handleRejectKRI"
+              :loading="actionLoading"
+              style="width: 100%;">
+              Reject
+            </el-button>
+          </template>
+          
+          <!-- No Actions Available -->
+          <div v-if="!showDataInputActions && !showReviewActions && !showAcknowledgeActions" class="no-actions">
+            <el-alert
+              title="No Actions Available"
+              description="You don't have permission to perform actions on this KRI, or it's in a status that doesn't allow actions."
+              type="info"
+              :closable="false"
+              show-icon>
+            </el-alert>
+          </div>
         </template>
       </div>
     </el-card>
@@ -74,7 +149,8 @@
 </template>
 
 <script>
-import { mapStatus, formatDateFromInt, getStatusTagType } from '@/utils/helpers';
+import { mapState, mapActions } from 'vuex';
+import { mapStatus, formatDateFromInt, getStatusTagType, canPerformAction } from '@/utils/helpers';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { GaugeChart, LineChart } from 'echarts/charts';
@@ -114,7 +190,57 @@ export default {
       required: true
     }
   },
+  data() {
+    return {
+      inputForm: {
+        kriValue: null
+      },
+      actionLoading: false
+    };
+  },
   computed: {
+    ...mapState('kri', ['currentUser']),
+    
+    // Check if user can perform data input actions
+    showDataInputActions() {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date
+      };
+      
+      // Show for Pending Input (10), Under Rework (20), and Saved (30) status
+      return [10, 20, 30].includes(this.kriData.kri_status) &&
+             canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
+    },
+    
+    // Check if user can perform review actions (Data Provider Approver)
+    showReviewActions() {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date // Use integer format for permission key
+      };
+      
+      return this.kriData.kri_status === 40 && // Submitted to Data Provider Approver
+             canPerformAction(userPermissions, 'review', this.kriData.kri_status, kriItem);
+    },
+    
+    // Check if user can perform acknowledge actions (KRI Owner Approver)
+    showAcknowledgeActions() {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date 
+      };
+      
+      return this.kriData.kri_status === 50 && // Submitted to KRI Owner Approver
+             canPerformAction(userPermissions, 'acknowledge', this.kriData.kri_status, kriItem);
+    },
+    
+    isValidInput() {
+      return this.inputForm.kriValue !== null && this.inputForm.kriValue !== '';
+    },
     completeAtomicCount() {
       return this.atomicData.filter(item => 
         item.atomic_value && item.atomic_value !== 'N/A'
@@ -365,7 +491,20 @@ export default {
       };
     }
   },
+  watch: {
+    kriData: {
+      handler(newData) {
+        // Update input form when kriData changes
+        if (newData && newData.kri_value) {
+          this.inputForm.kriValue = parseFloat(newData.kri_value) || null;
+        }
+      },
+      immediate: true
+    }
+  },
   methods: {
+    ...mapActions('kri', ['saveKRIValue', 'submitKRI', 'updateKRIStatus']),
+    
     mapStatus,
     getStatusTagType,
     
@@ -378,30 +517,148 @@ export default {
       if (percentage >= 60) return '#e6a23c';
       return '#f56c6c';
     },
-    async handleApproveKRI() {
-      if (this.kriData && this.kriData.kri_id) {
-        try {
-          // TODO: Implement KRI approval logic
-          console.log('Approving KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
-        } catch (error) {
-          console.error('Error approving KRI:', error);
-          this.$message.error('Failed to approve KRI');
+    
+    async handleSave() {
+      if (!this.isValidInput) {
+        this.$message.warning('Please enter a valid KRI value');
+        return;
+      }
+      
+      this.actionLoading = true;
+      
+      try {
+        const result = await this.saveKRIValue({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date, // Use integer format
+          value: this.inputForm.kriValue.toString()
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI value saved successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to save KRI value');
         }
-      } else {
-        this.$message.error('KRI data or KRI ID is missing');
+      } catch (error) {
+        console.error('Save error:', error);
+        this.$message.error('Failed to save KRI value');
+      } finally {
+        this.actionLoading = false;
       }
     },
+    
+    async handleSubmit() {
+      this.actionLoading = true;
+      
+      try {
+        const result = await this.submitKRI({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date // Use integer format
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI submitted successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to submit KRI');
+        }
+      } catch (error) {
+        console.error('Submit error:', error);
+        this.$message.error('Failed to submit KRI');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+    
+    async handleApproveKRI() {
+      this.actionLoading = true;
+      
+      try {
+        const result = await this.updateKRIStatus({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date, // Use integer format
+          newStatus: 50, // Move to KRI Owner Approver
+          changedBy: this.currentUser.name,
+          reason: 'Approved by Data Provider Approver'
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI approved successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to approve KRI');
+        }
+      } catch (error) {
+        console.error('Error approving KRI:', error);
+        this.$message.error('Failed to approve KRI');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+    
+    async handleAcknowledgeKRI() {
+      this.actionLoading = true;
+      
+      try {
+        const result = await this.updateKRIStatus({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date, // Use integer format
+          newStatus: 60, // Move to Finalized
+          changedBy: this.currentUser.name,
+          reason: 'Acknowledged by KRI Owner Approver'
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI acknowledged and finalized successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to acknowledge KRI');
+        }
+      } catch (error) {
+        console.error('Error acknowledging KRI:', error);
+        this.$message.error('Failed to acknowledge KRI');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+    
     async handleRejectKRI() {
-      if (this.kriData && this.kriData.kri_id) {
-        try {
-          // TODO: Implement KRI rejection logic
-          console.log('Rejecting KRI:', this.kriData.kri_id, this.formatReportingDate(this.kriData.reporting_date));
-        } catch (error) {
+      this.actionLoading = true;
+      
+      try {
+        // Prompt for rejection reason
+        const reason = await this.$prompt('Please provide a reason for rejection:', 'Reject KRI', {
+          confirmButtonText: 'Reject',
+          cancelButtonText: 'Cancel',
+          inputValidator: (value) => {
+            if (!value || value.trim().length < 3) {
+              return 'Reason must be at least 3 characters long';
+            }
+            return true;
+          }
+        });
+        
+        const result = await this.updateKRIStatus({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date, // Use integer format
+          newStatus: 20, // Move to Under Rework
+          changedBy: this.currentUser.name,
+          reason: reason.value
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI rejected and sent back for rework');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to reject KRI');
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
           console.error('Error rejecting KRI:', error);
           this.$message.error('Failed to reject KRI');
         }
-      } else {
-        this.$message.error('KRI data or KRI ID is missing');
+      } finally {
+        this.actionLoading = false;
       }
     }
   }
@@ -520,6 +777,43 @@ export default {
 }
 
 .calculated-kri-notice >>> .el-alert__description {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+}
+
+.data-input-actions {
+  padding: 0.5rem 0;
+}
+
+.data-input-actions .el-form-item {
+  margin-bottom: 1rem;
+}
+
+.data-input-actions .el-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.no-actions {
+  margin-bottom: 0.75rem;
+}
+
+.no-actions >>> .el-alert {
+  margin: 0;
+}
+
+.no-actions >>> .el-alert__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.no-actions >>> .el-alert__description {
   font-size: 0.75rem;
   line-height: 1.4;
   margin-top: 0.25rem;

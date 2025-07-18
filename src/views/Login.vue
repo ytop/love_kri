@@ -1,17 +1,18 @@
 <template>
   <div class="login-container">
+    <div class="back-nav">
+      <el-button 
+        @click="goBack"
+        type="text"
+        icon="el-icon-arrow-left"
+        class="back-button"
+      >
+        Back
+      </el-button>
+    </div>
+    
     <div class="login-card">
       <div class="login-header">
-        <div class="header-nav">
-          <el-button 
-            @click="goBack"
-            type="text"
-            icon="el-icon-arrow-left"
-            class="back-button"
-          >
-            Back
-          </el-button>
-        </div>
         <h1>KRI Dashboard</h1>
         <p>Key Risk Indicator Management System</p>
       </div>
@@ -46,7 +47,7 @@
       </el-form>
       
       <div class="login-footer">
-        <p>� 2024 KRI Dashboard. All rights reserved.</p>
+        <p>© 2024 KRI Dashboard. All rights reserved.</p>
       </div>
     </div>
   </div>
@@ -119,10 +120,19 @@ export default {
 .login-container {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  position: relative;
+}
+
+.back-nav {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
 }
 
 .login-card {
@@ -137,28 +147,20 @@ export default {
 .login-header {
   text-align: center;
   margin-bottom: 30px;
-  position: relative;
-}
-
-.header-nav {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 20px;
 }
 
 .back-button {
-  color: #7f8c8d;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 0.9rem;
   padding: 8px 12px;
   transition: color 0.3s ease;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
 }
 
 .back-button:hover {
-  color: #2c3e50;
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .back-button .el-icon-arrow-left {

@@ -39,7 +39,6 @@ case 3,  in case 1, 40 --> 50 approve, if reject, 40 --> 20
 
 # New rules
 
-
 Public Const gStatusPendingInput As String = "Pending Input" ' 1
 Public Const gStatusPendingSubmit As String = "Saved" ' 2
 Public Const gStatusPendingAdjust As String = "Adjusting" ' 3
@@ -69,6 +68,9 @@ Function GetNextStatus(tabName As String, iPrevStatus As Integer) As Integer
     Else
         GetNextStatus = -1
     End If
+
+
+case 1: 10 --> 30 --> 
 
 change status
 change sample data,

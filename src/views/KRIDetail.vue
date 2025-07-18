@@ -51,7 +51,7 @@
             <div slot="header" class="card-header">
               <span>KRI Overview</span>
             </div>
-            <k-r-i-overview :kri-data="kriDetail" />
+            <k-r-i-overview :kri-data="kriDetail" @data-updated="refreshKRIData" />
           </el-card>
           
           <!-- Data Elements -->
@@ -106,6 +106,7 @@
           <k-r-i-sidebar 
             :kri-data="kriDetail"
             :atomic-data="atomicData"
+            @data-updated="refreshKRIData"
           />
         </div>
       </div>
@@ -177,6 +178,13 @@ export default {
     handleCommentClick() {
       console.log('Comment button on simple card clicked. KRI ID:', this.id, 'Reporting Date:', this.date);
       // Placeholder: Future implementation might open a comment modal or section.
+    },
+    
+    async refreshKRIData() {
+      await this.fetchKRIDetail({
+        kriId: this.id,
+        reportingDate: this.date
+      });
     }
   }
 };

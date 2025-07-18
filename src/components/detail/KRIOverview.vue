@@ -21,6 +21,60 @@
       </el-col>
     </el-row>
     
+    <!-- Data Input Section -->
+    <div v-if="canEditKRI" class="data-input-section">
+      <el-card class="input-card">
+        <div slot="header" class="card-header">
+          <span>Data Input</span>
+          <el-tag :type="getStatusTagType(kriData.kri_status)" size="small">
+            {{ mapStatus(kriData.kri_status) }}
+          </el-tag>
+        </div>
+        <div class="input-content">
+          <el-form :model="inputForm" label-width="120px" size="medium">
+            <el-form-item label="KRI Value">
+              <el-input-number
+                v-model="inputForm.kriValue"
+                placeholder="Enter KRI value"
+                :precision="2"
+                style="width: 100%"
+                :disabled="inputLoading">
+              </el-input-number>
+            </el-form-item>
+            <el-form-item label="Comment (Optional)">
+              <el-input
+                v-model="inputForm.comment"
+                type="textarea"
+                placeholder="Add a comment about this value..."
+                :rows="3"
+                :disabled="inputLoading">
+              </el-input>
+            </el-form-item>
+            <el-form-item>
+              <div class="action-buttons">
+                <el-button
+                  type="primary"
+                  icon="el-icon-check"
+                  @click="handleSave"
+                  :loading="inputLoading"
+                  :disabled="!isValidInput">
+                  Save
+                </el-button>
+                <el-button
+                  v-if="kriData.kri_status === 30"
+                  type="success"
+                  icon="el-icon-upload"
+                  @click="handleSubmit"
+                  :loading="inputLoading">
+                  Submit
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-form>
+        </div>
+      </el-card>
+    </div>
+    
     <el-row :gutter="24" style="margin-top: 1.5rem;">
       <el-col :span="12">
         <div class="info-item">
@@ -43,7 +97,8 @@
 </template>
 
 <script>
-import { getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/helpers';
+import { mapState, mapActions } from 'vuex';
+import { getBreachTagType, getBreachDisplayText, getBreachDescription, mapStatus, getStatusTagType, canPerformAction, formatDateFromInt } from '@/utils/helpers';
 
 export default {
   name: 'KRIOverview',
@@ -53,10 +108,106 @@ export default {
       required: true
     }
   },
+  data() {
+    return {
+      inputForm: {
+        kriValue: null,
+        comment: ''
+      },
+      inputLoading: false
+    };
+  },
+  computed: {
+    ...mapState('kri', ['currentUser']),
+    
+    canEditKRI() {
+      // Check if user has edit permission and status allows editing
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date // Use integer format for permission key
+      };
+      
+      return canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
+    },
+    
+    isValidInput() {
+      return this.inputForm.kriValue !== null && this.inputForm.kriValue !== '';
+    }
+  },
+  watch: {
+    kriData: {
+      handler(newData) {
+        // Update input form when kriData changes
+        if (newData && newData.kri_value) {
+          this.inputForm.kriValue = parseFloat(newData.kri_value) || null;
+        }
+      },
+      immediate: true
+    }
+  },
   methods: {
+    ...mapActions('kri', ['saveKRIValue', 'submitKRI']),
+    
     getBreachTagType,
     getBreachDisplayText,
-    getBreachDescription
+    getBreachDescription,
+    mapStatus,
+    getStatusTagType,
+    
+    async handleSave() {
+      if (!this.isValidInput) {
+        this.$message.warning('Please enter a valid KRI value');
+        return;
+      }
+      
+      this.inputLoading = true;
+      
+      try {
+        const result = await this.saveKRIValue({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          value: this.inputForm.kriValue.toString()
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI value saved successfully');
+          // Emit event to parent to refresh data
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to save KRI value');
+        }
+      } catch (error) {
+        console.error('Save error:', error);
+        this.$message.error('Failed to save KRI value');
+      } finally {
+        this.inputLoading = false;
+      }
+    },
+    
+    async handleSubmit() {
+      this.inputLoading = true;
+      
+      try {
+        const result = await this.submitKRI({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI submitted successfully');
+          // Emit event to parent to refresh data
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to submit KRI');
+        }
+      } catch (error) {
+        console.error('Submit error:', error);
+        this.$message.error('Failed to submit KRI');
+      } finally {
+        this.inputLoading = false;
+      }
+    }
   }
 };
 </script>
@@ -94,21 +245,50 @@ export default {
   color: #ef4444;
 }
 
+.data-input-section {
+  margin: 1.5rem 0;
+}
+
+.input-card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #374151;
+}
+
+.input-content {
+  padding: 0.5rem 0;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
 .info-item {
   margin-bottom: 1rem;
 }
 
 .info-item label {
-  display: block;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
   font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 0.25rem;
 }
 
 .info-item p {
-  color: #6b7280;
+  font-size: 0.875rem;
+  color: #374151;
   margin: 0;
-  line-height: 1.5;
+}
+
+.status-tag {
+  margin-left: 0.5rem;
 }
 </style>

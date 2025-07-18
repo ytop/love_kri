@@ -40,7 +40,7 @@ This plan implements a comprehensive enhancement to the KRI (Key Risk Indicator)
 - **File**: `src/services/kriService.js`
 - **Action**: Create workflow functions for status transitions
 - **Workflows**:
-  - **Case 1** (Data Provider = KRI Owner): 10 → 40 → 50 → 60
+  - **Case 1** (Data Provider = KRI Owner): 10 → 30 → 50 → 60
   - **Case 2** (Data Provider ≠ KRI Owner): 10 → 30 → 40 → 50 → 60
   - **Case 3** (Rejection flows): Any approval → 20 (Adjusting)
 - **Functions to implement**:
