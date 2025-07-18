@@ -1,10 +1,12 @@
 <template>
   <div class="kri-table">
     <el-table
-      :data="data"
+      ref="table"
+      :data="sortedData"
       v-loading="loading"
       style="width: 100%"
       @selection-change="handleSelectionChange"
+      :row-class-name="getRowClassName"
     >
       <el-table-column
         type="selection"
@@ -140,22 +142,22 @@
             <!-- Input Actions for editable rows -->
             <template v-if="canEditRow(scope.row)">
               <el-button
-                type="primary"
                 size="mini"
                 icon="el-icon-check"
                 @click="handleSingleSave(scope.row)"
                 :disabled="!hasValidValue(scope.row)"
                 :loading="getRowLoading(scope.row)"
+                class="action-button save-button"
               >
                 Save
               </el-button>
               <el-button
-                type="success"
                 size="mini"
                 icon="el-icon-upload"
                 @click="handleSingleSaveAndSubmit(scope.row)"
                 :disabled="!hasValidValue(scope.row)"
                 :loading="getRowLoading(scope.row)"
+                class="action-button submit-button"
               >
                 Submit
               </el-button>
@@ -164,20 +166,20 @@
             <!-- Review Actions for Data Provider Approver -->
             <template v-else-if="canReviewRow(scope.row)">
               <el-button
-                type="success"
                 size="mini"
                 icon="el-icon-check"
                 @click="handleSingleApprove(scope.row)"
                 :loading="getRowLoading(scope.row)"
+                class="action-button approve-button"
               >
                 Approve
               </el-button>
               <el-button
-                type="warning"
                 size="mini"
                 icon="el-icon-close"
                 @click="handleSingleReject(scope.row)"
                 :loading="getRowLoading(scope.row)"
+                class="action-button reject-button"
               >
                 Reject
               </el-button>
@@ -186,20 +188,20 @@
             <!-- Acknowledge Actions for KRI Owner Approver -->
             <template v-else-if="canAcknowledgeRow(scope.row)">
               <el-button
-                type="success"
                 size="mini"
                 icon="el-icon-check"
                 @click="handleSingleAcknowledge(scope.row)"
                 :loading="getRowLoading(scope.row)"
+                class="action-button acknowledge-button"
               >
-                Acknowledge
+                Ack
               </el-button>
               <el-button
-                type="warning"
                 size="mini"
                 icon="el-icon-close"
                 @click="handleSingleReject(scope.row)"
                 :loading="getRowLoading(scope.row)"
+                class="action-button reject-button"
               >
                 Reject
               </el-button>
@@ -215,44 +217,58 @@
     </el-table>
     
     <!-- Batch Actions -->
-    <div class="table-actions">
-      <div class="batch-actions">
-        <el-button
-          type="primary"
-          icon="el-icon-check"
-          @click="handleBatchSave"
-          :disabled="!hasBatchSaveActions"
-          :loading="batchLoading"
-        >
-          Batch Save ({{ getBatchSaveCount }})
-        </el-button>
-        <el-button
-          type="success"
-          icon="el-icon-upload"
-          @click="handleBatchSubmit"
-          :disabled="!hasBatchSubmitActions"
-          :loading="batchLoading"
-        >
-          Batch Submit ({{ getBatchSubmitCount }})
-        </el-button>
-        <el-button
-          type="success"
-          icon="el-icon-check"
-          @click="handleBatchApprove"
-          :disabled="!hasBatchApproveActions"
-          :loading="batchLoading"
-        >
-          Batch Approve ({{ getBatchApproveCount }})
-        </el-button>
-        <el-button
-          type="primary"
-          icon="el-icon-check"
-          @click="handleBatchAcknowledge"
-          :disabled="!hasBatchAcknowledgeActions"
-          :loading="batchLoading"
-        >
-          Batch Acknowledge ({{ getBatchAcknowledgeCount }})
-        </el-button>
+    <div class="table-actions" v-if="data.length > 0">
+      <!-- Data Input Actions -->
+      <div class="batch-section" v-if="hasInputActions">
+        <div class="section-title">Data Input Actions</div>
+        <div class="batch-actions">
+          <el-button
+            v-if="hasBatchSaveActions"
+            icon="el-icon-check"
+            @click="handleBatchSave"
+            :loading="batchLoading"
+            class="batch-button save-button"
+          >
+            Batch Save ({{ getBatchSaveCount }})
+          </el-button>
+          <el-button
+            v-if="hasBatchSubmitActions"
+            icon="el-icon-upload"
+            @click="handleBatchSubmit"
+            :loading="batchLoading"
+            class="batch-button submit-button"
+          >
+            Batch Submit ({{ getBatchSubmitCount }})
+          </el-button>
+        </div>
+      </div>
+      
+      <!-- Divider -->
+      <el-divider v-if="hasInputActions && hasApprovalActions" class="batch-divider" />
+      
+      <!-- Approval Actions -->
+      <div class="batch-section" v-if="hasApprovalActions">
+        <div class="section-title">Approval Actions</div>
+        <div class="batch-actions">
+          <el-button
+            v-if="hasBatchApproveActions"
+            icon="el-icon-check"
+            @click="handleBatchApprove"
+            :loading="batchLoading"
+            class="batch-button approve-button"
+          >
+            Batch Approve ({{ getBatchApproveCount }})
+          </el-button>
+          <el-button
+            v-if="hasBatchAcknowledgeActions"
+            icon="el-icon-check"
+            @click="handleBatchAcknowledge"
+            :loading="batchLoading"
+            class="batch-button acknowledge-button"
+          >
+            Batch Acknowledge ({{ getBatchAcknowledgeCount }})
+          </el-button>
+        </div>
       </div>
     </div>
   </div>
@@ -284,6 +300,37 @@ export default {
   },
   computed: {
     ...mapState('kri', ['currentUser']),
+    
+    // Sort data by role - input actions first, then approval actions
+    sortedData() {
+      const inputRows = [];
+      const approvalRows = [];
+      const otherRows = [];
+      
+      this.data.forEach(row => {
+        if (this.canEditRow(row)) {
+          inputRows.push({ ...row, rowType: 'input' });
+        } else if (this.canReviewRow(row) || this.canAcknowledgeRow(row)) {
+          approvalRows.push({ ...row, rowType: 'approval' });
+        } else {
+          otherRows.push({ ...row, rowType: 'other' });
+        }
+      });
+      
+      return [...inputRows, ...approvalRows, ...otherRows];
+    },
+    
+    // Check if we have both input and approval sections
+    hasBothSections() {
+      const hasInput = this.sortedData.some(row => row.rowType === 'input');
+      const hasApproval = this.sortedData.some(row => row.rowType === 'approval');
+      return hasInput && hasApproval;
+    },
+    
+    // Find the index where approval section starts (for divider)
+    approvalSectionStartIndex() {
+      return this.sortedData.findIndex(row => row.rowType === 'approval');
+    },
     
     // Count functions for batch operations
     getBatchSaveCount() {
@@ -317,6 +364,32 @@ export default {
     
     hasBatchAcknowledgeActions() {
       return this.getBatchAcknowledgeCount > 0;
+    },
+    
+    // Section groupings
+    hasInputActions() {
+      return this.hasBatchSaveActions || this.hasBatchSubmitActions;
+    },
+    
+    hasApprovalActions() {
+      return this.hasBatchApproveActions || this.hasBatchAcknowledgeActions;
+    },
+    
+    hasAnyBatchActions() {
+      return this.hasInputActions || this.hasApprovalActions;
+    }
+  },
+  watch: {
+    // Watch for data changes and auto-select all rows
+    sortedData: {
+      handler(newData) {
+        if (newData.length > 0) {
+          this.$nextTick(() => {
+            this.selectAllRows();
+          });
+        }
+      },
+      immediate: true
     }
   },
   methods: {
@@ -409,7 +482,7 @@ export default {
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} saved successfully`);
-          this.$emit('data-updated');
+          // No need to emit data-updated since store is updated immediately
         } else {
           this.$message.error(result.error || `Failed to save KRI ${row.id}`);
         }
@@ -449,7 +522,7 @@ export default {
         
         if (submitResult.success) {
           this.$message.success(`KRI ${row.id} saved and submitted successfully`);
-          this.$emit('data-updated');
+          // No need to emit data-updated since store is updated immediately
         } else {
           this.$message.error(submitResult.error || `Failed to submit KRI ${row.id}`);
         }
@@ -475,7 +548,7 @@ export default {
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} approved successfully`);
-          this.$emit('data-updated');
+          // No need to emit data-updated since store is updated immediately
         } else {
           this.$message.error(result.error || `Failed to approve KRI ${row.id}`);
         }
@@ -501,7 +574,7 @@ export default {
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} acknowledged successfully`);
-          this.$emit('data-updated');
+          // No need to emit data-updated since store is updated immediately
         } else {
           this.$message.error(result.error || `Failed to acknowledge KRI ${row.id}`);
         }
@@ -538,7 +611,7 @@ export default {
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} rejected and sent back for rework`);
-          this.$emit('data-updated');
+          // No need to emit data-updated since store is updated immediately
         } else {
           this.$message.error(result.error || `Failed to reject KRI ${row.id}`);
         }
@@ -588,7 +661,7 @@ export default {
       
       if (successCount > 0) {
         this.$message.success(`Successfully saved ${successCount} KRIs`);
-        this.$emit('data-updated');
+        // No need to emit data-updated since store is updated immediately
       }
       
       if (errorCount > 0) {
@@ -642,7 +715,7 @@ export default {
       
       if (successCount > 0) {
         this.$message.success(`Successfully submitted ${successCount} KRIs`);
-        this.$emit('data-updated');
+        // No need to emit data-updated since store is updated immediately
       }
       
       if (errorCount > 0) {
@@ -686,7 +759,7 @@ export default {
       
       if (successCount > 0) {
         this.$message.success(`Successfully approved ${successCount} KRIs`);
-        this.$emit('data-updated');
+        // No need to emit data-updated since store is updated immediately
       }
       
       if (errorCount > 0) {
@@ -730,7 +803,7 @@ export default {
       
       if (successCount > 0) {
         this.$message.success(`Successfully acknowledged ${successCount} KRIs`);
-        this.$emit('data-updated');
+        // No need to emit data-updated since store is updated immediately
       }
       
       if (errorCount > 0) {
@@ -738,7 +811,7 @@ export default {
       }
     },
 
-    isSelectable(_row) {
+    isSelectable() {
       return true;
     },
     
@@ -752,6 +825,33 @@ export default {
     
     formatReportingDate(dateInt) {
       return formatDateFromInt(dateInt);
+    },
+    
+    // Add row class name for styling
+    getRowClassName({ row, rowIndex }) {
+      const classes = [];
+      
+      if (row.rowType === 'input') {
+        classes.push('input-row');
+      } else if (row.rowType === 'approval') {
+        classes.push('approval-row');
+      }
+      
+      // Add divider class to first approval row if we have both sections
+      if (this.hasBothSections && rowIndex === this.approvalSectionStartIndex) {
+        classes.push('section-divider');
+      }
+      
+      return classes.join(' ');
+    },
+    
+    // Select all rows by default
+    selectAllRows() {
+      if (this.$refs.table) {
+        this.sortedData.forEach(row => {
+          this.$refs.table.toggleRowSelection(row, true);
+        });
+      }
     }
   }
 };
@@ -759,28 +859,184 @@ export default {
 
 <style scoped>
 .table-actions {
-  padding: 10px;
-  text-align: left;
+  padding: 15px;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.batch-section {
+  margin-bottom: 15px;
+}
+
+.batch-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
 }
 
 .batch-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 1%;
   flex-wrap: wrap;
+  align-items: center;
 }
 
-.batch-actions .el-button {
+.batch-button {
   margin-left: 0;
+  margin-right: 0;
+  flex: 1;
+  min-width: 0;
+  max-width: 24%;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  font-weight: 500;
+}
+
+.batch-divider {
+  margin: 10px 0;
 }
 
 .action-buttons {
   display: flex;
-  gap: 0.25rem;
+  gap: 2%;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
 }
 
 .action-buttons .el-button {
   margin-left: 0;
+  margin-right: 0;
+}
+
+/* Unified action button styles */
+.action-button {
+  flex: 1;
+  min-width: 0;
+  max-width: 48%;
+  font-size: 11px;
+  padding: 6px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ensure buttons maintain aspect ratio */
+.action-button >>> .el-button__inner {
+  padding: 0;
+}
+
+/* Unified Color Scheme */
+/* Blue for Save actions */
+.save-button {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.save-button:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.save-button:active,
+.save-button:focus {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* Green for Submit/Approve/Acknowledge actions */
+.submit-button,
+.approve-button,
+.acknowledge-button {
+  background-color: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+.submit-button:hover,
+.approve-button:hover,
+.acknowledge-button:hover {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+.submit-button:active,
+.submit-button:focus,
+.approve-button:active,
+.approve-button:focus,
+.acknowledge-button:active,
+.acknowledge-button:focus {
+  background-color: #047857;
+  border-color: #047857;
+}
+
+/* Red for Reject actions */
+.reject-button {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: white;
+}
+
+.reject-button:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+.reject-button:active,
+.reject-button:focus {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* Disabled state for all action buttons */
+.action-button:disabled,
+.batch-button:disabled {
+  background-color: #d1d5db;
+  border-color: #d1d5db;
+  color: #9ca3af;
+  opacity: 0.6;
+}
+
+.action-button:disabled:hover,
+.batch-button:disabled:hover {
+  background-color: #d1d5db;
+  border-color: #d1d5db;
+  color: #9ca3af;
+}
+
+/* Section divider styling */
+.kri-table >>> .section-divider td {
+  border-top: 2px solid #e2e8f0 !important;
+  position: relative;
+}
+
+.kri-table >>> .section-divider td::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #cbd5e0;
+}
+
+/* Row type styling */
+.kri-table >>> .input-row {
+  background-color: #f8fafc;
+}
+
+.kri-table >>> .approval-row {
+  background-color: #fefefe;
 }
 
 .inline-edit {
@@ -831,5 +1087,30 @@ export default {
 
 .kri-name-link:hover {
   color: #1d4ed8;
+}
+
+/* Responsive design for action buttons */
+@media (max-width: 768px) {
+  .action-button {
+    max-width: 100%;
+    margin-bottom: 2%;
+  }
+  
+  .batch-button {
+    max-width: 48%;
+    margin-bottom: 1%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .action-button {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+  
+  .batch-button {
+    max-width: 22%;
+    font-size: 13px;
+  }
 }
 </style>

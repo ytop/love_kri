@@ -146,6 +146,24 @@ export const USER_PERMISSIONS = {
   DELETE: 'delete'
 };
 
+// Atomic-level permission patterns (for future use)
+export const ATOMIC_PERMISSION_PATTERNS = {
+  ATOMIC_EDIT: /^atomic\d+_edit$/,
+  ATOMIC_VIEW: /^atomic\d+_view$/,
+  ATOMIC_DELETE: /^atomic\d+_delete$/
+};
+
+// Check if permission is an atomic-level permission
+export const isAtomicPermission = (permission) => {
+  return Object.values(ATOMIC_PERMISSION_PATTERNS).some(pattern => pattern.test(permission));
+};
+
+// Extract atomic ID from atomic permission (e.g., "atomic1_edit" -> "1")
+export const getAtomicIdFromPermission = (permission) => {
+  const match = permission.match(/^atomic(\d+)_/);
+  return match ? parseInt(match[1], 10) : null;
+};
+
 // Validate login form
 export const validateLoginForm = (loginForm) => {
   const { username } = loginForm;
@@ -219,7 +237,7 @@ export const getNextStatus = (currentStatus, action) => {
 };
 
 // Check if user can perform action on KRI with current status
-export const canPerformAction = (userPermissions, action, currentStatus, kriItem = null) => {
+export const canPerformAction = (userPermissions, action, currentStatus, kriItem = null, atomicId = null) => {
   // Check if user has the KRI-specific permission
   if (!kriItem) {
     console.log('canPerformAction: No kriItem provided');
@@ -227,12 +245,24 @@ export const canPerformAction = (userPermissions, action, currentStatus, kriItem
   }
   
   const key = `${kriItem.id}_${kriItem.reportingDate}`;
-  const hasPermission = userPermissions[key]?.includes(action) || false;
+  let hasPermission = false;
+  
+  // Check for atomic-level permission first if atomicId is provided
+  if (atomicId !== null && atomicId !== undefined) {
+    const atomicPermission = `atomic${atomicId}_${action}`;
+    hasPermission = userPermissions[key]?.includes(atomicPermission) || false;
+  }
+  
+  // Fall back to regular permission check
+  if (!hasPermission) {
+    hasPermission = userPermissions[key]?.includes(action) || false;
+  }
   
   // Debug logging
   console.log('Permission Check:', {
     key,
     action,
+    atomicId,
     currentStatus,
     availablePermissions: userPermissions[key],
     hasPermission,
@@ -259,29 +289,53 @@ export const canPerformAction = (userPermissions, action, currentStatus, kriItem
     return currentStatus === 50;
   
   default:
-    console.log(`canPerformAction: Unknown action ${action}, returning false`); // TODO: Should change to Failed Open?
+    // For atomic-level permissions, allow if user has the permission and status allows editing
+    if (isAtomicPermission(action)) {
+      return [10, 20, 30].includes(currentStatus);
+    }
+    console.log(`canPerformAction: Unknown action ${action}, returning false`);
     return false;
   }
 };
 
 // Get available actions for user and KRI status
-export const getAvailableActions = (userPermissions, currentStatus, kriItem = null) => {
+export const getAvailableActions = (userPermissions, currentStatus, kriItem = null, atomicId = null) => {
   const actions = [];
   
-  if (canPerformAction(userPermissions, 'save', currentStatus, kriItem)) {
+  if (canPerformAction(userPermissions, 'save', currentStatus, kriItem, atomicId)) {
     actions.push('save');
   }
 
-  if (canPerformAction(userPermissions, 'edit', currentStatus, kriItem)) {
+  if (canPerformAction(userPermissions, 'edit', currentStatus, kriItem, atomicId)) {
     actions.push('edit');
   }
   
-  if (canPerformAction(userPermissions, 'acknowledge', currentStatus, kriItem)) {
+  if (canPerformAction(userPermissions, 'acknowledge', currentStatus, kriItem, atomicId)) {
     actions.push('acknowledge');
   }
   
-  if (canPerformAction(userPermissions, 'review', currentStatus, kriItem)) {
+  if (canPerformAction(userPermissions, 'review', currentStatus, kriItem, atomicId)) {
     actions.push('review');
+  }
+  
+  // Check for atomic-specific permissions if atomicId is provided
+  if (atomicId !== null && atomicId !== undefined && kriItem) {
+    const key = `${kriItem.id}_${kriItem.reportingDate}`;
+    const allPermissions = userPermissions[key] || [];
+    
+    // Find atomic-specific permissions for this atomic ID
+    allPermissions.forEach(permission => {
+      if (isAtomicPermission(permission)) {
+        const permissionAtomicId = getAtomicIdFromPermission(permission);
+        if (permissionAtomicId === atomicId) {
+          // Extract the action part (e.g., "edit" from "atomic1_edit")
+          const actionPart = permission.replace(/^atomic\d+_/, '');
+          if (!actions.includes(actionPart)) {
+            actions.push(actionPart);
+          }
+        }
+      }
+    });
   }
   
   return actions;

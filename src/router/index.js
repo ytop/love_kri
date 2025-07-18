@@ -4,6 +4,7 @@ import Dashboard from '../views/Dashboard.vue';
 import KRIListByStatus from '../views/KRIListByStatus.vue';
 import KRIWorkflowPage from '../views/KRIWorkflowPage.vue';
 import Login from '../views/Login.vue';
+import AdminManagement from '../views/AdminManagement.vue';
 import NotFound from '../views/NotFound.vue';
 
 Vue.use(Router);
@@ -38,6 +39,11 @@ export default new Router({
       name: 'KRIsByStatus',
       component: KRIListByStatus,
       props: true
+    },
+    {
+      path: '/admin',
+      name: 'AdminManagement',
+      component: AdminManagement
     },
     {
       path: '*',

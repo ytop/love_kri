@@ -22,6 +22,17 @@
           @reset-filters="handleResetFilters"
           @toggle-advanced="handleToggleAdvancedFilters"
         />
+        <!-- Filter Warning - moved outside quick-actions for better positioning -->
+        <el-alert
+          v-if="hasActiveFilters"
+          title="Filters Active"
+          description="Some KRIs may be hidden due to active filters. Reset filters to see all pending items."
+          type="warning"
+          size="small"
+          :closable="false"
+          show-icon
+          class="filter-warning-separate">
+        </el-alert>
       </el-card>
 
       <!-- Quick Actions Card -->
@@ -33,17 +44,6 @@
             <el-button size="small" icon="el-icon-download">Export List</el-button>
           </div>
           <div class="status-info">
-            <!-- Filter Warning -->
-            <el-alert
-              v-if="hasActiveFilters"
-              title="Filters Active"
-              description="Some KRIs may be hidden due to active filters. Reset filters to see all pending items."
-              type="warning"
-              size="small"
-              :closable="false"
-              show-icon
-              class="filter-warning">
-            </el-alert>
             <div class="status-tags">
               <el-tag 
                 v-for="status in statusTags" 
@@ -56,6 +56,8 @@
               </el-tag>
             </div>
           </div>
+        </div>
+        <div style="display: none;"><!-- placeholder for structure -->
         </div>
       </el-card>
 
@@ -372,8 +374,8 @@ export default {
 
 .status-info {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
   flex: 1;
 }
 
@@ -384,9 +386,8 @@ export default {
   align-items: center;
 }
 
-.filter-warning {
-  margin-bottom: 0.5rem;
-  width: 100%;
+.filter-warning-separate {
+  margin: 0.75rem 0;
 }
 
 .status-tag {
