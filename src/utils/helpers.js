@@ -150,6 +150,8 @@ export const USER_PERMISSIONS = {
 export const ATOMIC_PERMISSION_PATTERNS = {
   ATOMIC_EDIT: /^atomic\d+_edit$/,
   ATOMIC_VIEW: /^atomic\d+_view$/,
+  ATOMIC_REVIEW: /^atomic\d+_review$/,
+  ATOMIC_ACKNOWLEDGE: /^atomic\d+_acknowledge$/,
   ATOMIC_DELETE: /^atomic\d+_delete$/
 };
 

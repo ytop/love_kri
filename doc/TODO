@@ -1,7 +1,12 @@
+Working:
 1. add Object Storage for evidence upload
   - test if it works with supabase
   - test local storage
-2. fix promission for atomic data element
+  Current: Implemented service, need to test with frontend
+2. fix permission for atomic data element
+  Current: Implemented Frontend, UI is ready, but still have errors (logics and css).
+
+Pending:
 3. dropdown for atomic data element bulk input / actions
 4. add Object Storage preview for evidence
 5. modify atomic data element input dialog (new window?)
@@ -9,4 +14,8 @@
 7. add audit trail for atomic data element
 8. add historical data for atomic data element
 9. add formula change for atomic data element
-
+10. Add unit and adaption to DB
+11. Negative warining and limit value (4 limits)
+12, STD div avg 12 month, fluctuation range
+13, new tabele for formula calculation
+14. add department display in formula

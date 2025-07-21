@@ -40,17 +40,34 @@
                 <td>{{ item.atomic_metadata }}</td> <!-- Using atomic_metadata for Data Element Name -->
                 <td class="data-value" :data-original-value="item.atomic_value">
                   <template v-if="canEditAtomicElement(item)">
-                    <el-input-number
-                      v-if="editingAtomic === item.atomic_id"
-                      v-model="editingValue"
-                      :precision="2"
-                      size="small"
-                      @blur="saveAtomicValue(item)"
-                      @keyup.enter="saveAtomicValue(item)"
-                      @keyup.esc="cancelEdit"
-                      style="width: 120px"
-                      ref="editInput">
-                    </el-input-number>
+                    <div v-if="editingAtomic === item.atomic_id" class="inline-edit-container">
+                      <el-input-number
+                        v-model="editingValue"
+                        :precision="2"
+                        size="small"
+                        @keyup.enter="saveAtomicValue(item)"
+                        @keyup.esc="cancelEdit"
+                        style="width: 120px"
+                        ref="editInput">
+                      </el-input-number>
+                      <div class="inline-edit-actions">
+                        <el-button
+                          type="success"
+                          icon="el-icon-check"
+                          size="mini"
+                          @click="saveAtomicValue(item)"
+                          :loading="savingAtomic === item.atomic_id"
+                          circle>
+                        </el-button>
+                        <el-button
+                          type="info"
+                          icon="el-icon-close"
+                          size="mini"
+                          @click="cancelEdit"
+                          circle>
+                        </el-button>
+                      </div>
+                    </div>
                     <div v-else class="editable-value" @click="startEditAtomic(item)">
                       <span class="value-display">{{ item.atomic_value || 'Click to edit' }}</span>
                       <i class="el-icon-edit-outline edit-icon"></i>
@@ -205,6 +222,7 @@ export default {
       selectedItems: [], // To store atomic_ids of selected items
       editingAtomic: null, // Currently editing atomic element ID
       editingValue: null, // Current editing value
+      savingAtomic: null, // ID of atomic element being saved
       showBulkInputDialog: false,
       previousAtomicData: [] // Previous period data for comparison
     };
@@ -464,12 +482,7 @@ export default {
         return;
       }
 
-      const loadingMessage = this.$message({
-        message: `Saving atomic element ${item.atomic_id}...`,
-        type: 'info',
-        duration: 0,
-        iconClass: 'el-icon-loading'
-      });
+      this.savingAtomic = item.atomic_id;
 
       try {
         const result = await this.$store.dispatch('kri/saveAtomicValue', {
@@ -501,7 +514,7 @@ export default {
           duration: 4000
         });
       } finally {
-        loadingMessage.close();
+        this.savingAtomic = null;
         this.editingAtomic = null;
         this.editingValue = null;
       }
@@ -917,6 +930,17 @@ export default {
 
 .readonly-value {
     color: #606266;
+}
+
+.inline-edit-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.inline-edit-actions {
+    display: flex;
+    gap: 4px;
 }
 
 /* Dynamic calculation styling - enhanced */

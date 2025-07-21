@@ -122,6 +122,11 @@ export class KRICalculationService {
       expression = expression.replace(regex, variableMap[variable].toString());
     });
     
+    // Check for empty or invalid expression after substitution
+    if (!expression.trim() || expression.trim() === '()') {
+      throw new Error('Formula resulted in empty expression after variable substitution');
+    }
+    
     return this.safeEval(expression);
   }
 
@@ -138,6 +143,11 @@ export class KRICalculationService {
       expression = expression.replace(regex, variableMap[variable].toString());
     });
     
+    // Check for empty or invalid expression after substitution
+    if (!expression.trim() || expression.trim() === '()') {
+      throw new Error('Formula resulted in empty expression after variable substitution');
+    }
+    
     return this.safeEval(expression);
   }
 
@@ -153,6 +163,11 @@ export class KRICalculationService {
       const regex = new RegExp(`\\b${variable}\\b`, 'g');
       expression = expression.replace(regex, variableMap[variable].toString());
     });
+    
+    // Check for empty or invalid expression after substitution
+    if (!expression.trim() || expression.trim() === '()') {
+      throw new Error('Formula resulted in empty expression after variable substitution');
+    }
     
     return this.safeEval(expression);
   }
@@ -301,11 +316,20 @@ export class KRICalculationService {
     // Remove any non-mathematical characters for security
     const sanitized = expression.replace(/[^0-9+\-*/.() ]/g, '');
     
+    // Check for empty or invalid expressions
+    if (!sanitized.trim()) {
+      throw new Error('Empty mathematical expression');
+    }
+    
+    if (sanitized.trim() === '()' || sanitized.trim() === '(' || sanitized.trim() === ')') {
+      throw new Error('Invalid mathematical expression: contains only parentheses');
+    }
+    
     try {
       // Use Function constructor instead of eval for better security
       return new Function(`"use strict"; return (${sanitized})`)();
     } catch (error) {
-      throw new Error(`Invalid mathematical expression: ${sanitized}`);
+      throw new Error(`Invalid mathematical expression: ${sanitized} - ${error.message}`);
     }
   }
 }
