@@ -471,16 +471,16 @@ export const kriService = {
     }
   },
 
-  // Approve atomic data elements
+  // Approve atomic data elements (Data Provider Approver: 40 → 50)
   async approveAtomicElements(kriId, reportingDate, atomicIds, changedBy) {
     const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
     
     try {
-      // Update multiple atomic elements to approved status (60)
+      // Update multiple atomic elements from status 40 to status 50
       const { data, error } = await supabase
         .from('kri_atomic')
         .update({
-          atomic_status: 60 // Finalized status
+          atomic_status: 50 // Submitted to KRI Owner Approver
         })
         .eq('kri_id', parseInt(kriId))
         .eq('reporting_date', reportingDateAsInt)
@@ -499,10 +499,10 @@ export const kriService = {
           reportingDate, 
           'atomic_approve', 
           `atomic_${atomicId}_status`, 
-          null, 
-          '60', 
+          '40', 
+          '50', 
           changedBy, 
-          `Atomic element ${atomicId} approved`
+          `Atomic element ${atomicId} approved by Data Provider - moved to KRI Owner Approver`
         );
       }
 
@@ -551,6 +551,48 @@ export const kriService = {
       return data;
     } catch (error) {
       console.error('Reject atomic elements error:', error);
+      throw error;
+    }
+  },
+
+  // Acknowledge atomic data elements
+  async acknowledgeAtomicElements(kriId, reportingDate, atomicIds, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Update multiple atomic elements to acknowledged status (60 - Finalized)
+      const { data, error } = await supabase
+        .from('kri_atomic')
+        .update({
+          atomic_status: 60 // Finalized status
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .in('atomic_id', atomicIds.map(id => parseInt(id)))
+        .select();
+
+      if (error) {
+        console.error('Error acknowledging atomic elements:', error);
+        throw new Error('Failed to acknowledge atomic elements');
+      }
+
+      // Add audit trail entries for each acknowledged element
+      for (const atomicId of atomicIds) {
+        await this.addAuditTrailEntry(
+          kriId, 
+          reportingDate, 
+          'atomic_acknowledge', 
+          `atomic_${atomicId}_status`, 
+          null, 
+          '60', 
+          changedBy, 
+          `Atomic element ${atomicId} acknowledged`
+        );
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Acknowledge atomic elements error:', error);
       throw error;
     }
   },

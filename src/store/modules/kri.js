@@ -700,6 +700,8 @@ const actions = {
 
   async approveAtomicElements({ commit, state }, { kriId, reportingDate, atomicIds }) {
     console.log('approveAtomicElements called with:', { kriId, reportingDate, atomicIds });
+    console.log('Looking for KRI with:', { id: String(kriId), reportingDate: String(reportingDate) });
+    console.log('Available KRIs:', state.kriItems.map(item => ({ id: item.id, reportingDate: item.reportingDate })));
     
     const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
@@ -707,13 +709,18 @@ const actions = {
     );
     
     if (!currentKRI) {
+      console.log('KRI not found in state');
       return { success: false, error: 'KRI not found' };
     }
     
     // Check if user has permission to approve atomic elements
-    const hasPermission = atomicIds.every(atomicId => 
-      canPerformAction(userPermissions, 'review', currentKRI.rawData.kri_status, currentKRI, atomicId)
-    );
+    const key = `${kriId}_${reportingDate}`;
+    const hasPermission = atomicIds.every(atomicId => {
+      const atomicPermission = `atomic${atomicId}_review`;
+      const hasAtomicPermission = userPermissions[key]?.includes(atomicPermission) || false;
+      const hasGeneralReview = userPermissions[key]?.includes('review') || false;
+      return hasAtomicPermission || hasGeneralReview;
+    });
     
     if (!hasPermission) {
       return { success: false, error: 'Insufficient permissions to approve atomic elements' };
@@ -742,7 +749,7 @@ const actions = {
         if (atomicIndex !== -1) {
           atomicData[atomicIndex] = {
             ...atomicData[atomicIndex],
-            atomic_status: 60 // Approved status
+            atomic_status: 50 // Submitted to KRI Owner Approver
           };
         }
       });
@@ -769,9 +776,13 @@ const actions = {
     }
     
     // Check if user has permission to reject atomic elements
-    const hasPermission = atomicIds.every(atomicId => 
-      canPerformAction(userPermissions, 'review', currentKRI.rawData.kri_status, currentKRI, atomicId)
-    );
+    const key = `${kriId}_${reportingDate}`;
+    const hasPermission = atomicIds.every(atomicId => {
+      const atomicPermission = `atomic${atomicId}_review`;
+      const hasAtomicPermission = userPermissions[key]?.includes(atomicPermission) || false;
+      const hasGeneralReview = userPermissions[key]?.includes('review') || false;
+      return hasAtomicPermission || hasGeneralReview;
+    });
     
     if (!hasPermission) {
       return { success: false, error: 'Insufficient permissions to reject atomic elements' };
@@ -810,6 +821,68 @@ const actions = {
       return { success: true, data: updatedAtomics };
     } catch (error) {
       console.error('Error rejecting atomic elements:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async acknowledgeAtomicElements({ commit, state }, { kriId, reportingDate, atomicIds }) {
+    console.log('acknowledgeAtomicElements called with:', { kriId, reportingDate, atomicIds });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user has permission to acknowledge atomic elements
+    const key = `${kriId}_${reportingDate}`;
+    const hasPermission = atomicIds.every(atomicId => {
+      const atomicPermission = `atomic${atomicId}_acknowledge`;
+      const hasAtomicPermission = userPermissions[key]?.includes(atomicPermission) || false;
+      const hasGeneralAcknowledge = userPermissions[key]?.includes('acknowledge') || false;
+      return hasAtomicPermission || hasGeneralAcknowledge;
+    });
+    
+    if (!hasPermission) {
+      return { success: false, error: 'Insufficient permissions to acknowledge atomic elements' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.acknowledgeAtomicElements with:', { kriId, formattedDate, atomicIds });
+      
+      const updatedAtomics = await kriService.acknowledgeAtomicElements(
+        kriId, 
+        formattedDate, 
+        atomicIds,
+        state.currentUser.name
+      );
+      
+      // Update local atomic data state
+      const atomicData = [...state.atomicData];
+      atomicIds.forEach(atomicId => {
+        const atomicIndex = atomicData.findIndex(item => 
+          item.atomic_id === parseInt(atomicId) && 
+          item.kri_id === parseInt(kriId) && 
+          item.reporting_date === parseInt(reportingDate)
+        );
+        
+        if (atomicIndex !== -1) {
+          atomicData[atomicIndex] = {
+            ...atomicData[atomicIndex],
+            atomic_status: 60 // Finalized status
+          };
+        }
+      });
+      
+      commit('SET_ATOMIC_DATA', atomicData);
+      return { success: true, data: updatedAtomics };
+    } catch (error) {
+      console.error('Error acknowledging atomic elements:', error);
       commit('SET_ERROR', error.message);
       return { success: false, error: error.message };
     }

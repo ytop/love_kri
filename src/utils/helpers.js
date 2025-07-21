@@ -329,9 +329,33 @@ export const canPerformAction = (userPermissions, action, currentStatus, kriItem
     return currentStatus === 50;
   
   default:
-    // For atomic-level permissions, allow if user has the permission and status allows editing
+    // For atomic-level permissions, check the specific atomic action type
     if (isAtomicPermission(action)) {
-      return [10, 20, 30].includes(currentStatus);
+      const actionType = action.replace(/^atomic\d+_/, '');
+      
+      switch (actionType) {
+      case 'edit':
+      case 'save':
+      case 'delete':
+        // Atomic editing permissions - allow in editing statuses
+        return [10, 20, 30].includes(currentStatus);
+      
+      case 'review':
+        // Atomic review permissions - allow in review status
+        return currentStatus === 40;
+      
+      case 'acknowledge':
+        // Atomic acknowledge permissions - allow in acknowledge status
+        return currentStatus === 50;
+      
+      case 'view':
+        // Atomic view permissions - allow in any status
+        return true;
+      
+      default:
+        // Unknown atomic action type - default to editing statuses
+        return [10, 20, 30].includes(currentStatus);
+      }
     }
     console.log(`canPerformAction: Unknown action ${action}, returning false`);
     return false;

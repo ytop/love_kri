@@ -12,8 +12,33 @@
               size="small">
               Bulk Input
             </el-button>
-            <button class="btn btn-success" id="approveSelectedBtn" @click="approveSelectedRows">Approve Selected</button>
-            <button class="btn btn-danger" id="rejectSelectedBtn" @click="rejectSelectedRows">Reject Selected</button>
+            <el-button
+              v-if="showApproveButton"
+              type="success"
+              icon="el-icon-check"
+              @click="approveSelectedRows"
+              :disabled="!canApproveSelected"
+              size="small">
+              Approve Selected ({{ approvableCount }})
+            </el-button>
+            <el-button
+              v-if="showRejectButton"
+              type="danger"
+              icon="el-icon-close"
+              @click="rejectSelectedRows"
+              :disabled="!canRejectSelected"
+              size="small">
+              Reject Selected
+            </el-button>
+            <el-button
+              v-if="showAcknowledgeButton"
+              type="primary"
+              icon="el-icon-check"
+              @click="acknowledgeSelectedRows"
+              :disabled="!canAcknowledgeSelected"
+              size="small">
+              Acknowledge Selected ({{ acknowledgableCount }})
+            </el-button>
         </div>
     </div>
     <table class="data-table" id="dataElementsTable">
@@ -97,6 +122,22 @@
                         size="mini"
                         @click="approveAtomicElement(item)">
                         Approve
+                      </el-button>
+                      <el-button
+                        type="danger"
+                        icon="el-icon-close"
+                        size="mini"
+                        @click="rejectAtomicElement(item)">
+                        Reject
+                      </el-button>
+                    </template>
+                    <template v-else-if="canAcknowledgeAtomicElement(item)">
+                      <el-button
+                        type="primary"
+                        icon="el-icon-check"
+                        size="mini"
+                        @click="acknowledgeAtomicElement(item)">
+                        Acknowledge
                       </el-button>
                       <el-button
                         type="danger"
@@ -276,6 +317,78 @@ export default {
         console.error('Calculation error:', error);
         return 'Calculation error';
       }
+    },
+
+    // Smart button visibility and state
+    showApproveButton() {
+      // Show if user has review permissions and there are items in status 40 (Data Provider review)
+      const userPermissions = this.currentUser.permissions;
+      const key = `${this.kriDetail.kri_id}_${this.kriDetail.reporting_date}`;
+      const hasReviewPermission = userPermissions[key]?.includes('review') || 
+                                  this.atomicData.some(item => userPermissions[key]?.includes(`atomic${item.atomic_id}_review`));
+      return hasReviewPermission && this.approvableCount > 0;
+    },
+
+    showAcknowledgeButton() {
+      // Show if user has acknowledge permissions and there are items in status 50 (KRI Owner review)
+      const userPermissions = this.currentUser.permissions;
+      const key = `${this.kriDetail.kri_id}_${this.kriDetail.reporting_date}`;
+      const hasAcknowledgePermission = userPermissions[key]?.includes('acknowledge') || 
+                                       this.atomicData.some(item => userPermissions[key]?.includes(`atomic${item.atomic_id}_acknowledge`));
+      return hasAcknowledgePermission && this.acknowledgableCount > 0;
+    },
+
+    showRejectButton() {
+      // Show if user can reject items (either from review or acknowledge status)
+      const userPermissions = this.currentUser.permissions;
+      const key = `${this.kriDetail.kri_id}_${this.kriDetail.reporting_date}`;
+      const hasReviewPermission = userPermissions[key]?.includes('review') || 
+                                  this.atomicData.some(item => userPermissions[key]?.includes(`atomic${item.atomic_id}_review`));
+      const hasAcknowledgePermission = userPermissions[key]?.includes('acknowledge') || 
+                                       this.atomicData.some(item => userPermissions[key]?.includes(`atomic${item.atomic_id}_acknowledge`));
+      return (hasReviewPermission || hasAcknowledgePermission) && this.rejectableCount > 0;
+    },
+
+    approvableCount() {
+      // Count items in status 40 (Submitted to Data Provider Approver) - these can be approved to move to status 50
+      return this.atomicData.filter(item => item.atomic_status === 40).length;
+    },
+
+    acknowledgableCount() {
+      // Count items in status 50 (Submitted to KRI Owner Approver) - these can be acknowledged to move to status 60
+      return this.atomicData.filter(item => item.atomic_status === 50).length;
+    },
+
+    rejectableCount() {
+      // Count items that can be rejected (in review or acknowledge status) - these can be rejected to status 20
+      return this.atomicData.filter(item => [40, 50].includes(item.atomic_status)).length;
+    },
+
+    canApproveSelected() {
+      // Can approve if there are selected items in status 40 (Data Provider review)
+      return this.selectedItems.length > 0 && 
+             this.selectedItems.some(atomicId => {
+               const item = this.atomicData.find(a => a.atomic_id === atomicId);
+               return item && item.atomic_status === 40;
+             });
+    },
+
+    canAcknowledgeSelected() {
+      // Can acknowledge if there are selected items that are acknowledgable
+      return this.selectedItems.length > 0 && 
+             this.selectedItems.some(atomicId => {
+               const item = this.atomicData.find(a => a.atomic_id === atomicId);
+               return item && item.atomic_status === 50;
+             });
+    },
+
+    canRejectSelected() {
+      // Can reject if there are selected items that are rejectable
+      return this.selectedItems.length > 0 && 
+             this.selectedItems.some(atomicId => {
+               const item = this.atomicData.find(a => a.atomic_id === atomicId);
+               return item && [40, 50].includes(item.atomic_status);
+             });
     }
   },
   methods: {
@@ -368,6 +481,41 @@ export default {
       }
     },
 
+    async acknowledgeSelectedRows() {
+      if (this.selectedItems.length === 0) {
+        this.$message.warning('No items selected to acknowledge.');
+        return;
+      }
+      
+      this.$confirm(`Are you sure you want to acknowledge ${this.selectedItems.length} selected atomic data element(s)?`, 'Confirm Acknowledgment', {
+        confirmButtonText: 'Acknowledge',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }).then(async () => {
+        try {
+          const result = await this.$store.dispatch('kri/acknowledgeAtomicElements', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date,
+            atomicIds: this.selectedItems
+          });
+          
+          if (result.success) {
+            this.$message.success(`${this.selectedItems.length} atomic element(s) acknowledged successfully`);
+            this.selectedItems = [];
+            this.selectAll = false;
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to acknowledge atomic elements');
+          }
+        } catch (error) {
+          console.error('Error acknowledging atomic elements:', error);
+          this.$message.error('Failed to acknowledge atomic elements');
+        }
+      }).catch(() => {
+        // User cancelled
+      });
+    },
+
     getProviderName(_item) {
       // Provider information comes from the main KRI detail
       return this.kriDetail.data_provider || 'Not specified';
@@ -431,11 +579,49 @@ export default {
         reportingDate: this.kriDetail.reporting_date
       };
       
-      // Can approve if in appropriate status and has permission
-      const canApprove = [30, 40].includes(item.atomic_status); // Saved or submitted status
-      const hasPermission = canPerformAction(userPermissions, 'review', item.atomic_status, kriItem, item.atomic_id);
+      // Can only approve items in status 40 (Submitted to Data Provider Approver)
+      const canApprove = item.atomic_status === 40;
       
-      return canApprove && hasPermission;
+      // For atomic-level review permissions, check if user has the specific atomic review permission
+      const atomicPermission = `atomic${item.atomic_id}_review`;
+      const key = `${kriItem.id}_${kriItem.reportingDate}`;
+      const hasAtomicPermission = userPermissions[key]?.includes(atomicPermission) || false;
+      
+      // Also check for general review permission as fallback
+      const hasGeneralReview = userPermissions[key]?.includes('review') || false;
+      
+      console.log(`canApproveAtomicElement for atomic ${item.atomic_id}:`, {
+        canApprove,
+        atomicStatus: item.atomic_status,
+        atomicPermission,
+        key,
+        hasAtomicPermission,
+        hasGeneralReview,
+        result: canApprove && (hasAtomicPermission || hasGeneralReview)
+      });
+      
+      return canApprove && (hasAtomicPermission || hasGeneralReview);
+    },
+
+    canAcknowledgeAtomicElement(item) {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriDetail.kri_id,
+        reportingDate: this.kriDetail.reporting_date
+      };
+      
+      // Can acknowledge if in submitted to KRI Owner status and has permission
+      const canAcknowledge = item.atomic_status === 50; // Submitted to KRI Owner Approver
+      
+      // For atomic-level acknowledge permissions, check if user has the specific atomic acknowledge permission
+      const atomicPermission = `atomic${item.atomic_id}_acknowledge`;
+      const key = `${kriItem.id}_${kriItem.reportingDate}`;
+      const hasAtomicPermission = userPermissions[key]?.includes(atomicPermission) || false;
+      
+      // Also check for general acknowledge permission as fallback
+      const hasGeneralAcknowledge = canPerformAction(userPermissions, 'acknowledge', 50, kriItem); // Use status 50 for acknowledge logic
+      
+      return canAcknowledge && (hasAtomicPermission || hasGeneralAcknowledge);
     },
 
     // Inline editing methods
@@ -581,6 +767,34 @@ export default {
           this.$message.error('Failed to reject atomic element');
         }
       }
+    },
+
+    async acknowledgeAtomicElement(item) {
+      this.$confirm(`Are you sure you want to acknowledge atomic element ${item.atomic_id}?`, 'Confirm Acknowledgment', {
+        confirmButtonText: 'Acknowledge',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }).then(async () => {
+        try {
+          const result = await this.$store.dispatch('kri/acknowledgeAtomicElements', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date,
+            atomicIds: [item.atomic_id]
+          });
+
+          if (result.success) {
+            this.$message.success(`Atomic element ${item.atomic_id} acknowledged successfully`);
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to acknowledge atomic element');
+          }
+        } catch (error) {
+          console.error('Error acknowledging atomic element:', error);
+          this.$message.error('Failed to acknowledge atomic element');
+        }
+      }).catch(() => {
+        // User cancelled
+      });
     },
 
     // Bulk input dialog methods
