@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { StorageManager, EvidenceStorageService } from './ObjectStorage';
 import { kriCalculationService } from './kriCalculation';
 import { calculateBreachStatus } from '@/utils/helpers';
+import { baseKRIService } from './BaseKRIService';
 
 export const kriService = {
   // ========================================
@@ -33,138 +34,86 @@ export const kriService = {
   },
   // Fetch KRI items with optional filters
   async fetchKRIItems(reportingDate = null) {
-    let query = supabase.from('kri_item').select('*');
-    
-    if (reportingDate) {
-      const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-      query = query.eq('reporting_date', reportingDateAsInt);
-    }
-    
-    const { data, error } = await query;
-    if (error) {
-      console.error('Error fetching KRI data:', error);
-      throw new Error('Failed to fetch KRI data');
-    }
+    const { data } = await baseKRIService.fetchKRIItems(reportingDate);
     return data;
   },
 
   // Fetch KRI detail by ID and date
   async fetchKRIDetail(kriId, reportingDate) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
-    const { data, error } = await supabase
-      .from('kri_item')
-      .select('*')
-      .eq('kri_id', parseInt(kriId))
-      .eq('reporting_date', reportingDateAsInt)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching KRI detail:', error);
-      throw new Error('Failed to fetch KRI detail');
-    }
+    const { data } = await baseKRIService.fetchSingleKRI('kri_item', kriId, reportingDate);
     return data;
   },
 
   // Fetch atomic data for a KRI
   async fetchKRIAtomic(kriId, reportingDate) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
-    const { data, error } = await supabase
-      .from('kri_atomic')
-      .select('*')
-      .eq('kri_id', parseInt(kriId))
-      .eq('reporting_date', reportingDateAsInt)
-      .order('atomic_id', { ascending: true });
-    
-    if (error) {
-      console.error('Error fetching atomic data:', error);
-      throw new Error('Failed to fetch atomic data');
-    }
+    const { data } = await baseKRIService.fetchMultipleKRI(
+      'kri_atomic', 
+      kriId, 
+      reportingDate, 
+      '*', 
+      { column: 'atomic_id', ascending: true }
+    );
     return data;
   },
 
   // Fetch evidence for a KRI
   async fetchKRIEvidence(kriId, reportingDate) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
-    const { data, error } = await supabase
-      .from('kri_evidence')
-      .select('*')
-      .eq('kri_id', parseInt(kriId))
-      .eq('reporting_date', reportingDateAsInt)
-      .order('uploaded_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching evidence data:', error);
-      throw new Error('Failed to fetch evidence data');
-    }
+    const { data } = await baseKRIService.fetchMultipleKRI(
+      'kri_evidence', 
+      kriId, 
+      reportingDate, 
+      '*', 
+      { column: 'uploaded_at', ascending: false }
+    );
     return data;
   },
 
   // Fetch audit trail for a KRI
   async fetchKRIAuditTrail(kriId, reportingDate) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
-    const { data, error } = await supabase
-      .from('kri_audit_trail')
-      .select('*')
-      .eq('kri_id', parseInt(kriId))
-      .eq('reporting_date', reportingDateAsInt)
-      .order('changed_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching audit trail:', error);
-      throw new Error('Failed to fetch audit trail');
-    }
+    const { data } = await baseKRIService.fetchMultipleKRI(
+      'kri_audit_trail', 
+      kriId, 
+      reportingDate, 
+      '*', 
+      { column: 'changed_at', ascending: false }
+    );
     return data;
   },
 
   // Save KRI value (update status to 30 - Saved)
   async saveKRIValue(kriId, reportingDate, kriValue, changedBy) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
     try {
       // First get the current KRI data to obtain limits and old breach status
-      const { data: currentKRI, error: fetchError } = await supabase
-        .from('kri_item')
-        .select('breach_type, warning_line_value, limit_value')
-        .eq('kri_id', parseInt(kriId))
-        .eq('reporting_date', reportingDateAsInt)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching current KRI data:', fetchError);
-        throw new Error('Failed to fetch current KRI data');
-      }
+      const { data: currentKRI } = await baseKRIService.fetchSingleKRI(
+        'kri_item', 
+        kriId, 
+        reportingDate, 
+        'breach_type, warning_line_value, limit_value'
+      );
 
       // Calculate new breach status based on KRI value and limits
       const newBreachStatus = calculateBreachStatus(kriValue, currentKRI.warning_line_value, currentKRI.limit_value);
       const oldBreachStatus = currentKRI.breach_type;
 
-      const { data, error } = await supabase
-        .from('kri_item')
-        .update({
-          kri_value: kriValue,
-          kri_status: 30, // Saved status
-          breach_type: newBreachStatus
-        })
-        .eq('kri_id', parseInt(kriId))
-        .eq('reporting_date', reportingDateAsInt)
-        .select()
-        .single();
+      const updateData = {
+        kri_value: kriValue,
+        kri_status: 30, // Saved status
+        breach_type: newBreachStatus
+      };
 
-      if (error) {
-        console.error('Error saving KRI value:', error);
-        throw new Error('Failed to save KRI value');
-      }
-
-      // Add audit trail entry for KRI value change
-      await this.addAuditTrailEntry(kriId, reportingDate, 'save', 'kri_value', null, kriValue, changedBy, 'Data saved');
+      const { data } = await baseKRIService.updateKRIWithAudit(
+        'kri_item',
+        kriId,
+        reportingDate,
+        updateData,
+        changedBy,
+        'save',
+        'Data saved'
+      );
 
       // Add audit trail entry for breach status change if it changed
       if (oldBreachStatus !== newBreachStatus) {
-        await this.addAuditTrailEntry(kriId, reportingDate, 'save', 'breach_type', oldBreachStatus, newBreachStatus, changedBy, `Breach status recalculated: ${oldBreachStatus} → ${newBreachStatus}`);
+        await baseKRIService.addAuditTrailEntry(kriId, reportingDate, 'save', 'breach_type', oldBreachStatus, newBreachStatus, changedBy, `Breach status recalculated: ${oldBreachStatus} → ${newBreachStatus}`);
       }
 
       return data;
@@ -269,30 +218,12 @@ export const kriService = {
   },
 
   // Add audit trail entry
-  async addAuditTrailEntry(kriId, reportingDate, action, fieldName, oldValue, newValue, changedBy, comment = null) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
+  async addAuditTrailEntry(kriId, reportingDate, action, fieldName, oldValue, newValue, changedBy, comment = '') {
     try {
-      const { error } = await supabase
-        .from('kri_audit_trail')
-        .insert({
-          kri_id: parseInt(kriId),
-          reporting_date: reportingDateAsInt,
-          action: action,
-          field_name: fieldName,
-          old_value: oldValue ? String(oldValue) : null,
-          new_value: newValue ? String(newValue) : null,
-          changed_by: changedBy,
-          comment: comment
-        });
-
-      if (error) {
-        console.error('Error adding audit trail entry:', error);
-        // Don't throw error for audit trail failures to avoid breaking main operations
-      }
+      await baseKRIService.addAuditTrailEntry(kriId, reportingDate, action, fieldName, oldValue, newValue, changedBy, comment);
     } catch (error) {
       console.error('Audit trail error:', error);
-      // Don't throw error for audit trail failures
+      // Don't throw error for audit trail failures to avoid breaking main operations
     }
   },
 
@@ -467,6 +398,69 @@ export const kriService = {
       return data;
     } catch (error) {
       console.error('Save atomic value error:', error);
+      throw error;
+    }
+  },
+
+  // Submit individual atomic element (update specific atomic element to submitted status)
+  async submitAtomicElement(kriId, reportingDate, atomicId, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      const { data, error } = await supabase
+        .from('kri_atomic')
+        .update({
+          atomic_status: 40 // Submitted to Data Provider Approver
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .eq('atomic_id', parseInt(atomicId))
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error submitting atomic element:', error);
+        throw new Error('Failed to submit atomic element');
+      }
+
+      // Add audit trail entry for atomic element submission
+      await this.addAuditTrailEntry(kriId, reportingDate, 'atomic_submit', `atomic_${atomicId}_status`, null, '40', changedBy, `Atomic element ${atomicId} submitted for approval`);
+
+      return data;
+    } catch (error) {
+      console.error('Submit atomic element error:', error);
+      throw error;
+    }
+  },
+
+  // Save and submit individual atomic element
+  async saveAndSubmitAtomicElement(kriId, reportingDate, atomicId, atomicValue, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      const { data, error } = await supabase
+        .from('kri_atomic')
+        .update({
+          atomic_value: atomicValue,
+          atomic_status: 40 // Submitted to Data Provider Approver
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .eq('atomic_id', parseInt(atomicId))
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving and submitting atomic element:', error);
+        throw new Error('Failed to save and submit atomic element');
+      }
+
+      // Add audit trail entry for atomic value change and submission
+      await this.addAuditTrailEntry(kriId, reportingDate, 'atomic_save_and_submit', `atomic_${atomicId}_value`, null, atomicValue, changedBy, `Atomic element ${atomicId} saved and submitted for approval`);
+
+      return data;
+    } catch (error) {
+      console.error('Save and submit atomic element error:', error);
       throw error;
     }
   },
@@ -769,6 +763,254 @@ export const kriService = {
     } catch (error) {
       console.error('Calculate KRI from atomic error:', error);
       throw error;
+    }
+  },
+
+  // ========================================
+  // KRI-LEVEL APPROVAL WORKFLOW METHODS
+  // ========================================
+
+  // Approve KRI (Data Provider Approver: 40 → 50, or KRI Owner: 50 → 60)
+  async approveKRI(kriId, reportingDate, changedBy, reason = null) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Get current KRI to determine next status
+      const { data: currentKRI, error: fetchError } = await supabase
+        .from('kri_item')
+        .select('*')
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .single();
+
+      if (fetchError) {
+        throw new Error('Failed to fetch current KRI data');
+      }
+
+      let nextStatus;
+      let statusLabel;
+      let actionType;
+
+      // Determine next status based on current status and workflow
+      if (currentKRI.kri_status === 40) {
+        // Data Provider Approver → KRI Owner Approver
+        nextStatus = 50;
+        statusLabel = 'Submitted to KRI Owner Approver';
+        actionType = 'data_provider_approve';
+      } else if (currentKRI.kri_status === 50) {
+        // KRI Owner Approver → Finalized
+        nextStatus = 60;
+        statusLabel = 'Finalized';
+        actionType = 'kri_owner_approve';
+      } else {
+        throw new Error(`Cannot approve KRI with status ${currentKRI.kri_status}`);
+      }
+
+      // Update KRI status
+      const { data, error } = await supabase
+        .from('kri_item')
+        .update({
+          kri_status: nextStatus
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error approving KRI:', error);
+        throw new Error('Failed to approve KRI');
+      }
+
+      // Add audit trail entry
+      const comment = reason ? `KRI approved - ${statusLabel}: ${reason}` : `KRI approved - ${statusLabel}`;
+      await this.addAuditTrailEntry(kriId, reportingDate, actionType, 'kri_status', currentKRI.kri_status, nextStatus, changedBy, comment);
+
+      return data;
+    } catch (error) {
+      console.error('Approve KRI error:', error);
+      throw error;
+    }
+  },
+
+  // Reject KRI (40 → 20 or 50 → 20)
+  async rejectKRI(kriId, reportingDate, reason, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Get current KRI for audit trail
+      const { data: currentKRI, error: fetchError } = await supabase
+        .from('kri_item')
+        .select('kri_status')
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .single();
+
+      if (fetchError) {
+        throw new Error('Failed to fetch current KRI status');
+      }
+
+      // Validate current status
+      if (![40, 50].includes(currentKRI.kri_status)) {
+        throw new Error(`Cannot reject KRI with status ${currentKRI.kri_status}`);
+      }
+
+      // Update to Under Rework status
+      const { data, error } = await supabase
+        .from('kri_item')
+        .update({
+          kri_status: 20 // Under Rework
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error rejecting KRI:', error);
+        throw new Error('Failed to reject KRI');
+      }
+
+      // Determine action type based on original status
+      const actionType = currentKRI.kri_status === 40 ? 'data_provider_reject' : 'kri_owner_reject';
+      
+      // Add audit trail entry
+      await this.addAuditTrailEntry(kriId, reportingDate, actionType, 'kri_status', currentKRI.kri_status, 20, changedBy, `KRI rejected: ${reason}`);
+
+      return data;
+    } catch (error) {
+      console.error('Reject KRI error:', error);
+      throw error;
+    }
+  },
+
+  // Manual override KRI value (with reason tracking)
+  async overrideKRIValue(kriId, reportingDate, newValue, reason, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Get current KRI data
+      const { data: currentKRI, error: fetchError } = await supabase
+        .from('kri_item')
+        .select('*')
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .single();
+
+      if (fetchError) {
+        throw new Error('Failed to fetch current KRI data');
+      }
+
+      // Calculate new breach status based on overridden value
+      const newBreachStatus = calculateBreachStatus(newValue, currentKRI.warning_line_value, currentKRI.limit_value);
+      const oldBreachStatus = currentKRI.breach_type;
+      const oldValue = currentKRI.kri_value;
+
+      // Update KRI with overridden value
+      const { data, error } = await supabase
+        .from('kri_item')
+        .update({
+          kri_value: newValue.toString(),
+          breach_type: newBreachStatus
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error overriding KRI value:', error);
+        throw new Error('Failed to override KRI value');
+      }
+
+      // Add audit trail entry for value override (marked as important)
+      await this.addAuditTrailEntry(
+        kriId, 
+        reportingDate, 
+        'manual_override', 
+        'kri_value', 
+        oldValue, 
+        newValue.toString(), 
+        changedBy, 
+        `IMPORTANT OVERRIDE: KRI value manually overridden. Reason: ${reason}`
+      );
+
+      // Add audit trail entry for breach status change if it changed
+      if (oldBreachStatus !== newBreachStatus) {
+        await this.addAuditTrailEntry(
+          kriId, 
+          reportingDate, 
+          'manual_override', 
+          'breach_type', 
+          oldBreachStatus, 
+          newBreachStatus, 
+          changedBy, 
+          `Breach status recalculated after override: ${oldBreachStatus} → ${newBreachStatus}`
+        );
+      }
+
+      return {
+        ...data,
+        overriddenValue: newValue,
+        previousValue: oldValue,
+        newBreachStatus: newBreachStatus,
+        oldBreachStatus: oldBreachStatus
+      };
+    } catch (error) {
+      console.error('Override KRI value error:', error);
+      throw error;
+    }
+  },
+
+  // Check if all atomic elements are finalized and auto-recalculate if needed
+  async checkAndAutoRecalculate(kriId, reportingDate, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Get all atomic data for this KRI
+      const atomicData = await this.fetchKRIAtomic(kriId, reportingDate);
+      
+      if (!atomicData || atomicData.length === 0) {
+        return { needsRecalculation: false, reason: 'No atomic data found' };
+      }
+
+      // Check if all atomic elements are finalized (status 60)
+      const allFinalized = atomicData.every(item => item.atomic_status === 60);
+      
+      if (!allFinalized) {
+        return { needsRecalculation: false, reason: 'Not all atomic elements are finalized' };
+      }
+
+      // Get KRI details to check if it's a calculated KRI
+      const kriDetail = await this.fetchKRIDetail(kriId, reportingDate);
+      
+      if (!kriDetail.kri_formula || kriDetail.kri_formula === 'Direct Input') {
+        return { needsRecalculation: false, reason: 'Not a calculated KRI' };
+      }
+
+      // Auto-recalculate the KRI
+      const calculationResult = await this.calculateKRIFromAtomic(kriId, reportingDate, changedBy);
+      
+      // Add audit trail entry for auto-recalculation
+      await this.addAuditTrailEntry(
+        kriId, 
+        reportingDate, 
+        'auto_recalculate', 
+        'kri_value', 
+        kriDetail.kri_value, 
+        calculationResult.calculatedValue.toString(), 
+        changedBy, 
+        'KRI automatically recalculated after all atomic elements were finalized'
+      );
+
+      return { 
+        needsRecalculation: true, 
+        result: calculationResult,
+        reason: 'All atomic elements finalized, KRI recalculated'
+      };
+    } catch (error) {
+      console.error('Auto-recalculation check error:', error);
+      return { needsRecalculation: false, reason: `Error: ${error.message}` };
     }
   },
 

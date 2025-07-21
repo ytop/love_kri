@@ -9,60 +9,51 @@
         <div v-if="isCalculatedKRI" class="calculated-kri-actions">
           <el-alert
             title="Calculated KRI"
-            description="Manage atomic data elements to update this KRI value."
+            description="This KRI value is automatically calculated from atomic data elements."
             type="info"
             :closable="false"
             show-icon>
           </el-alert>
           
-          <!-- Calculated KRI Actions -->
-          <template v-if="showCalculatedKRIActions">
-            <div class="calculated-actions">
+          <!-- Unified Quick Actions for Calculated KRI -->
+          <div v-if="calculatedKRIActions.length > 0" class="unified-actions">
+            <div class="actions-title">Available Actions</div>
+            <div class="actions-buttons">
               <el-button
-                type="primary"
-                icon="el-icon-refresh"
-                @click="handleCalculateFromAtomic"
-                :loading="actionLoading"
+                v-for="action in calculatedKRIActions"
+                :key="action.key"
+                :type="action.type"
+                :icon="action.icon"
+                @click="action.handler"
+                :loading="action.loading"
+                :disabled="action.disabled"
+                :title="action.title"
                 size="small"
-                style="width: 100%;">
-                Recalculate KRI Value
-              </el-button>
-              <el-button
-                v-if="canSubmitAtomicData"
-                type="success"
-                icon="el-icon-upload"
-                @click="handleSubmitAtomicData"
-                :loading="actionLoading"
-                size="small"
-                style="width: 100%;">
-                Submit Atomic Data
+                style="width: 100%; margin-bottom: 8px;">
+                {{ action.label }}
               </el-button>
             </div>
-            <div class="atomic-summary">
-              <div class="summary-item">
-                <label>Total Elements:</label>
-                <span>{{ atomicData.length }}</span>
-              </div>
-              <div class="summary-item">
-                <label>Approved:</label>
-                <span class="approved-count">{{ approvedAtomicCount }}</span>
-              </div>
-              <div class="summary-item">
-                <label>Pending:</label>
-                <span class="pending-count">{{ pendingAtomicCount }}</span>
-              </div>
-              <div class="summary-item">
-                <label>Completeness:</label>
-                <el-progress
-                  :percentage="atomicCompletenessPercentage"
-                  :color="getProgressColor(atomicCompletenessPercentage)"
-                  :stroke-width="6"
-                  :show-text="false">
-                </el-progress>
-                <span class="percentage-text">{{ atomicCompletenessPercentage }}%</span>
-              </div>
+          </div>
+          
+          <!-- Calculated KRI Summary -->
+          <div class="atomic-summary">
+            <div class="summary-item">
+              <label>Total Elements:</label>
+              <span>{{ atomicData.length }}</span>
             </div>
-          </template>
+            <div class="summary-item">
+              <label>Approved:</label>
+              <span class="approved-count">{{ approvedAtomicCount }}</span>
+            </div>
+            <div class="summary-item">
+              <label>Pending:</label>
+              <span class="pending-count">{{ pendingAtomicCount }}</span>
+            </div>
+            <div class="summary-item">
+              <label>Completeness:</label>
+              <span>{{ completenessPercentage }}%</span>
+            </div>
+          </div>
         </div>
         <template v-else>
           <!-- Data Input Actions for Pending Input/Under Rework status -->
@@ -347,6 +338,77 @@ export default {
     atomicCompletenessPercentage() {
       if (this.atomicData.length === 0) return 0;
       return Math.round((this.approvedAtomicCount / this.atomicData.length) * 100);
+    },
+
+    // Unified quick actions for calculated KRIs based on canPerformAction
+    calculatedKRIActions() {
+      if (!this.isCalculatedKRI) return [];
+      
+      const actions = [];
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date
+      };
+      const currentStatus = this.kriData.kri_status;
+      
+      // Approve action for Data Provider (status 40) or KRI Owner (status 50)
+      if ([40, 50].includes(currentStatus)) {
+        const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
+        const canApprove = canPerformAction(userPermissions, requiredPermission, currentStatus, kriItem);
+        
+        if (canApprove) {
+          actions.push({
+            key: 'approve',
+            label: currentStatus === 40 ? 'Approve (Data Provider)' : 'Approve (KRI Owner)',
+            icon: 'el-icon-check',
+            type: 'success',
+            handler: this.handleApproveKRI,
+            loading: this.actionLoading,
+            title: currentStatus === 40 ? 'Approve as Data Provider' : 'Approve as KRI Owner',
+            disabled: false
+          });
+        }
+      }
+      
+      // Reject action for approvers
+      if ([40, 50].includes(currentStatus)) {
+        const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
+        const canReject = canPerformAction(userPermissions, requiredPermission, currentStatus, kriItem);
+        
+        if (canReject) {
+          actions.push({
+            key: 'reject',
+            label: 'Reject',
+            icon: 'el-icon-close',
+            type: 'danger',
+            handler: this.handleRejectKRI,
+            loading: this.actionLoading,
+            title: 'Reject and send back for rework',
+            disabled: false
+          });
+        }
+      }
+      
+      // Override action for KRI Owner
+      if ([40, 50].includes(currentStatus)) {
+        const canOverride = canPerformAction(userPermissions, 'acknowledge', currentStatus, kriItem);
+        
+        if (canOverride) {
+          actions.push({
+            key: 'override',
+            label: 'Override Value',
+            icon: 'el-icon-edit-outline',
+            type: 'warning',
+            handler: this.handleOverrideKRI,
+            loading: this.actionLoading,
+            title: 'Manually override KRI value (not recommended)',
+            disabled: false
+          });
+        }
+      }
+      
+      return actions;
     },
 
     gaugeOption() {
@@ -677,31 +739,7 @@ export default {
       }
     },
     
-    async handleApproveKRI() {
-      this.actionLoading = true;
-      
-      try {
-        const result = await this.updateKRIStatus({
-          kriId: this.kriData.kri_id,
-          reportingDate: this.kriData.reporting_date, // Use integer format
-          newStatus: 50, // Move to KRI Owner Approver
-          changedBy: this.currentUser.name,
-          reason: 'Approved by Data Provider Approver'
-        });
-        
-        if (result.success) {
-          this.$message.success('KRI approved successfully');
-          this.$emit('data-updated');
-        } else {
-          this.$message.error(result.error || 'Failed to approve KRI');
-        }
-      } catch (error) {
-        console.error('Error approving KRI:', error);
-        this.$message.error('Failed to approve KRI');
-      } finally {
-        this.actionLoading = false;
-      }
-    },
+
     
     async handleAcknowledgeKRI() {
       this.actionLoading = true;
@@ -729,45 +767,7 @@ export default {
       }
     },
     
-    async handleRejectKRI() {
-      this.actionLoading = true;
-      
-      try {
-        // Prompt for rejection reason
-        const reason = await this.$prompt('Please provide a reason for rejection:', 'Reject KRI', {
-          confirmButtonText: 'Reject',
-          cancelButtonText: 'Cancel',
-          inputValidator: (value) => {
-            if (!value || value.trim().length < 3) {
-              return 'Reason must be at least 3 characters long';
-            }
-            return true;
-          }
-        });
-        
-        const result = await this.updateKRIStatus({
-          kriId: this.kriData.kri_id,
-          reportingDate: this.kriData.reporting_date, // Use integer format
-          newStatus: 20, // Move to Under Rework
-          changedBy: this.currentUser.name,
-          reason: reason.value
-        });
-        
-        if (result.success) {
-          this.$message.success('KRI rejected and sent back for rework');
-          this.$emit('data-updated');
-        } else {
-          this.$message.error(result.error || 'Failed to reject KRI');
-        }
-      } catch (error) {
-        if (error !== 'cancel') {
-          console.error('Error rejecting KRI:', error);
-          this.$message.error('Failed to reject KRI');
-        }
-      } finally {
-        this.actionLoading = false;
-      }
-    },
+
 
     // Calculated KRI action handlers
     async handleCalculateFromAtomic() {
@@ -821,6 +821,128 @@ export default {
       } catch (error) {
         console.error('Error submitting atomic data:', error);
         this.$message.error('Failed to submit atomic data');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    // Reused action handlers for calculated KRIs
+    async handleApproveKRI() {
+      // Reuse the existing acknowledge handler for status 50, or create new approve logic for status 40
+      if (this.kriData.kri_status === 50) {
+        return this.handleAcknowledgeKRI();
+      } else {
+        // Handle status 40 (Data Provider approval)
+        this.actionLoading = true;
+        
+        try {
+          const result = await this.$store.dispatch('kri/approveKRILevel', {
+            kriId: this.kriData.kri_id,
+            reportingDate: this.kriData.reporting_date,
+            reason: `Approved calculated KRI by Data Provider at status ${this.kriData.kri_status}`
+          });
+          
+          if (result.success) {
+            this.$message.success('KRI approved successfully');
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to approve KRI');
+          }
+        } catch (error) {
+          console.error('Error approving KRI:', error);
+          this.$message.error('Failed to approve KRI');
+        } finally {
+          this.actionLoading = false;
+        }
+      }
+    },
+
+    async handleRejectKRI() {
+      // Reuse existing reject logic with enhanced prompting
+      this.actionLoading = true;
+      
+      try {
+        const reason = await this.$prompt('Please provide a reason for rejection:', 'Reject KRI', {
+          confirmButtonText: 'Reject',
+          cancelButtonText: 'Cancel',
+          inputValidator: (value) => {
+            if (!value || value.trim().length < 3) {
+              return 'Reason must be at least 3 characters long';
+            }
+            return true;
+          },
+          inputType: 'textarea',
+          inputPlaceholder: 'Enter reason for rejection...'
+        });
+        
+        const result = await this.$store.dispatch('kri/rejectKRILevel', {
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          reason: reason.value
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI rejected and sent back for rework');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to reject KRI');
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Error rejecting KRI:', error);
+          this.$message.error('Failed to reject KRI');
+        }
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async handleOverrideKRI() {
+      this.$prompt('Enter new KRI value and reason for override:', 'Override KRI Value', {
+        confirmButtonText: 'Override',
+        cancelButtonText: 'Cancel',
+        inputValidator: (value) => {
+          const lines = value.split('\n');
+          if (lines.length < 2 || !lines[0].trim() || !lines[1].trim()) {
+            return 'Please enter both the new value (first line) and reason (second line)';
+          }
+          if (isNaN(parseFloat(lines[0].trim()))) {
+            return 'First line must be a valid number';
+          }
+          return true;
+        },
+        inputType: 'textarea',
+        inputPlaceholder: 'New Value\nReason for override...'
+      }).then(({ value }) => {
+        const lines = value.split('\n');
+        const newValue = parseFloat(lines[0].trim());
+        const reason = lines.slice(1).join('\n').trim();
+        return this.performOverrideKRI(newValue, reason);
+      }).catch(() => {
+        // User cancelled
+      });
+    },
+
+    async performOverrideKRI(newValue, reason) {
+      this.actionLoading = true;
+      
+      try {
+        const result = await this.$store.dispatch('kri/overrideKRIValue', {
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          newValue: newValue,
+          reason: reason
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI value overridden successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to override KRI value');
+        }
+      } catch (error) {
+        console.error('Error overriding KRI:', error);
+        this.$message.error('Failed to override KRI value');
       } finally {
         this.actionLoading = false;
       }
@@ -981,5 +1103,42 @@ export default {
   font-size: 0.75rem;
   line-height: 1.4;
   margin-top: 0.25rem;
+}
+
+/* Calculated KRI Styles */
+.calculated-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.unified-actions {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.actions-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 12px;
+}
+
+.actions-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actions-buttons .el-button {
+  margin: 0;
+}
+
+.atomic-summary {
+  margin-top: 16px;
 }
 </style>

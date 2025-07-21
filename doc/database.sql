@@ -85,6 +85,7 @@ CREATE TABLE public.kri_user_permission (
   condition json,
   created_date timestamp without time zone DEFAULT now(),
   update_date timestamp without time zone DEFAULT now(),
+  CONSTRAINT kri_user_permission_pkey PRIMARY KEY (user_uuid, kri_id, reporting_date),
   CONSTRAINT kri_user_permission_user_uuid_fkey FOREIGN KEY (user_uuid) REFERENCES public.kri_user(UUID),
   CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
   CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),

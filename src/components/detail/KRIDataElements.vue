@@ -13,6 +13,15 @@
               Bulk Input
             </el-button>
             <el-button
+              v-if="canSubmitAtomicData"
+              type="success"
+              icon="el-icon-upload"
+              @click="handleSubmitAtomicData"
+              :loading="submittingAtomicData"
+              size="small">
+              Submit Atomic Data
+            </el-button>
+            <el-button
               v-if="showApproveButton"
               type="success"
               icon="el-icon-check"
@@ -115,7 +124,37 @@
                 <td>{{ getCommentInfo(item) }}</td>
                 <td>
                   <div class="row-actions">
-                    <template v-if="canApproveAtomicElement(item)">
+                    <template v-if="canEditAtomicElement(item)">
+                      <el-button
+                        type="primary"
+                        icon="el-icon-check"
+                        size="mini"
+                        @click="saveAtomicElement(item)"
+                        :loading="savingAtomic === item.atomic_id"
+                        :disabled="!hasAtomicValue(item)">
+                        Save
+                      </el-button>
+                      <el-button
+                        v-if="item.atomic_status === 30"
+                        type="success"
+                        icon="el-icon-upload"
+                        size="mini"
+                        @click="submitAtomicElement(item)"
+                        :loading="savingAtomic === item.atomic_id">
+                        Submit
+                      </el-button>
+                      <el-button
+                        v-if="[10, 20].includes(item.atomic_status)"
+                        type="success"
+                        icon="el-icon-upload"
+                        size="mini"
+                        @click="saveAndSubmitAtomicElement(item)"
+                        :loading="savingAtomic === item.atomic_id"
+                        :disabled="!hasAtomicValue(item)">
+                        Save & Submit
+                      </el-button>
+                    </template>
+                    <template v-else-if="canApproveAtomicElement(item)">
                       <el-button
                         type="success"
                         icon="el-icon-check"
@@ -265,7 +304,8 @@ export default {
       editingValue: null, // Current editing value
       savingAtomic: null, // ID of atomic element being saved
       showBulkInputDialog: false,
-      previousAtomicData: [] // Previous period data for comparison
+      previousAtomicData: [], // Previous period data for comparison
+      submittingAtomicData: false // Loading state for submitting atomic data
     };
   },
   computed: {
@@ -389,6 +429,21 @@ export default {
                const item = this.atomicData.find(a => a.atomic_id === atomicId);
                return item && [40, 50].includes(item.atomic_status);
              });
+    },
+
+    canSubmitAtomicData() {
+      // Check if user has edit permissions and there are editable atomic elements
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriDetail.kri_id,
+        reportingDate: this.kriDetail.reporting_date
+      };
+      
+      // Can submit if user has edit permission and there are atomic elements in editable status (10, 20, 30)
+      const hasEditPermission = canPerformAction(userPermissions, 'edit', this.kriDetail.kri_status, kriItem);
+      const hasEditableElements = this.atomicData.some(item => [10, 20, 30].includes(item.atomic_status));
+      
+      return hasEditPermission && hasEditableElements && this.atomicData.length > 0;
     }
   },
   methods: {
@@ -540,13 +595,44 @@ export default {
       
       try {
         let formula = this.kriDetail.kri_formula;
-        const values = this.atomicData.map(item => parseFloat(item.atomic_value) || 0);
         
-        // Replace common variable patterns (A, B, C, etc.) with actual values
+        // Enhanced substitution for better display
+        // Replace atomic variable patterns (atomic1, atomic2, etc.) with actual values
+        this.atomicData.forEach((item) => {
+          const atomicVariable = `atomic${item.atomic_id}`;
+          const value = item.atomic_value;
+          let displayValue;
+          
+          if (!value || value === 'N/A' || value === '') {
+            // Show metadata or atomic ID if value is blank
+            const metadata = item.atomic_metadata ? `{${item.atomic_metadata}}` : `{atomic${item.atomic_id}}`;
+            displayValue = `${metadata} = (left blank)`;
+          } else {
+            displayValue = parseFloat(value) || 0;
+          }
+          
+          // Replace both case variations
+          const atomicPattern = new RegExp(`\\b${atomicVariable}\\b`, 'gi');
+          formula = formula.replace(atomicPattern, displayValue.toString());
+        });
+        
+        // Legacy support for A, B, C pattern
         const variables = ['A', 'B', 'C', 'D', 'E', 'F'];
         variables.forEach((variable, index) => {
-          if (values[index] !== undefined) {
-            formula = formula.replace(new RegExp(variable, 'g'), values[index].toString());
+          if (index < this.atomicData.length) {
+            const item = this.atomicData[index];
+            const value = item.atomic_value;
+            let displayValue;
+            
+            if (!value || value === 'N/A' || value === '') {
+              const metadata = item.atomic_metadata ? `{${item.atomic_metadata}}` : `{atomic${item.atomic_id}}`;
+              displayValue = `${metadata} = (left blank)`;
+            } else {
+              displayValue = parseFloat(value) || 0;
+            }
+            
+            const variablePattern = new RegExp(`\\b${variable}\\b`, 'g');
+            formula = formula.replace(variablePattern, displayValue.toString());
           }
         });
         
@@ -813,6 +899,158 @@ export default {
       // Emit event to parent to refresh data
       this.$emit('data-updated');
       this.showBulkInputDialog = false;
+    },
+
+    async handleSubmitAtomicData() {
+      // Check if all atomic elements have values
+      const missingValues = this.atomicData.filter(item => 
+        !item.atomic_value || item.atomic_value === 'N/A' || item.atomic_value === ''
+      );
+
+      if (missingValues.length > 0) {
+        this.$message.warning(`${missingValues.length} atomic element(s) are missing values. Please complete all data before submission.`);
+        return;
+      }
+
+      this.$confirm('Are you sure you want to submit all atomic data elements for approval?', 'Confirm Submission', {
+        confirmButtonText: 'Submit',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }).then(async () => {
+        this.submittingAtomicData = true;
+        try {
+          const result = await this.$store.dispatch('kri/submitAtomicData', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date
+          });
+
+          if (result.success) {
+            this.$message.success('All atomic data elements submitted for approval successfully.');
+            this.selectedItems = [];
+            this.selectAll = false;
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to submit atomic data for approval.');
+          }
+        } catch (error) {
+          console.error('Error submitting atomic data:', error);
+          this.$message.error('Failed to submit atomic data for approval.');
+        } finally {
+          this.submittingAtomicData = false;
+        }
+      }).catch(() => {
+        // User cancelled
+      });
+    },
+
+    // New methods for row actions
+    saveAtomicElement(item) {
+      if (!this.hasAtomicValue(item)) {
+        this.$message.warning('Cannot save atomic element without a value');
+        return;
+      }
+
+      this.$confirm(`Are you sure you want to save atomic element ${item.atomic_id}?`, 'Confirm Save', {
+        confirmButtonText: 'Save',
+        cancelButtonText: 'Cancel',
+        type: 'info'
+      }).then(async () => {
+        this.savingAtomic = item.atomic_id;
+        try {
+          const result = await this.$store.dispatch('kri/saveAtomicValue', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date,
+            atomicId: item.atomic_id,
+            value: item.atomic_value.toString()
+          });
+
+          if (result.success) {
+            this.$message.success(`Atomic element ${item.atomic_id} saved successfully.`);
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to save atomic element.');
+          }
+        } catch (error) {
+          console.error('Error saving atomic element:', error);
+          this.$message.error('Failed to save atomic element.');
+        } finally {
+          this.savingAtomic = null;
+        }
+      }).catch(() => {
+        // User cancelled
+      });
+    },
+
+    submitAtomicElement(item) {
+      this.$confirm(`Are you sure you want to submit atomic element ${item.atomic_id} for approval?`, 'Confirm Submission', {
+        confirmButtonText: 'Submit',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }).then(async () => {
+        this.savingAtomic = item.atomic_id;
+        try {
+          const result = await this.$store.dispatch('kri/submitAtomicElement', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date,
+            atomicId: item.atomic_id
+          });
+
+          if (result.success) {
+            this.$message.success(`Atomic element ${item.atomic_id} submitted for approval successfully.`);
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to submit atomic element for approval.');
+          }
+        } catch (error) {
+          console.error('Error submitting atomic element:', error);
+          this.$message.error('Failed to submit atomic element for approval.');
+        } finally {
+          this.savingAtomic = null;
+        }
+      }).catch(() => {
+        // User cancelled
+      });
+    },
+
+    saveAndSubmitAtomicElement(item) {
+      if (!this.hasAtomicValue(item)) {
+        this.$message.warning('Cannot save and submit atomic element without a value');
+        return;
+      }
+
+      this.$confirm(`Are you sure you want to save and submit atomic element ${item.atomic_id} for approval?`, 'Confirm Submission', {
+        confirmButtonText: 'Save & Submit',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }).then(async () => {
+        this.savingAtomic = item.atomic_id;
+        try {
+          const result = await this.$store.dispatch('kri/saveAndSubmitAtomicElement', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date,
+            atomicId: item.atomic_id,
+            value: item.atomic_value.toString()
+          });
+
+          if (result.success) {
+            this.$message.success(`Atomic element ${item.atomic_id} saved and submitted for approval successfully.`);
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to save and submit atomic element.');
+          }
+        } catch (error) {
+          console.error('Error saving and submitting atomic element:', error);
+          this.$message.error('Failed to save and submit atomic element.');
+        } finally {
+          this.savingAtomic = null;
+        }
+      }).catch(() => {
+        // User cancelled
+      });
+    },
+
+    hasAtomicValue(item) {
+      return item.atomic_value !== null && item.atomic_value !== '' && item.atomic_value !== 'N/A';
     }
   },
   watch: {

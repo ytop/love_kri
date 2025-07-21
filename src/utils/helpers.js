@@ -1,59 +1,31 @@
 import { format, lastDayOfMonth, subMonths } from 'date-fns';
-import { KRIStatus } from '@/types/database';
+import { kriService } from '@/services/kriService';
+// Import status management from centralized StatusManager
+import StatusManager, { 
+  STATUS_VALUES, 
+  mapStatus, 
+  getStatusTagType, 
+  getStatusCssClass, 
+  getStatusTagTypeFromLabel,
+  mapKriStatus,
+  mapAtomicStatus
+} from './StatusManager';
+// Import permission management from centralized PermissionManager
+import PermissionManager from './PermissionManager';
+// Import action management from centralized ActionManager
+import ActionManager from './ActionManager';
 
-// Unified Status Configuration (used for both KRI and Atomic status)
-const STATUS_CONFIG = {
-  10: { label: 'Pending Input', tagType: 'warning', cssClass: 'status-pending' },
-  20: { label: 'Under Rework', tagType: 'warning', cssClass: 'status-adjusting' },
-  30: { label: 'Saved', tagType: 'info', cssClass: 'status-pending-approval' },
-  40: { label: 'Submitted to Data Provider Approver', tagType: 'primary', cssClass: 'status-ready' },
-  50: { label: 'Submitted to KRI Owner Approver', tagType: 'info', cssClass: 'status-submitted' },
-  60: { label: 'Finalized', tagType: 'success', cssClass: 'status-approved' }
+// Re-export status functions for backward compatibility
+export { 
+  STATUS_VALUES, 
+  mapStatus, 
+  getStatusTagType, 
+  getStatusCssClass, 
+  getStatusTagTypeFromLabel,
+  mapKriStatus,
+  mapAtomicStatus,
+  StatusManager
 };
-
-// Reverse mapping from status labels to numeric values
-const STATUS_LABEL_TO_NUMBER = {
-  'Pending Input': 10,
-  'Under Rework': 20,
-  'Saved': 30,
-  'Submitted to Data Provider Approver': 40,
-  'Submitted to KRI Owner Approver': 50,
-  'Finalized': 60
-};
-
-// Export status values for use in other modules (from database.js)
-export const STATUS_VALUES = KRIStatus;
-
-// Map status numbers to readable strings (works for both KRI and Atomic)
-export const mapStatus = (status) => {
-  if (status === null || status === undefined) return 'Pending Input';
-  const config = STATUS_CONFIG[status];
-  return config ? config.label : `Unknown (${status})`;
-};
-
-// Get status tag type for Element UI (works for both KRI and Atomic)
-export const getStatusTagType = (status) => {
-  if (status === null || status === undefined) return 'warning';
-  const config = STATUS_CONFIG[status];
-  return config ? config.tagType : '';
-};
-
-// Get status CSS class (works for both KRI and Atomic)
-export const getStatusCssClass = (status) => {
-  if (status === null || status === undefined) return 'status-pending';
-  const config = STATUS_CONFIG[status];
-  return config ? config.cssClass : 'status-na';
-};
-
-// Get status tag type from status label string (convenience function for components)
-export const getStatusTagTypeFromLabel = (statusLabel) => {
-  const numericStatus = STATUS_LABEL_TO_NUMBER[statusLabel];
-  return getStatusTagType(numericStatus);
-};
-
-// Legacy aliases for backward compatibility (only keep the ones actually used)
-export const mapKriStatus = mapStatus;
-export const mapAtomicStatus = mapStatus;
 
 // Get the last day of the previous month as default reporting date
 export const getLastDayOfPreviousMonth = () => {
@@ -227,190 +199,109 @@ export const canViewKRI = (userPermissions, kriId, reportingDate) => {
   return true; // Default fallback
 };
 
-// Check if KRI owner equals data provider
-export const isOwnerDataProvider = (kriItem) => {
-  if (!kriItem) return false;
-  return kriItem.owner === kriItem.dataProvider;
-};
+// Re-export permission functions for backward compatibility
+export const isOwnerDataProvider = PermissionManager.isOwnerDataProvider.bind(PermissionManager);
+export const getInputStatus = PermissionManager.getInputStatus.bind(PermissionManager);
+export const getNextStatus = PermissionManager.getNextStatus.bind(PermissionManager);
 
-// Get status after input - determine whether to go to Data Provider Approver or KRI Owner Approver
-export const getInputStatus = (userPermissions, kriItem) => {
-  if (!kriItem) {
-    return 40; // Default to Data Provider Approver
-  }
-  
-  // Business logic: If KRI owner is the same as data provider, skip Data Provider Approver
-  if (isOwnerDataProvider(kriItem)) {
-    return 50; // Submit directly to KRI Owner Approver
-  } else {
-    return 40; // Submit to Data Provider Approver first
-  }
-};
+export const canPerformAction = PermissionManager.canPerformAction.bind(PermissionManager);
 
-// Status transition logic
-export const getNextStatus = (currentStatus, action) => {
-  const transitions = {
-    // Save action - goes to Saved status
-    save: {
-      10: 30, // Pending Input → Saved
-      20: 30  // Under Rework → Saved
-    },
-    // Submit action - from Saved to appropriate approval status
-    submit: {
-      30: null // Will be determined by getInputStatus based on role
-    },
-    // Approve transitions
-    review: {
-      30: 40, // Saved → Submitted to Data Provider Approver
-    },
-    approve: {
-      40: 50, // Submitted to Data Provider Approver → Submitted to KRI Owner Approver
-    },
-    // Reject transitions
-    reject: {
-      40: 20, // Submitted to Data Provider Approver → Under Rework
-      50: 20  // Submitted to KRI Owner Approver → Under Rework
-    }
-  };
-
-  return transitions[action]?.[currentStatus] || null;
-};
-
-// Check if user can perform action on KRI with current status
-export const canPerformAction = (userPermissions, action, currentStatus, kriItem = null, atomicId = null) => {
-  // Check if user has the KRI-specific permission
-  if (!kriItem) {
-    console.log('canPerformAction: No kriItem provided');
-    return false;
-  }
-  
-  const key = `${kriItem.id}_${kriItem.reportingDate}`;
-  let hasPermission = false;
-  
-  // Check for atomic-level permission first if atomicId is provided
-  if (atomicId !== null && atomicId !== undefined) {
-    const atomicPermission = `atomic${atomicId}_${action}`;
-    hasPermission = userPermissions[key]?.includes(atomicPermission) || false;
-  }
-  
-  // Fall back to regular permission check
-  if (!hasPermission) {
-    hasPermission = userPermissions[key]?.includes(action) || false;
-  }
-  
-  // Debug logging
-  console.log('Permission Check:', {
-    key,
-    action,
-    atomicId,
-    currentStatus,
-    availablePermissions: userPermissions[key],
-    hasPermission,
-    allUserPermissions: userPermissions
-  });
-  
-  if (!hasPermission) {
-    console.log(`canPerformAction: No ${action} permission for ${key}`);
-    return false;
-  }
-
-  // Additional status-based checks
-  switch (action) {
-  case 'edit':
-    // Can edit in Pending Input, Under Rework, and Saved status
-    return [10, 20, 30].includes(currentStatus);
-  
-  case 'review':
-    // Data Provider Approver - can review status 40
-    return currentStatus === 40;
-  
-  case 'acknowledge':
-    // KRI Owner Approver - can acknowledge status 50
-    return currentStatus === 50;
-  
-  default:
-    // For atomic-level permissions, check the specific atomic action type
-    if (isAtomicPermission(action)) {
-      const actionType = action.replace(/^atomic\d+_/, '');
-      
-      switch (actionType) {
-      case 'edit':
-      case 'save':
-      case 'delete':
-        // Atomic editing permissions - allow in editing statuses
-        return [10, 20, 30].includes(currentStatus);
-      
-      case 'review':
-        // Atomic review permissions - allow in review status
-        return currentStatus === 40;
-      
-      case 'acknowledge':
-        // Atomic acknowledge permissions - allow in acknowledge status
-        return currentStatus === 50;
-      
-      case 'view':
-        // Atomic view permissions - allow in any status
-        return true;
-      
-      default:
-        // Unknown atomic action type - default to editing statuses
-        return [10, 20, 30].includes(currentStatus);
-      }
-    }
-    console.log(`canPerformAction: Unknown action ${action}, returning false`);
-    return false;
-  }
-};
-
-// Get available actions for user and KRI status
+// Re-export ActionManager functions for backward compatibility
 export const getAvailableActions = (userPermissions, currentStatus, kriItem = null, atomicId = null) => {
-  const actions = [];
-  
-  if (canPerformAction(userPermissions, 'save', currentStatus, kriItem, atomicId)) {
-    actions.push('save');
+  if (atomicId !== null && atomicId !== undefined) {
+    // For atomic-level actions
+    return ActionManager.getAtomicActions(userPermissions, kriItem, atomicId, currentStatus)
+      .map(action => action.name);
   }
+  
+  // For KRI-level actions
+  return ActionManager.getAvailableActions(userPermissions, kriItem, currentStatus)
+    .map(action => action.name);
+};
 
-  if (canPerformAction(userPermissions, 'edit', currentStatus, kriItem, atomicId)) {
-    actions.push('edit');
-  }
-  
-  if (canPerformAction(userPermissions, 'acknowledge', currentStatus, kriItem, atomicId)) {
-    actions.push('acknowledge');
-  }
-  
-  if (canPerformAction(userPermissions, 'review', currentStatus, kriItem, atomicId)) {
-    actions.push('review');
-  }
-  
-  // Check for atomic-specific permissions if atomicId is provided
-  if (atomicId !== null && atomicId !== undefined && kriItem) {
-    const key = `${kriItem.id}_${kriItem.reportingDate}`;
-    const allPermissions = userPermissions[key] || [];
+// Collection Status options for filters - using StatusManager for consistency
+export const COLLECTION_STATUS_OPTIONS = StatusManager.getAllStatusOptions().map(option => ({
+  label: option.label,
+  value: option.label // Use label as value for backward compatibility
+}));
+
+// Validate database synchronization
+export const validateDatabaseSync = async (kriId, reportingDate, expectedStatus, store) => {
+  try {
+    console.log('Validating database sync for KRI:', { kriId, reportingDate, expectedStatus });
     
-    // Find atomic-specific permissions for this atomic ID
-    allPermissions.forEach(permission => {
-      if (isAtomicPermission(permission)) {
-        const permissionAtomicId = getAtomicIdFromPermission(permission);
-        if (permissionAtomicId === atomicId) {
-          // Extract the action part (e.g., "edit" from "atomic1_edit")
-          const actionPart = permission.replace(/^atomic\d+_/, '');
-          if (!actions.includes(actionPart)) {
-            actions.push(actionPart);
-          }
+    // Fetch fresh data from database
+    const formattedDate = typeof reportingDate === 'string' ? reportingDate : formatDateFromInt(reportingDate);
+    const freshData = await kriService.fetchKRIDetail(kriId, formattedDate);
+    
+    if (!freshData) {
+      console.warn('No data returned from database for validation');
+      return { isValid: false, reason: 'No data found' };
+    }
+    
+    const actualStatus = freshData.kri_status;
+    const isValid = actualStatus === expectedStatus;
+    
+    if (!isValid) {
+      console.warn('Database status mismatch detected:', {
+        kriId,
+        reportingDate,
+        expected: expectedStatus,
+        actual: actualStatus,
+        expectedLabel: mapStatus(expectedStatus),
+        actualLabel: mapStatus(actualStatus)
+      });
+      
+      // Update local store with correct database status
+      if (store) {
+        store.commit('kri/SET_KRI_DETAIL', freshData);
+        
+        // Also update the KRI items list
+        const kriItems = [...store.state.kri.kriItems];
+        const kriIndex = kriItems.findIndex(item => 
+          item.id === String(kriId) && item.reportingDate === String(reportingDate)
+        );
+        
+        if (kriIndex !== -1) {
+          kriItems[kriIndex] = {
+            ...kriItems[kriIndex],
+            collectionStatus: mapStatus(actualStatus),
+            rawData: {
+              ...kriItems[kriIndex].rawData,
+              kri_status: actualStatus
+            }
+          };
+          store.commit('kri/SET_KRI_ITEMS', kriItems);
         }
       }
-    });
+    }
+    
+    return {
+      isValid,
+      expectedStatus,
+      actualStatus,
+      reason: isValid ? 'Status matches' : 'Status mismatch detected and corrected'
+    };
+  } catch (error) {
+    console.error('Error validating database sync:', error);
+    return { isValid: false, reason: error.message };
   }
-  
-  return actions;
 };
 
-// Collection Status options for filters
-export const COLLECTION_STATUS_OPTIONS = [
-  { label: 'Pending Input', value: 'Pending Input' },
-  { label: 'Under Rework', value: 'Under Rework' },
-  { label: 'Saved', value: 'Saved' },
-  { label: 'Submitted to Data Provider Approver', value: 'Submitted to Data Provider Approver' },
-  { label: 'Submitted to KRI Owner Approver', value: 'Submitted to KRI Owner Approver' },
-  { label: 'Finalized', value: 'Finalized' }
-];
+// Auto-validation helper for components
+export const autoValidateSync = (kriId, reportingDate, expectedStatus, component) => {
+  if (!component || !component.$store) return;
+  
+  // Delay validation to allow database operations to complete
+  setTimeout(async () => {
+    const result = await validateDatabaseSync(kriId, reportingDate, expectedStatus, component.$store);
+    
+    if (!result.isValid) {
+      console.log('Auto-validation detected sync issue, refreshing component data');
+      // Emit refresh event if component supports it
+      if (component.$emit) {
+        component.$emit('data-sync-issue', result);
+      }
+    }
+  }, 2000); // Wait 2 seconds for database operations to complete
+};

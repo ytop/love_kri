@@ -373,14 +373,14 @@ const actions = {
   },
 
   // KRI Status Management Actions
-  async updateKRIStatus({ commit, state }, { kriId, reportingDate, newStatus, reason = null, changedBy = null }) {
+  async updateKRIStatus({ commit, state }, { kriId, reportingDate, newStatus, reason = null, changedBy = null, forceRefresh = false }) {
     try {
       const user = changedBy || state.currentUser.name || 'System';
       
       // Use kriService to update KRI status
       // Convert integer date to YYYY-MM-DD format for kriService
       const formattedDate = formatDateFromInt(reportingDate);
-      console.log('Calling kriService.updateKRIStatus with:', { kriId, formattedDate, newStatus, user, reason });
+      console.log('Calling kriService.updateKRIStatus with:', { kriId, formattedDate, newStatus, user, reason, forceRefresh });
       
       const updatedKRI = await kriService.updateKRIStatus(
         kriId, 
@@ -390,7 +390,12 @@ const actions = {
         reason
       );
       
-      // Update local state
+      // Validate that the database operation succeeded
+      if (!updatedKRI || !updatedKRI.kri_id) {
+        throw new Error('Database operation failed - no valid response from server');
+      }
+      
+      // Update local state only after successful database operation
       const kriItems = [...state.kriItems];
       const kriIndex = kriItems.findIndex(item => 
         item.id === String(kriId) && item.reportingDate === String(reportingDate)
@@ -419,10 +424,26 @@ const actions = {
         }
       }
       
-      return { success: true, data: updatedKRI };
+      // If forceRefresh is requested, reload data from database to ensure sync
+      if (forceRefresh) {
+        console.log('Force refreshing data from database after status update');
+        const currentReportingDate = formatDateFromInt(reportingDate);
+        await this.dispatch('kri/fetchKRIItems', currentReportingDate);
+      }
+      
+      return { success: true, data: updatedKRI, requiresRefresh: true };
     } catch (error) {
       console.error('Error updating KRI status:', error);
       commit('SET_ERROR', error.message);
+      
+      // Force refresh on error to sync with actual database state
+      const currentReportingDate = formatDateFromInt(reportingDate);
+      try {
+        await this.dispatch('kri/fetchKRIItems', currentReportingDate);
+      } catch (refreshError) {
+        console.error('Failed to refresh data after status update error:', refreshError);
+      }
+      
       return { success: false, error: error.message };
     }
   },
@@ -490,8 +511,8 @@ const actions = {
     });
   },
 
-  async saveKRIValue({ commit, state }, { kriId, reportingDate, value }) {
-    console.log('saveKRIValue called with:', { kriId, reportingDate, value });
+  async saveKRIValue({ commit, state }, { kriId, reportingDate, value, forceRefresh = false }) {
+    console.log('saveKRIValue called with:', { kriId, reportingDate, value, forceRefresh });
     
     const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
@@ -523,7 +544,12 @@ const actions = {
         state.currentUser.name
       );
       
-      // Update local state
+      // Validate that the database operation succeeded by checking returned data
+      if (!updatedKRI || !updatedKRI.kri_id) {
+        throw new Error('Database operation failed - no valid response from server');
+      }
+      
+      // Update local state only after successful database operation
       const kriItems = [...state.kriItems];
       const kriIndex = kriItems.findIndex(item => 
         item.id === String(kriId) && item.reportingDate === String(reportingDate)
@@ -558,16 +584,32 @@ const actions = {
         }
       }
       
-      return { success: true, data: updatedKRI };
+      // If forceRefresh is requested, reload data from database to ensure sync
+      if (forceRefresh) {
+        console.log('Force refreshing data from database after save operation');
+        const currentReportingDate = formatDateFromInt(reportingDate);
+        await this.dispatch('kri/fetchKRIItems', currentReportingDate);
+      }
+      
+      return { success: true, data: updatedKRI, requiresRefresh: true };
     } catch (error) {
       console.error('Error saving KRI value:', error);
       commit('SET_ERROR', error.message);
+      
+      // Force refresh on error to sync with actual database state
+      const currentReportingDate = formatDateFromInt(reportingDate);
+      try {
+        await this.dispatch('kri/fetchKRIItems', currentReportingDate);
+      } catch (refreshError) {
+        console.error('Failed to refresh data after save error:', refreshError);
+      }
+      
       return { success: false, error: error.message };
     }
   },
 
-  async submitKRI({ commit, state }, { kriId, reportingDate }) {
-    console.log('submitKRI called with:', { kriId, reportingDate });
+  async submitKRI({ commit, state }, { kriId, reportingDate, forceRefresh = false }) {
+    console.log('submitKRI called with:', { kriId, reportingDate, forceRefresh });
     
     const userPermissions = state.currentUser.permissions;
     const currentKRI = state.kriItems.find(item => 
@@ -603,7 +645,12 @@ const actions = {
         state.currentUser.name
       );
       
-      // Update local state
+      // Validate that the database operation succeeded
+      if (!updatedKRI || !updatedKRI.kri_id) {
+        throw new Error('Database operation failed - no valid response from server');
+      }
+      
+      // Update local state only after successful database operation
       const kriItems = [...state.kriItems];
       const kriIndex = kriItems.findIndex(item => 
         item.id === String(kriId) && item.reportingDate === String(reportingDate)
@@ -632,10 +679,26 @@ const actions = {
         }
       }
       
-      return { success: true, data: updatedKRI };
+      // If forceRefresh is requested, reload data from database to ensure sync
+      if (forceRefresh) {
+        console.log('Force refreshing data from database after submit operation');
+        const currentReportingDate = formatDateFromInt(reportingDate);
+        await this.dispatch('kri/fetchKRIItems', currentReportingDate);
+      }
+      
+      return { success: true, data: updatedKRI, requiresRefresh: true };
     } catch (error) {
       console.error('Error submitting KRI:', error);
       commit('SET_ERROR', error.message);
+      
+      // Force refresh on error to sync with actual database state
+      const currentReportingDate = formatDateFromInt(reportingDate);
+      try {
+        await this.dispatch('kri/fetchKRIItems', currentReportingDate);
+      } catch (refreshError) {
+        console.error('Failed to refresh data after submit error:', refreshError);
+      }
+      
       return { success: false, error: error.message };
     }
   },
@@ -888,6 +951,112 @@ const actions = {
     }
   },
 
+  async submitAtomicElement({ commit, state }, { kriId, reportingDate, atomicId }) {
+    console.log('submitAtomicElement called with:', { kriId, reportingDate, atomicId });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user can perform submit action for atomic element
+    if (!canPerformAction(userPermissions, 'edit', currentKRI.rawData.kri_status, currentKRI, atomicId)) {
+      return { success: false, error: 'Insufficient permissions to submit atomic element' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.submitAtomicElement with:', { kriId, formattedDate, atomicId });
+      
+      const updatedAtomic = await kriService.submitAtomicElement(
+        kriId, 
+        formattedDate,
+        atomicId,
+        state.currentUser.name
+      );
+      
+      // Update local atomic data state
+      const atomicData = [...state.atomicData];
+      const atomicIndex = atomicData.findIndex(item => 
+        item.atomic_id === parseInt(atomicId) && 
+        item.kri_id === parseInt(kriId) && 
+        item.reporting_date === parseInt(reportingDate)
+      );
+      
+      if (atomicIndex !== -1) {
+        atomicData[atomicIndex] = {
+          ...atomicData[atomicIndex],
+          atomic_status: 40 // Submitted to Data Provider Approver
+        };
+        commit('SET_ATOMIC_DATA', atomicData);
+      }
+      
+      return { success: true, data: updatedAtomic };
+    } catch (error) {
+      console.error('Error submitting atomic element:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async saveAndSubmitAtomicElement({ commit, state }, { kriId, reportingDate, atomicId, value }) {
+    console.log('saveAndSubmitAtomicElement called with:', { kriId, reportingDate, atomicId, value });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user can perform save and submit action for atomic element
+    if (!canPerformAction(userPermissions, 'edit', currentKRI.rawData.kri_status, currentKRI, atomicId)) {
+      return { success: false, error: 'Insufficient permissions to save and submit atomic element' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.saveAndSubmitAtomicElement with:', { kriId, formattedDate, atomicId, value });
+      
+      const updatedAtomic = await kriService.saveAndSubmitAtomicElement(
+        kriId, 
+        formattedDate,
+        atomicId,
+        value,
+        state.currentUser.name
+      );
+      
+      // Update local atomic data state
+      const atomicData = [...state.atomicData];
+      const atomicIndex = atomicData.findIndex(item => 
+        item.atomic_id === parseInt(atomicId) && 
+        item.kri_id === parseInt(kriId) && 
+        item.reporting_date === parseInt(reportingDate)
+      );
+      
+      if (atomicIndex !== -1) {
+        atomicData[atomicIndex] = {
+          ...atomicData[atomicIndex],
+          atomic_value: value,
+          atomic_status: 40 // Submitted to Data Provider Approver
+        };
+        commit('SET_ATOMIC_DATA', atomicData);
+      }
+      
+      return { success: true, data: updatedAtomic };
+    } catch (error) {
+      console.error('Error saving and submitting atomic element:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
   async submitAtomicData({ commit, state }, { kriId, reportingDate }) {
     console.log('submitAtomicData called with:', { kriId, reportingDate });
     
@@ -1092,6 +1261,274 @@ const actions = {
       });
       
       commit('SET_ATOMIC_DATA', rolledBackData);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // ========================================
+  // KRI-LEVEL APPROVAL WORKFLOW ACTIONS
+  // ========================================
+
+  // KRI-level approve (Data Provider: 40→50, KRI Owner: 50→60)
+  async approveKRILevel({ commit, state }, { kriId, reportingDate, reason = null }) {
+    console.log('approveKRILevel called with:', { kriId, reportingDate, reason });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    const currentStatus = currentKRI.rawData.kri_status;
+    
+    // Check permission based on status - review for 40, acknowledge for 50
+    const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
+    if (!canPerformAction(userPermissions, requiredPermission, currentStatus, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.approveKRI with:', { kriId, formattedDate, reason });
+      
+      const updatedKRI = await kriService.approveKRI(
+        kriId, 
+        formattedDate, 
+        state.currentUser.name,
+        reason
+      );
+      
+      // Update local state
+      const kriItems = [...state.kriItems];
+      const kriIndex = kriItems.findIndex(item => 
+        item.id === String(kriId) && item.reportingDate === String(reportingDate)
+      );
+      
+      if (kriIndex !== -1) {
+        kriItems[kriIndex] = {
+          ...kriItems[kriIndex],
+          collectionStatus: mapStatus(updatedKRI.kri_status),
+          rawData: {
+            ...kriItems[kriIndex].rawData,
+            kri_status: updatedKRI.kri_status
+          }
+        };
+        
+        commit('SET_KRI_ITEMS', kriItems);
+        
+        // Update kriDetail if it's the same KRI
+        if (state.kriDetail && 
+            String(state.kriDetail.kri_id) === String(kriId) && 
+            String(state.kriDetail.reporting_date) === String(reportingDate)) {
+          commit('SET_KRI_DETAIL', {
+            ...state.kriDetail,
+            kri_status: updatedKRI.kri_status
+          });
+        }
+      }
+      
+      return { success: true, data: updatedKRI };
+    } catch (error) {
+      console.error('Error approving KRI level:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // KRI-level reject (40→20 or 50→20)
+  async rejectKRILevel({ commit, state }, { kriId, reportingDate, reason }) {
+    console.log('rejectKRILevel called with:', { kriId, reportingDate, reason });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    const currentStatus = currentKRI.rawData.kri_status;
+    
+    // Check permission based on status - review for 40, acknowledge for 50
+    const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
+    if (!canPerformAction(userPermissions, requiredPermission, currentStatus, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.rejectKRI with:', { kriId, formattedDate, reason });
+      
+      const updatedKRI = await kriService.rejectKRI(
+        kriId, 
+        formattedDate, 
+        reason,
+        state.currentUser.name
+      );
+      
+      // Update local state
+      const kriItems = [...state.kriItems];
+      const kriIndex = kriItems.findIndex(item => 
+        item.id === String(kriId) && item.reportingDate === String(reportingDate)
+      );
+      
+      if (kriIndex !== -1) {
+        kriItems[kriIndex] = {
+          ...kriItems[kriIndex],
+          collectionStatus: mapStatus(20), // Under Rework
+          rawData: {
+            ...kriItems[kriIndex].rawData,
+            kri_status: 20
+          }
+        };
+        
+        commit('SET_KRI_ITEMS', kriItems);
+        
+        // Update kriDetail if it's the same KRI
+        if (state.kriDetail && 
+            String(state.kriDetail.kri_id) === String(kriId) && 
+            String(state.kriDetail.reporting_date) === String(reportingDate)) {
+          commit('SET_KRI_DETAIL', {
+            ...state.kriDetail,
+            kri_status: 20
+          });
+        }
+      }
+      
+      return { success: true, data: updatedKRI };
+    } catch (error) {
+      console.error('Error rejecting KRI level:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Manual override KRI value
+  async overrideKRIValue({ commit, state }, { kriId, reportingDate, newValue, reason }) {
+    console.log('overrideKRIValue called with:', { kriId, reportingDate, newValue, reason });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user has acknowledge permission (KRI Owner level)
+    if (!canPerformAction(userPermissions, 'acknowledge', currentKRI.rawData.kri_status, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions for KRI override' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.overrideKRIValue with:', { kriId, formattedDate, newValue, reason });
+      
+      const overrideResult = await kriService.overrideKRIValue(
+        kriId, 
+        formattedDate, 
+        newValue,
+        reason,
+        state.currentUser.name
+      );
+      
+      // Update local state
+      const kriItems = [...state.kriItems];
+      const kriIndex = kriItems.findIndex(item => 
+        item.id === String(kriId) && item.reportingDate === String(reportingDate)
+      );
+      
+      if (kriIndex !== -1) {
+        kriItems[kriIndex] = {
+          ...kriItems[kriIndex],
+          kriValue: newValue.toString(),
+          breachType: overrideResult.newBreachStatus,
+          rawData: {
+            ...kriItems[kriIndex].rawData,
+            kri_value: newValue.toString(),
+            breach_type: overrideResult.newBreachStatus
+          }
+        };
+        
+        commit('SET_KRI_ITEMS', kriItems);
+        
+        // Update kriDetail if it's the same KRI
+        if (state.kriDetail && 
+            String(state.kriDetail.kri_id) === String(kriId) && 
+            String(state.kriDetail.reporting_date) === String(reportingDate)) {
+          commit('SET_KRI_DETAIL', {
+            ...state.kriDetail,
+            kri_value: newValue.toString(),
+            breach_type: overrideResult.newBreachStatus
+          });
+        }
+      }
+      
+      return { success: true, data: overrideResult };
+    } catch (error) {
+      console.error('Error overriding KRI value:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Check and auto-recalculate KRI when all atomic elements are finalized
+  async checkAndAutoRecalculate({ commit, state }, { kriId, reportingDate }) {
+    console.log('checkAndAutoRecalculate called with:', { kriId, reportingDate });
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.checkAndAutoRecalculate with:', { kriId, formattedDate });
+      
+      const recalcResult = await kriService.checkAndAutoRecalculate(
+        kriId, 
+        formattedDate,
+        state.currentUser.name
+      );
+      
+      if (recalcResult.needsRecalculation) {
+        // Update local state with recalculated value
+        const kriItems = [...state.kriItems];
+        const kriIndex = kriItems.findIndex(item => 
+          item.id === String(kriId) && item.reportingDate === String(reportingDate)
+        );
+        
+        if (kriIndex !== -1) {
+          kriItems[kriIndex] = {
+            ...kriItems[kriIndex],
+            kriValue: recalcResult.result.calculatedValue.toString(),
+            breachType: recalcResult.result.breach_type,
+            rawData: {
+              ...kriItems[kriIndex].rawData,
+              kri_value: recalcResult.result.calculatedValue.toString(),
+              breach_type: recalcResult.result.breach_type
+            }
+          };
+          
+          commit('SET_KRI_ITEMS', kriItems);
+          
+          // Update kriDetail if it's the same KRI
+          if (state.kriDetail && 
+              String(state.kriDetail.kri_id) === String(kriId) && 
+              String(state.kriDetail.reporting_date) === String(reportingDate)) {
+            commit('SET_KRI_DETAIL', {
+              ...state.kriDetail,
+              kri_value: recalcResult.result.calculatedValue.toString(),
+              breach_type: recalcResult.result.breach_type
+            });
+          }
+        }
+      }
+      
+      return { success: true, data: recalcResult };
+    } catch (error) {
+      console.error('Error in auto-recalculation check:', error);
       commit('SET_ERROR', error.message);
       return { success: false, error: error.message };
     }

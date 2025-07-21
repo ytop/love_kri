@@ -151,7 +151,22 @@
               >
                 Save
               </el-button>
+              
+              <!-- Submit button for status 30 (Saved) - can submit without new input -->
               <el-button
+                v-if="scope.row.rawData.kri_status === 30"
+                size="mini"
+                icon="el-icon-upload"
+                @click="handleSingleSubmitSaved(scope.row)"
+                :loading="getRowLoading(scope.row)"
+                class="action-button submit-button"
+              >
+                Submit
+              </el-button>
+              
+              <!-- Save and Submit button for statuses 10,20 - requires input -->
+              <el-button
+                v-if="[10, 20].includes(scope.row.rawData.kri_status)"
                 size="mini"
                 icon="el-icon-upload"
                 @click="handleSingleSaveAndSubmit(scope.row)"
@@ -159,7 +174,7 @@
                 :loading="getRowLoading(scope.row)"
                 class="action-button submit-button"
               >
-                Submit
+                Save & Submit
               </el-button>
             </template>
             
@@ -232,13 +247,22 @@
             Batch Save ({{ getBatchSaveCount }})
           </el-button>
           <el-button
-            v-if="hasBatchSubmitActions"
+            v-if="hasBatchSubmitSavedActions"
             icon="el-icon-upload"
-            @click="handleBatchSubmit"
+            @click="handleBatchSubmitSaved"
             :loading="batchLoading"
             class="batch-button submit-button"
           >
-            Batch Submit ({{ getBatchSubmitCount }})
+            Batch Submit Saved ({{ getBatchSubmitSavedCount }})
+          </el-button>
+          <el-button
+            v-if="hasBatchSaveAndSubmitActions"
+            icon="el-icon-upload"
+            @click="handleBatchSaveAndSubmit"
+            :loading="batchLoading"
+            class="batch-button submit-button"
+          >
+            Batch Save & Submit ({{ getBatchSaveAndSubmitCount }})
           </el-button>
         </div>
       </div>
@@ -337,8 +361,16 @@ export default {
       return this.selectedRows.filter(row => this.canEditRow(row) && this.hasValidValue(row)).length;
     },
     
-    getBatchSubmitCount() {
-      return this.selectedRows.filter(row => this.canEditRow(row) && this.hasValidValue(row)).length;
+    getBatchSubmitSavedCount() {
+      return this.selectedRows.filter(row => 
+        this.canEditRow(row) && row.rawData.kri_status === 30
+      ).length;
+    },
+    
+    getBatchSaveAndSubmitCount() {
+      return this.selectedRows.filter(row => 
+        this.canEditRow(row) && [10, 20].includes(row.rawData.kri_status) && this.hasValidValue(row)
+      ).length;
     },
     
     getBatchApproveCount() {
@@ -354,8 +386,12 @@ export default {
       return this.getBatchSaveCount > 0;
     },
     
-    hasBatchSubmitActions() {
-      return this.getBatchSubmitCount > 0;
+    hasBatchSubmitSavedActions() {
+      return this.getBatchSubmitSavedCount > 0;
+    },
+    
+    hasBatchSaveAndSubmitActions() {
+      return this.getBatchSaveAndSubmitCount > 0;
     },
     
     hasBatchApproveActions() {
@@ -368,7 +404,7 @@ export default {
     
     // Section groupings
     hasInputActions() {
-      return this.hasBatchSaveActions || this.hasBatchSubmitActions;
+      return this.hasBatchSaveActions || this.hasBatchSubmitSavedActions || this.hasBatchSaveAndSubmitActions;
     },
     
     hasApprovalActions() {
@@ -477,18 +513,24 @@ export default {
         const result = await this.saveKRIValue({
           kriId: row.id,
           reportingDate: row.reportingDate,
-          value: value.toString()
+          value: value.toString(),
+          forceRefresh: false // Use optimistic update for save
         });
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} saved successfully`);
-          // No need to emit data-updated since store is updated immediately
+          // Emit data-updated to trigger refresh from database if needed
+          if (result.requiresRefresh) {
+            this.$emit('data-updated');
+          }
         } else {
           this.$message.error(result.error || `Failed to save KRI ${row.id}`);
         }
       } catch (error) {
         console.error('Save error:', error);
         this.$message.error(`Failed to save KRI ${row.id}`);
+        // Force refresh on error
+        this.$emit('data-updated');
       } finally {
         this.setRowLoading(row, false);
       }
@@ -517,18 +559,45 @@ export default {
         
         const submitResult = await this.submitKRI({
           kriId: row.id,
-          reportingDate: row.reportingDate
+          reportingDate: row.reportingDate,
+          forceRefresh: false // Use optimistic update for submit
         });
         
         if (submitResult.success) {
           this.$message.success(`KRI ${row.id} saved and submitted successfully`);
-          // No need to emit data-updated since store is updated immediately
+          // Emit data-updated to trigger refresh from database
+          this.$emit('data-updated');
         } else {
           this.$message.error(submitResult.error || `Failed to submit KRI ${row.id}`);
         }
       } catch (error) {
         console.error('Save and submit error:', error);
         this.$message.error(`Failed to save and submit KRI ${row.id}`);
+      } finally {
+        this.setRowLoading(row, false);
+      }
+    },
+
+    async handleSingleSubmitSaved(row) {
+      this.setRowLoading(row, true);
+      try {
+        const result = await this.submitKRI({
+          kriId: row.id,
+          reportingDate: row.reportingDate,
+          forceRefresh: false // Use optimistic update
+        });
+        if (result.success) {
+          this.$message.success(`KRI ${row.id} submitted successfully`);
+          // Emit data-updated to trigger refresh from database
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || `Failed to submit KRI ${row.id}`);
+        }
+      } catch (error) {
+        console.error('Submit saved error:', error);
+        this.$message.error(`Failed to submit KRI ${row.id}`);
+        // Force refresh on error
+        this.$emit('data-updated');
       } finally {
         this.setRowLoading(row, false);
       }
@@ -543,12 +612,14 @@ export default {
           reportingDate: row.reportingDate,
           newStatus: 50, // Move to KRI Owner Approver
           changedBy: this.currentUser.name,
-          reason: 'Approved by Data Provider Approver'
+          reason: 'Approved by Data Provider Approver',
+          forceRefresh: true // Force refresh for status changes
         });
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} approved successfully`);
-          // No need to emit data-updated since store is updated immediately
+          // Emit data-updated to trigger refresh from database
+          this.$emit('data-updated');
         } else {
           this.$message.error(result.error || `Failed to approve KRI ${row.id}`);
         }
@@ -569,12 +640,14 @@ export default {
           reportingDate: row.reportingDate,
           newStatus: 60, // Move to Finalized
           changedBy: this.currentUser.name,
-          reason: 'Acknowledged by KRI Owner Approver'
+          reason: 'Acknowledged by KRI Owner Approver',
+          forceRefresh: true // Force refresh for status changes
         });
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} acknowledged successfully`);
-          // No need to emit data-updated since store is updated immediately
+          // Emit data-updated to trigger refresh from database
+          this.$emit('data-updated');
         } else {
           this.$message.error(result.error || `Failed to acknowledge KRI ${row.id}`);
         }
@@ -661,7 +734,8 @@ export default {
       
       if (successCount > 0) {
         this.$message.success(`Successfully saved ${successCount} KRIs`);
-        // No need to emit data-updated since store is updated immediately
+        // Emit data-updated to trigger refresh from database
+        this.$emit('data-updated');
       }
       
       if (errorCount > 0) {
@@ -669,11 +743,58 @@ export default {
       }
     },
     
-    async handleBatchSubmit() {
-      const submittableRows = this.selectedRows.filter(row => this.canEditRow(row) && this.hasValidValue(row));
+
+
+    async handleBatchSubmitSaved() {
+      const submittableRows = this.selectedRows.filter(row => 
+        this.canEditRow(row) && row.rawData.kri_status === 30
+      );
       
       if (submittableRows.length === 0) {
-        this.$message.warning('No valid rows selected for submission');
+        this.$message.warning('No saved KRIs selected for submission');
+        return;
+      }
+      
+      this.batchLoading = true;
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const row of submittableRows) {
+        try {
+          const result = await this.submitKRI({
+            kriId: row.id,
+            reportingDate: row.reportingDate
+          });
+          
+          if (result.success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          errorCount++;
+        }
+      }
+      
+      this.batchLoading = false;
+      
+      if (successCount > 0) {
+        this.$message.success(`Successfully submitted ${successCount} saved KRIs`);
+        this.$emit('data-updated');
+      }
+      
+      if (errorCount > 0) {
+        this.$message.error(`Failed to submit ${errorCount} KRIs`);
+      }
+    },
+
+    async handleBatchSaveAndSubmit() {
+      const submittableRows = this.selectedRows.filter(row => 
+        this.canEditRow(row) && [10, 20].includes(row.rawData.kri_status) && this.hasValidValue(row)
+      );
+      
+      if (submittableRows.length === 0) {
+        this.$message.warning('No valid rows with input selected for save and submit');
         return;
       }
       
@@ -714,12 +835,12 @@ export default {
       this.batchLoading = false;
       
       if (successCount > 0) {
-        this.$message.success(`Successfully submitted ${successCount} KRIs`);
-        // No need to emit data-updated since store is updated immediately
+        this.$message.success(`Successfully saved and submitted ${successCount} KRIs`);
+        this.$emit('data-updated');
       }
       
       if (errorCount > 0) {
-        this.$message.error(`Failed to submit ${errorCount} KRIs`);
+        this.$message.error(`Failed to save and submit ${errorCount} KRIs`);
       }
     },
     
@@ -759,7 +880,8 @@ export default {
       
       if (successCount > 0) {
         this.$message.success(`Successfully approved ${successCount} KRIs`);
-        // No need to emit data-updated since store is updated immediately
+        // Emit data-updated to trigger refresh from database
+        this.$emit('data-updated');
       }
       
       if (errorCount > 0) {
@@ -803,7 +925,8 @@ export default {
       
       if (successCount > 0) {
         this.$message.success(`Successfully acknowledged ${successCount} KRIs`);
-        // No need to emit data-updated since store is updated immediately
+        // Emit data-updated to trigger refresh from database
+        this.$emit('data-updated');
       }
       
       if (errorCount > 0) {
