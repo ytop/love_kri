@@ -92,7 +92,10 @@ export default {
         
         if (result.success) {
           this.$message.success(`Welcome, ${this.loginForm.username}!`);
-          this.$router.push({ name: 'Dashboard' });
+          
+          // Redirect to the original intended route or dashboard
+          const redirectPath = this.$route.query.redirect || '/';
+          this.$router.push(redirectPath);
         } else {
           this.$message.error(result.error || 'Login failed');
         }

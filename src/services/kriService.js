@@ -1,38 +1,35 @@
 import { supabase } from './supabase';
-import { StorageFactory } from './ObjectStorage';
+import { StorageManager, EvidenceStorageService } from './ObjectStorage';
+import { kriCalculationService } from './kriCalculation';
 import { calculateBreachStatus } from '@/utils/helpers';
 
 export const kriService = {
-  // Initialize storage provider
-  _storageProvider: null,
+  // ========================================
+  // STORAGE SERVICE INITIALIZATION
+  // ========================================
+  // NOTE: Storage provider and evidence management code has been MOVED to @src/services/ObjectStorage.js
+  // - StorageManager: Handles storage provider configuration (Supabase, Local, Mock)
+  // - EvidenceStorageService: Combines file storage with database operations
+  // - All original functionality preserved with improved separation of concerns
+  // ========================================
   
-  getStorageProvider() {
-    if (!this._storageProvider) {
-      // Default to Supabase storage provider
-      // TODO: use other storage providers for production
-      this._storageProvider = StorageFactory.create('supabase', {
-        supabaseClient: supabase,
-        bucketName: 'evidence',
-        maxFileSize: 10 * 1024 * 1024, // 10MB
-        allowedTypes: [
-          'application/pdf',
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'text/plain',
-          'text/csv'
-        ]
-      });
+  _storageManager: null,
+  _evidenceService: null,
+  
+  getStorageManager() {
+    if (!this._storageManager) {
+      this._storageManager = new StorageManager();
     }
-    return this._storageProvider;
+    return this._storageManager;
   },
 
-  setStorageProvider(provider) {
-    this._storageProvider = provider;
+  getEvidenceService() {
+    if (!this._evidenceService) {
+      this._evidenceService = new EvidenceStorageService(this.getStorageManager(), supabase);
+      // Set audit service for evidence operations - ensures audit logging continues to work
+      this._evidenceService.setAuditService(this);
+    }
+    return this._evidenceService;
   },
   // Fetch KRI items with optional filters
   async fetchKRIItems(reportingDate = null) {
@@ -397,182 +394,33 @@ export const kriService = {
     return userPermissions[key]?.includes(action) || false;
   },
 
-  // Evidence Management Methods
+  // ========================================
+  // EVIDENCE MANAGEMENT METHODS
+  // ========================================
+  // NOTE: These methods have been MOVED to @src/services/ObjectStorage.js
+  // - Storage provider management: StorageManager class
+  // - Evidence file operations: EvidenceStorageService class
+  // - All audit logging is preserved through service delegation
+  // ========================================
 
-  // Upload evidence file for a KRI
   async uploadEvidence(kriId, reportingDate, file, description, uploadedBy) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
-    try {
-      const storage = this.getStorageProvider();
-      
-      // Generate unique file path
-      const filePath = storage.generateFilePath(kriId, reportingDateAsInt, file.name);
-      
-      // Upload file to storage
-      const uploadResult = await storage.uploadFile(file, filePath, {
-        kriId: kriId,
-        reportingDate: reportingDateAsInt,
-        description: description,
-        uploadedBy: uploadedBy
-      });
-
-      // Save evidence metadata to database
-      const { data, error } = await supabase
-        .from('kri_evidence')
-        .insert({
-          kri_id: parseInt(kriId),
-          reporting_date: reportingDateAsInt,
-          file_name: file.name,
-          file_url: uploadResult.url,
-          description: description,
-          uploaded_by: uploadedBy
-        })
-        .select()
-        .single();
-
-      if (error) {
-        // If database insert fails, try to clean up uploaded file
-        try {
-          await storage.deleteFile(uploadResult.url);
-        } catch (deleteError) {
-          console.error('Failed to clean up uploaded file after database error:', deleteError);
-        }
-        throw new Error(`Failed to save evidence metadata: ${error.message}`);
-      }
-
-      // Add audit trail entry for file upload
-      await this.addAuditTrailEntry(
-        kriId, 
-        reportingDate, 
-        'file_upload', 
-        'evidence', 
-        null, 
-        file.name, 
-        uploadedBy, 
-        `File uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB) via ${storage.getProviderName()}`
-      );
-
-      return {
-        success: true,
-        evidence: data,
-        fileInfo: {
-          path: uploadResult.path,
-          url: uploadResult.url,
-          metadata: uploadResult.metadata
-        }
-      };
-    } catch (error) {
-      console.error('Upload evidence error:', error);
-      throw error;
-    }
+    // Delegated to EvidenceStorageService in @src/services/ObjectStorage.js
+    return await this.getEvidenceService().uploadEvidence(kriId, reportingDate, file, description, uploadedBy);
   },
 
-  // Delete evidence file
-  // TODO: should we allow actually deleting the evidence file?
   async deleteEvidence(evidenceId, deletedBy) {
-    try {
-      // First get the evidence record to obtain file info
-      const { data: evidence, error: fetchError } = await supabase
-        .from('kri_evidence')
-        .select('*')
-        .eq('evidence_id', evidenceId)
-        .single();
-
-      if (fetchError) {
-        throw new Error(`Failed to fetch evidence record: ${fetchError.message}`);
-      }
-
-      const storage = this.getStorageProvider();
-
-      // Delete file from storage
-      await storage.deleteFile(evidence.file_url);
-
-      // Delete evidence record from database
-      const { error: deleteError } = await supabase
-        .from('kri_evidence')
-        .delete()
-        .eq('evidence_id', evidenceId);
-
-      if (deleteError) {
-        throw new Error(`Failed to delete evidence record: ${deleteError.message}`);
-      }
-
-      // Add audit trail entry for file deletion
-      await this.addAuditTrailEntry(
-        evidence.kri_id,
-        evidence.reporting_date.toString(),
-        'file_delete',
-        'evidence',
-        evidence.file_name,
-        null,
-        deletedBy,
-        `File deleted: ${evidence.file_name} via ${storage.getProviderName()}`
-      );
-
-      return {
-        success: true,
-        deletedEvidence: evidence
-      };
-    } catch (error) {
-      console.error('Delete evidence error:', error);
-      throw error;
-    }
+    // Delegated to EvidenceStorageService in @src/services/ObjectStorage.js
+    return await this.getEvidenceService().deleteEvidence(evidenceId, deletedBy);
   },
 
-  // Download evidence file
   async downloadEvidence(evidenceId) {
-    try {
-      // Get evidence record
-      const { data: evidence, error: fetchError } = await supabase
-        .from('kri_evidence')
-        .select('*')
-        .eq('evidence_id', evidenceId)
-        .single();
-
-      if (fetchError) {
-        throw new Error(`Failed to fetch evidence record: ${fetchError.message}`);
-      }
-
-      const storage = this.getStorageProvider();
-      
-      // Download file from storage
-      const fileBlob = await storage.downloadFile(evidence.file_url, evidence.file_name);
-
-      return {
-        success: true,
-        file: fileBlob,
-        filename: evidence.file_name,
-        evidence: evidence
-      };
-    } catch (error) {
-      console.error('Download evidence error:', error);
-      throw error;
-    }
+    // Delegated to EvidenceStorageService in @src/services/ObjectStorage.js
+    return await this.getEvidenceService().downloadEvidence(evidenceId);
   },
 
-  // Get evidence file URL (for direct access)
   async getEvidenceUrl(evidenceId) {
-    try {
-      const { data: evidence, error } = await supabase
-        .from('kri_evidence')
-        .select('file_url, file_name')
-        .eq('evidence_id', evidenceId)
-        .single();
-
-      if (error) {
-        throw new Error(`Failed to fetch evidence URL: ${error.message}`);
-      }
-
-      return {
-        success: true,
-        url: evidence.file_url,
-        filename: evidence.file_name
-      };
-    } catch (error) {
-      console.error('Get evidence URL error:', error);
-      throw error;
-    }
+    // Delegated to EvidenceStorageService in @src/services/ObjectStorage.js
+    return await this.getEvidenceService().getEvidenceUrl(evidenceId);
   },
 
 
@@ -805,7 +653,15 @@ export const kriService = {
     }
   },
 
-  // Enhanced calculate KRI value from atomic elements with better formula support
+  // ========================================
+  // KRI CALCULATION METHODS
+  // ========================================
+  // NOTE: Formula execution logic has been MOVED to @src/services/kriCalculation.js
+  // - KRICalculationService: Handles all formula parsing and mathematical calculations
+  // - Database operations remain here for data persistence and audit logging
+  // ========================================
+
+  // Calculate KRI value from atomic elements using external calculation service
   async calculateKRIFromAtomic(kriId, reportingDate, changedBy) {
     const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
     
@@ -820,15 +676,15 @@ export const kriService = {
         throw new Error('KRI or atomic data not found');
       }
 
-      // Enhanced calculation logic with better formula support
-      const result = this.executeFormulaCalculation(kriDetail.kri_formula, atomicData);
+      // Delegated to KRICalculationService in @src/services/kriCalculation.js
+      const result = kriCalculationService.executeFormulaCalculation(kriDetail.kri_formula, atomicData);
       
       if (isNaN(result) || !isFinite(result)) {
         throw new Error('Calculation resulted in invalid number');
       }
 
-      // Calculate new breach status
-      const newBreachStatus = calculateBreachStatus(result, kriDetail.warning_line_value, kriDetail.limit_value);
+      // Calculate new breach status using calculation service
+      const newBreachStatus = kriCalculationService.calculateKRIBreachStatus(result, kriDetail.warning_line_value, kriDetail.limit_value);
 
       // Update KRI with calculated value
       const { data, error } = await supabase
@@ -873,233 +729,5 @@ export const kriService = {
       throw error;
     }
   },
-
-  // Enhanced formula execution engine
-  executeFormulaCalculation(formula, atomicData) {
-    if (!formula || !atomicData || atomicData.length === 0) {
-      throw new Error('Invalid formula or atomic data');
-    }
-
-    try {
-      const values = atomicData.map(item => parseFloat(item.atomic_value) || 0);
-      
-      // Create a mapping of variable names to values
-      const variableMap = {};
-      const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-      
-      // Map atomic data to variables
-      atomicData.forEach((item, index) => {
-        if (variables[index]) {
-          variableMap[variables[index]] = parseFloat(item.atomic_value) || 0;
-        }
-        // Also map by atomic_id
-        variableMap[`ATOMIC_${item.atomic_id}`] = parseFloat(item.atomic_value) || 0;
-      });
-
-      // Enhanced formula patterns
-      let result = 0;
-      const normalizedFormula = formula.toUpperCase().trim();
-
-      // Pattern 1: Simple arithmetic with variables (A + B, A - B, A * B, A / B)
-      if (this.isSimpleArithmeticFormula(normalizedFormula)) {
-        result = this.evaluateSimpleArithmetic(normalizedFormula, variableMap);
-      }
-      // Pattern 2: Complex formula with parentheses ((A - B) / C, (A + B) * C, etc.)
-      else if (normalizedFormula.includes('(') && normalizedFormula.includes(')')) {
-        result = this.evaluateComplexFormula(normalizedFormula, variableMap);
-      }
-      // Pattern 3: Percentage calculations (A / B * 100)
-      else if (normalizedFormula.includes('* 100') || normalizedFormula.includes('*100')) {
-        result = this.evaluatePercentageFormula(normalizedFormula, variableMap);
-      }
-      // Pattern 4: SUM function (SUM(A,B,C) or SUM(A:C))
-      else if (normalizedFormula.includes('SUM(')) {
-        result = this.evaluateSumFormula(normalizedFormula, variableMap);
-      }
-      // Pattern 5: AVERAGE function (AVERAGE(A,B,C) or AVG(A:C))
-      else if (normalizedFormula.includes('AVERAGE(') || normalizedFormula.includes('AVG(')) {
-        result = this.evaluateAverageFormula(normalizedFormula, variableMap);
-      }
-      // Pattern 6: MAX/MIN functions
-      else if (normalizedFormula.includes('MAX(') || normalizedFormula.includes('MIN(')) {
-        result = this.evaluateMinMaxFormula(normalizedFormula, variableMap);
-      }
-      // Fallback: Legacy simple patterns
-      else {
-        result = this.evaluateLegacyFormula(formula, values);
-      }
-
-      // Validate result
-      if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) {
-        throw new Error(`Formula calculation resulted in invalid value: ${result}`);
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Formula execution error:', error);
-      throw new Error(`Formula calculation failed: ${error.message}`);
-    }
-  },
-
-  // Helper methods for formula evaluation
-  isSimpleArithmeticFormula(formula) {
-    const simplePattern = /^[A-Z]\s*[+\-*/]\s*[A-Z](\s*[+\-*/]\s*[A-Z])*$/;
-    return simplePattern.test(formula.replace(/\s/g, ''));
-  },
-
-  evaluateSimpleArithmetic(formula, variableMap) {
-    let expression = formula;
-    Object.keys(variableMap).forEach(variable => {
-      const regex = new RegExp(`\\b${variable}\\b`, 'g');
-      expression = expression.replace(regex, variableMap[variable].toString());
-    });
-    
-    // Use safer evaluation
-    return this.safeEval(expression);
-  },
-
-  evaluateComplexFormula(formula, variableMap) {
-    let expression = formula;
-    Object.keys(variableMap).forEach(variable => {
-      const regex = new RegExp(`\\b${variable}\\b`, 'g');
-      expression = expression.replace(regex, variableMap[variable].toString());
-    });
-    
-    return this.safeEval(expression);
-  },
-
-  evaluatePercentageFormula(formula, variableMap) {
-    let expression = formula;
-    Object.keys(variableMap).forEach(variable => {
-      const regex = new RegExp(`\\b${variable}\\b`, 'g');
-      expression = expression.replace(regex, variableMap[variable].toString());
-    });
-    
-    return this.safeEval(expression);
-  },
-
-  evaluateSumFormula(formula, variableMap) {
-    const sumMatch = formula.match(/SUM\(([^)]+)\)/);
-    if (!sumMatch) throw new Error('Invalid SUM formula');
-    
-    const params = sumMatch[1].split(',').map(p => p.trim());
-    let sum = 0;
-    
-    params.forEach(param => {
-      if (param.includes(':')) {
-        // Range notation (A:C)
-        const [start, end] = param.split(':');
-        const startVar = start.trim();
-        const endVar = end.trim();
-        // For simplicity, sum all variables from start to end
-        const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-        const startIndex = variables.indexOf(startVar);
-        const endIndex = variables.indexOf(endVar);
-        
-        if (startIndex !== -1 && endIndex !== -1) {
-          for (let i = startIndex; i <= endIndex; i++) {
-            sum += variableMap[variables[i]] || 0;
-          }
-        }
-      } else {
-        // Single variable
-        sum += variableMap[param] || 0;
-      }
-    });
-    
-    return sum;
-  },
-
-  evaluateAverageFormula(formula, variableMap) {
-    const avgMatch = formula.match(/(AVERAGE|AVG)\(([^)]+)\)/);
-    if (!avgMatch) throw new Error('Invalid AVERAGE formula');
-    
-    const params = avgMatch[2].split(',').map(p => p.trim());
-    const values = [];
-    
-    params.forEach(param => {
-      if (param.includes(':')) {
-        // Range notation
-        const [start, end] = param.split(':');
-        const startVar = start.trim();
-        const endVar = end.trim();
-        const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-        const startIndex = variables.indexOf(startVar);
-        const endIndex = variables.indexOf(endVar);
-        
-        if (startIndex !== -1 && endIndex !== -1) {
-          for (let i = startIndex; i <= endIndex; i++) {
-            values.push(variableMap[variables[i]] || 0);
-          }
-        }
-      } else {
-        values.push(variableMap[param] || 0);
-      }
-    });
-    
-    return values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
-  },
-
-  evaluateMinMaxFormula(formula, variableMap) {
-    const minMaxMatch = formula.match(/(MIN|MAX)\(([^)]+)\)/);
-    if (!minMaxMatch) throw new Error('Invalid MIN/MAX formula');
-    
-    const isMax = minMaxMatch[1] === 'MAX';
-    const params = minMaxMatch[2].split(',').map(p => p.trim());
-    const values = [];
-    
-    params.forEach(param => {
-      if (param.includes(':')) {
-        // Range notation
-        const [start, end] = param.split(':');
-        const startVar = start.trim();
-        const endVar = end.trim();
-        const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-        const startIndex = variables.indexOf(startVar);
-        const endIndex = variables.indexOf(endVar);
-        
-        if (startIndex !== -1 && endIndex !== -1) {
-          for (let i = startIndex; i <= endIndex; i++) {
-            values.push(variableMap[variables[i]] || 0);
-          }
-        }
-      } else {
-        values.push(variableMap[param] || 0);
-      }
-    });
-    
-    if (values.length === 0) return 0;
-    
-    return isMax ? Math.max(...values) : Math.min(...values);
-  },
-
-  evaluateLegacyFormula(formula, values) {
-    // Legacy fallback for simple patterns
-    if (formula.includes('/') && values.length >= 3) {
-      return (values[0] - values[1]) / values[2];
-    } else if (formula.includes('+')) {
-      return values.reduce((sum, val) => sum + val, 0);
-    } else if (formula.includes('-')) {
-      return values.reduce((diff, val, index) => index === 0 ? val : diff - val, 0);
-    } else if (formula.includes('*')) {
-      return values.reduce((product, val) => product * val, 1);
-    }
-    
-    // Default: sum
-    return values.reduce((sum, val) => sum + val, 0);
-  },
-
-  // Safer alternative to eval() for mathematical expressions
-  safeEval(expression) {
-    // Remove any non-mathematical characters for security
-    const sanitized = expression.replace(/[^0-9+\-*/.() ]/g, '');
-    
-    try {
-      // Use Function constructor instead of eval for better security
-      return new Function(`"use strict"; return (${sanitized})`)();
-    } catch (error) {
-      throw new Error(`Invalid mathematical expression: ${sanitized}`);
-    }
-  }
 
 };

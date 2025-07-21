@@ -1,6 +1,58 @@
 import { kriService } from '@/services/kriService';
 import { mapStatus, getLastDayOfPreviousMonth, getNextStatus, canPerformAction, formatDateFromInt, canViewKRI } from '@/utils/helpers';
 
+// Session storage keys
+const AUTH_STORAGE_KEY = 'kri_auth_user';
+const AUTH_PERMISSIONS_KEY = 'kri_auth_permissions';
+
+// Session storage utilities
+const sessionStorageUtil = {
+  setUser(user) {
+    try {
+      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    } catch (error) {
+      console.warn('Failed to store user data in sessionStorage:', error);
+    }
+  },
+  
+  getUser() {
+    try {
+      const stored = sessionStorage.getItem(AUTH_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.warn('Failed to retrieve user data from sessionStorage:', error);
+      return null;
+    }
+  },
+  
+  setPermissions(permissions) {
+    try {
+      sessionStorage.setItem(AUTH_PERMISSIONS_KEY, JSON.stringify(permissions));
+    } catch (error) {
+      console.warn('Failed to store permissions in sessionStorage:', error);
+    }
+  },
+  
+  getPermissions() {
+    try {
+      const stored = sessionStorage.getItem(AUTH_PERMISSIONS_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.warn('Failed to retrieve permissions from sessionStorage:', error);
+      return [];
+    }
+  },
+  
+  clear() {
+    try {
+      sessionStorage.removeItem(AUTH_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_PERMISSIONS_KEY);
+    } catch (error) {
+      console.warn('Failed to clear auth data from sessionStorage:', error);
+    }
+  }
+};
+
 const state = {
   kriItems: [],
   kriDetail: null,
@@ -80,16 +132,32 @@ const mutations = {
   // User management mutations
   SET_CURRENT_USER(state, user) {
     state.currentUser = { ...state.currentUser, ...user };
+    // Store in sessionStorage
+    sessionStorageUtil.setUser(state.currentUser);
   },
   SET_USER_PERMISSIONS(state, permissions) {
     state.currentUser.permissions = permissions;
+    // Store permissions separately for easier access
+    sessionStorageUtil.setPermissions(permissions);
   },
   LOGOUT_USER(state) {
     state.currentUser = {
       uuid: null,
       name: '',
+      department: '',
       permissions: []
     };
+    // Clear sessionStorage
+    sessionStorageUtil.clear();
+  },
+  // New mutation to restore user from sessionStorage
+  RESTORE_USER_FROM_STORAGE(state) {
+    const storedUser = sessionStorageUtil.getUser();
+    const storedPermissions = sessionStorageUtil.getPermissions();
+    
+    if (storedUser && storedUser.uuid) {
+      state.currentUser = { ...storedUser, permissions: storedPermissions };
+    }
   }
 };
 
@@ -293,6 +361,11 @@ const actions = {
 
   logoutUser({ commit }) {
     commit('LOGOUT_USER');
+  },
+
+  // New action to restore user from sessionStorage
+  restoreUserFromStorage({ commit }) {
+    commit('RESTORE_USER_FROM_STORAGE');
   },
 
   updateUserPermissions({ commit }, permissions) {
@@ -1035,6 +1108,11 @@ const getters = {
     });
     
     return Array.from(departments).sort();
+  },
+
+  // Check if user is authenticated
+  isAuthenticated: (state) => {
+    return !!(state.currentUser && state.currentUser.uuid);
   },
   
 };

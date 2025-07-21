@@ -1,4 +1,6 @@
 1. add Object Storage for evidence upload
+  - test if it works with supabase
+  - test local storage
 2. fix promission for atomic data element
 3. dropdown for atomic data element bulk input / actions
 4. add Object Storage preview for evidence

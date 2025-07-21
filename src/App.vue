@@ -5,8 +5,17 @@
 </template>
 
 <script>
+import { mapActions } from 'vuex';
+
 export default {
-  name: 'App'
+  name: 'App',
+  async created() {
+    // Restore user authentication state from sessionStorage on app startup
+    await this.restoreUserFromStorage();
+  },
+  methods: {
+    ...mapActions('kri', ['restoreUserFromStorage'])
+  }
 };
 </script>
 

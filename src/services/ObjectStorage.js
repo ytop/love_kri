@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 /**
  * Abstract Object Storage Framework for KRI Evidence Files
  * 
@@ -448,17 +450,244 @@ export class StorageFactory {
   }
 }
 
+/**
+ * Storage Manager
+ * Manages storage provider instances and configuration
+ */
+export class StorageManager {
+  constructor() {
+    this._storageProvider = null;
+  }
+
+  getStorageProvider() {
+    if (!this._storageProvider) {
+      // Default to Supabase storage provider
+      // TODO: use other storage providers for production
+      this._storageProvider = StorageFactory.create('supabase', {
+        supabaseClient: supabase,
+        bucketName: 'evidence',
+        maxFileSize: 10 * 1024 * 1024, // 10MB
+        allowedTypes: [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain',
+          'text/csv'
+        ]
+      });
+    }
+    return this._storageProvider;
+  }
+
+  setStorageProvider(provider) {
+    this._storageProvider = provider;
+  }
+}
+
+/**
+ * Evidence Storage Service
+ * Combines storage operations with database operations for evidence management
+ */
+export class EvidenceStorageService {
+  constructor(storageManager, supabaseClient) {
+    this.storageManager = storageManager;
+    this.supabase = supabaseClient;
+  }
+
+  async uploadEvidence(kriId, reportingDate, file, description, uploadedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      const storage = this.storageManager.getStorageProvider();
+      
+      // Generate unique file path
+      const filePath = storage.generateFilePath(kriId, reportingDateAsInt, file.name);
+      
+      // Upload file to storage
+      const uploadResult = await storage.uploadFile(file, filePath, {
+        kriId: kriId,
+        reportingDate: reportingDateAsInt,
+        description: description,
+        uploadedBy: uploadedBy
+      });
+
+      // Save evidence metadata to database
+      const { data, error } = await this.supabase
+        .from('kri_evidence')
+        .insert({
+          kri_id: parseInt(kriId),
+          reporting_date: reportingDateAsInt,
+          file_name: file.name,
+          file_url: uploadResult.url,
+          description: description,
+          uploaded_by: uploadedBy
+        })
+        .select()
+        .single();
+
+      if (error) {
+        // If database insert fails, try to clean up uploaded file
+        try {
+          await storage.deleteFile(uploadResult.url);
+        } catch (deleteError) {
+          console.error('Failed to clean up uploaded file after database error:', deleteError);
+        }
+        throw new Error(`Failed to save evidence metadata: ${error.message}`);
+      }
+
+      // Add audit trail entry for file upload - delegate to external audit service
+      if (this.auditService) {
+        await this.auditService.addAuditTrailEntry(
+          kriId, 
+          reportingDate, 
+          'file_upload', 
+          'evidence', 
+          null, 
+          file.name, 
+          uploadedBy, 
+          `File uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB) via ${storage.getProviderName()}`
+        );
+      }
+
+      return {
+        success: true,
+        evidence: data,
+        fileInfo: {
+          path: uploadResult.path,
+          url: uploadResult.url,
+          metadata: uploadResult.metadata
+        }
+      };
+    } catch (error) {
+      console.error('Upload evidence error:', error);
+      throw error;
+    }
+  }
+
+  async deleteEvidence(evidenceId, deletedBy) {
+    try {
+      // First get the evidence record to obtain file info
+      const { data: evidence, error: fetchError } = await this.supabase
+        .from('kri_evidence')
+        .select('*')
+        .eq('evidence_id', evidenceId)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`Failed to fetch evidence record: ${fetchError.message}`);
+      }
+
+      const storage = this.storageManager.getStorageProvider();
+
+      // Delete file from storage
+      await storage.deleteFile(evidence.file_url);
+
+      // Delete evidence record from database
+      const { error: deleteError } = await this.supabase
+        .from('kri_evidence')
+        .delete()
+        .eq('evidence_id', evidenceId);
+
+      if (deleteError) {
+        throw new Error(`Failed to delete evidence record: ${deleteError.message}`);
+      }
+
+      // Add audit trail entry for file deletion - delegate to external audit service
+      if (this.auditService) {
+        await this.auditService.addAuditTrailEntry(
+          evidence.kri_id,
+          evidence.reporting_date.toString(),
+          'file_delete',
+          'evidence',
+          evidence.file_name,
+          null,
+          deletedBy,
+          `File deleted: ${evidence.file_name} via ${storage.getProviderName()}`
+        );
+      }
+
+      return {
+        success: true,
+        deletedEvidence: evidence
+      };
+    } catch (error) {
+      console.error('Delete evidence error:', error);
+      throw error;
+    }
+  }
+
+  async downloadEvidence(evidenceId) {
+    try {
+      // Get evidence record
+      const { data: evidence, error: fetchError } = await this.supabase
+        .from('kri_evidence')
+        .select('*')
+        .eq('evidence_id', evidenceId)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`Failed to fetch evidence record: ${fetchError.message}`);
+      }
+
+      const storage = this.storageManager.getStorageProvider();
+      
+      // Download file from storage
+      const fileBlob = await storage.downloadFile(evidence.file_url, evidence.file_name);
+
+      return {
+        success: true,
+        file: fileBlob,
+        filename: evidence.file_name,
+        evidence: evidence
+      };
+    } catch (error) {
+      console.error('Download evidence error:', error);
+      throw error;
+    }
+  }
+
+  async getEvidenceUrl(evidenceId) {
+    try {
+      const { data: evidence, error } = await this.supabase
+        .from('kri_evidence')
+        .select('file_url, file_name')
+        .eq('evidence_id', evidenceId)
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to fetch evidence URL: ${error.message}`);
+      }
+
+      return {
+        success: true,
+        url: evidence.file_url,
+        filename: evidence.file_name
+      };
+    } catch (error) {
+      console.error('Get evidence URL error:', error);
+      throw error;
+    }
+  }
+
+  setAuditService(auditService) {
+    this.auditService = auditService;
+  }
+}
+
 /*
--------------------------------- split for real Supabase Storage Provider --------------------------------
+-------------------------------- Usage Examples --------------------------------
 */
 
-// export for real Supabase Storage Provider
-// Usage example
-
+// Usage example for SupabaseStorageProvider
 // import { supabase } from './supabase';
 // export const supabaseStorage = new SupabaseStorageProvider(supabase, { bucketName: 'evidence' });
 
-// supabaseStorage.uploadFile(new File(['test'], 'test.txt'), 'test.txt');
-// supabaseStorage.downloadFile('https://vyrojgsjtyitolvzwznl.supabase.co/storage/v1/object/public/evidence/1/20250718/1721339000_test.txt');
-// supabaseStorage.deleteFile('https://vyrojgsjtyitolvzwznl.supabase.co/storage/v1/object/public/evidence/1/20250718/1721339000_test.txt');
-// supabaseStorage.getFileUrl('https://vyrojgsjtyitolvzwznl.supabase.co/storage/v1/object/public/evidence/1/20250718/1721339000_test.txt');
+// Usage example for StorageManager and EvidenceStorageService
+// import { supabase } from './supabase';
+// const storageManager = new StorageManager();
+// const evidenceService = new EvidenceStorageService(storageManager, supabase);

@@ -6,49 +6,87 @@ import KRIWorkflowPage from '../views/KRIWorkflowPage.vue';
 import Login from '../views/Login.vue';
 import AdminManagement from '../views/AdminManagement.vue';
 import NotFound from '../views/NotFound.vue';
+import store from '../store';
 
 Vue.use(Router);
 
-export default new Router({
+const router = new Router({
   mode: 'history',
   routes: [
     {
       path: '/login',
       name: 'Login',
-      component: Login
+      component: Login,
+      meta: { 
+        requiresAuth: false,
+        redirectIfAuthenticated: true
+      }
     },
     {
       path: '/',
       name: 'Dashboard',
-      component: Dashboard
+      component: Dashboard,
+      meta: { requiresAuth: true }
     },
     {
       path: '/kri/:id/:date',
       name: 'KRIDetail',
       component: () => import('../views/KRIDetail.vue'),
-      props: true
+      props: true,
+      meta: { requiresAuth: true }
     },
     {
       path: '/kris/pending',
       name: 'PendingKRIs',
-      component: KRIWorkflowPage
+      component: KRIWorkflowPage,
+      meta: { requiresAuth: true }
     },
     // Generic status-based route for other statuses
     {
       path: '/kris/status/:status',
       name: 'KRIsByStatus',
       component: KRIListByStatus,
-      props: true
+      props: true,
+      meta: { requiresAuth: true }
     },
     {
       path: '/admin',
       name: 'AdminManagement',
-      component: AdminManagement
+      component: AdminManagement,
+      meta: { requiresAuth: true }
     },
     {
       path: '*',
       name: 'NotFound',
-      component: NotFound
+      component: NotFound,
+      meta: { requiresAuth: false }
     }
   ]
 });
+
+// Navigation guards
+router.beforeEach((to, from, next) => {
+  // Restore user from sessionStorage if not already in state
+  if (!store.getters['kri/isAuthenticated']) {
+    store.dispatch('kri/restoreUserFromStorage');
+  }
+
+  const isAuthenticated = store.getters['kri/isAuthenticated'];
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const redirectIfAuthenticated = to.matched.some(record => record.meta.redirectIfAuthenticated);
+
+  if (requiresAuth && !isAuthenticated) {
+    // Redirect to login if route requires auth and user is not authenticated
+    next({
+      name: 'Login',
+      query: { redirect: to.fullPath }
+    });
+  } else if (redirectIfAuthenticated && isAuthenticated) {
+    // Redirect to dashboard if trying to access login while authenticated
+    next({ name: 'Dashboard' });
+  } else {
+    next();
+  }
+});
+
+export default router;
