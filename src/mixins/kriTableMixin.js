@@ -89,7 +89,7 @@ export const kriTableMixin = {
       return `${row.id}_${row.reportingDate}`;
     },
 
-    isRowSelectable(row) {
+    isRowSelectable(_row) {
       // Override in component if needed
       return true;
     },
@@ -236,7 +236,7 @@ export const kriTableMixin = {
              this.operationContext.availableActions.some(action => action.name === actionName);
     },
 
-    getRowAvailableActions(row) {
+    getRowAvailableActions(_row) {
       // This would typically initialize operations for the specific row
       // For now, return the current context actions
       return this.operationContext?.availableActions || [];

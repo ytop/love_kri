@@ -1,10 +1,14 @@
+Completed:
+2. fix permission for atomic data element
+  - Current: Implemented Frontend, UI is ready
+  - Next: test different situations, and fix the logic
+15. ResizeObserver loop completed with undelivered notifications warning
+
 Working:
 1. add Object Storage for evidence upload
   - test if it works with supabase
   - test local storage
   Current: Implemented service, need to test with frontend
-2. fix permission for atomic data element
-  Current: Implemented Frontend, UI is ready, but still have errors (logics and css).
 
 Pending:
 3. dropdown for atomic data element bulk input / actions

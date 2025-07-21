@@ -36,11 +36,13 @@
 
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
+import { kriTableMixin } from '@/mixins/kriTableMixin';
 import KRITableCollectData from '../components/KRITableCollectData.vue';
 import { getLastDayOfPreviousMonth, COLLECTION_STATUS_OPTIONS } from '@/utils/helpers';
 
 export default {
   name: 'KRIListByStatus',
+  mixins: [kriTableMixin],
   components: {
     KRITableCollectData
   },
@@ -81,6 +83,11 @@ export default {
     // We need the reportingDate from filters to ensure data is loaded for the correct period
     reportingDate() {
       return this.filters.reportingDate || getLastDayOfPreviousMonth();
+    },
+    
+    // Provide tableData for kriTableMixin
+    tableData() {
+      return this.kriItemsByStatus;
     }
   },
   async created() {

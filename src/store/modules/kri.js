@@ -363,6 +363,28 @@ const actions = {
     commit('LOGOUT_USER');
   },
 
+  async refetchUserPermissions({ commit, state }) {
+    if (!state.currentUser.uuid) {
+      console.warn('No user logged in, cannot refetch permissions');
+      return { success: false, error: 'No user logged in' };
+    }
+
+    try {
+      const result = await kriService.authenticateUser(state.currentUser.userId || state.currentUser.name);
+      
+      if (result.success && result.user.permissions) {
+        commit('SET_USER_PERMISSIONS', result.user.permissions);
+        return { success: true, permissions: result.user.permissions };
+      } else {
+        console.error('Failed to refetch permissions:', result.error);
+        return { success: false, error: result.error || 'Failed to refetch permissions' };
+      }
+    } catch (error) {
+      console.error('Error refetching permissions:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   // New action to restore user from sessionStorage
   restoreUserFromStorage({ commit }) {
     commit('RESTORE_USER_FROM_STORAGE');

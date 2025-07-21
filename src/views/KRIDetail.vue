@@ -117,7 +117,8 @@
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import { mapStatus, formatDateFromInt, getStatusTagType, canPerformAction } from '../utils/helpers';
+import { mapStatus, formatDateFromInt, getStatusTagType } from '../utils/helpers';
+import { kriOperationMixin } from '@/mixins/kriOperationMixin';
 import KRIGeneralInfo from '../components/detail/KRIGeneralInfo.vue';
 import KRIOverview from '../components/detail/KRIOverview.vue';
 import KRIDataElements from '../components/detail/KRIDataElements.vue';
@@ -126,6 +127,7 @@ import KRISidebar from '../components/detail/KRISidebar.vue';
 
 export default {
   name: 'KRIDetail',
+  mixins: [kriOperationMixin],
   components: {
     KRIGeneralInfo,
     KRIOverview,
@@ -145,13 +147,7 @@ export default {
   },
   data() {
     return {
-      // Loading states for different actions
-      approvingKRI: false,
-      rejectingKRI: false,
-      overridingKRI: false,
-      recalculatingKRI: false,
-      
-      // Dialog states
+      // Dialog states (mixin handles loading states)
       showRejectDialog: false,
       showOverrideDialog: false,
       rejectReason: '',
@@ -198,65 +194,29 @@ export default {
              this.kriDetail.kri_formula.trim() !== '';
     },
     
-    // Available actions based on status and permissions
+    // Available actions - now using mixin's action system
     availableActions() {
-      const actions = [];
+      // Get actions from mixin and add custom ones
+      const mixinActions = this.getActionButtons();
       
-      // Workflow actions (approve/reject/override) - shown first
-      if (this.canApproveKRI) {
-        actions.push({
-          key: 'approve',
-          label: this.getApproveButtonText,
-          icon: 'el-icon-check',
-          type: 'success',
-          handler: this.handleApproveKRI,
-          loading: this.approvingKRI,
-          title: this.getApproveButtonTitle,
-          disabled: false
-        });
-      }
-      
-      if (this.canRejectKRI) {
-        actions.push({
-          key: 'reject',
-          label: this.getRejectButtonText,
-          icon: 'el-icon-close',
-          type: 'danger',
-          handler: this.handleRejectKRI,
-          loading: this.rejectingKRI,
-          title: this.getRejectButtonTitle,
-          disabled: false
-        });
-      }
-      
-      if (this.canOverrideKRI) {
-        actions.push({
-          key: 'override',
-          label: 'Override Value',
-          icon: 'el-icon-edit-outline',
-          type: 'warning',
-          handler: this.handleOverrideKRI,
-          loading: this.overridingKRI,
-          title: 'Manually override KRI value (not recommended)',
-          disabled: false
-        });
-      }
+      // Add custom KRI detail actions
+      const customActions = [];
       
       if (this.canRecalculateKRI) {
-        actions.push({
+        customActions.push({
           key: 'recalculate',
           label: 'Recalculate',
           icon: 'el-icon-refresh',
           type: 'primary',
           handler: this.handleRecalculateKRI,
-          loading: this.recalculatingKRI,
+          loading: this.isLoading('recalculate'),
           title: 'Recalculate KRI from atomic values',
           disabled: false
         });
       }
       
-      // Standard actions (always available) - shown last
-      actions.push({
+      // Standard actions (always available)
+      customActions.push({
         key: 'evidence',
         label: 'Evidence',
         icon: 'el-icon-folder-opened',
@@ -267,7 +227,7 @@ export default {
         disabled: false
       });
       
-      actions.push({
+      customActions.push({
         key: 'comments',
         label: 'Comments',
         icon: 'el-icon-chat-dot-round',
@@ -278,36 +238,14 @@ export default {
         disabled: false
       });
       
-      return actions;
+      return [...mixinActions, ...customActions];
     },
     
-    // Permission checks
-    canApproveKRI() {
-      if (!this.currentKRI || !this.userPermissions) return false;
-      const requiredPermission = this.currentStatus === 40 ? 'review' : 'acknowledge';
-      return [40, 50].includes(this.currentStatus) && 
-             canPerformAction(this.userPermissions, requiredPermission, this.currentStatus, this.currentKRI);
-    },
-    
-    canRejectKRI() {
-      if (!this.currentKRI || !this.userPermissions) return false;
-      const requiredPermission = this.currentStatus === 40 ? 'review' : 'acknowledge';
-      return [40, 50].includes(this.currentStatus) && 
-             canPerformAction(this.userPermissions, requiredPermission, this.currentStatus, this.currentKRI);
-    },
-    
-    canOverrideKRI() {
-      if (!this.currentKRI || !this.userPermissions) return false;
-      // Only KRI Owner can override, and only in certain statuses
-      return [40, 50].includes(this.currentStatus) && 
-             canPerformAction(this.userPermissions, 'acknowledge', this.currentStatus, this.currentKRI);
-    },
-    
+    // Permission checks now handled by mixin and PermissionManager
     canRecalculateKRI() {
       if (!this.currentKRI || !this.userPermissions || !this.isCalculatedKRI) return false;
       // Can recalculate if user can edit and it's a calculated KRI
-      return [10, 20, 30].includes(this.currentStatus) && 
-             canPerformAction(this.userPermissions, 'edit', this.currentStatus, this.currentKRI);
+      return this.canEdit && this.isCalculatedKRI;
     },
     
     // Button text and titles
@@ -338,6 +276,21 @@ export default {
       kriId: this.id,
       reportingDate: this.date
     });
+    
+    // Initialize KRI operations after data is loaded
+    if (this.kriDetail) {
+      try {
+        await this.initializeKRIOperations({
+          id: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          kri_status: this.kriDetail.kri_status,
+          kri_owner: this.kriDetail.kri_owner,
+          data_provider: this.kriDetail.data_provider
+        });
+      } catch (error) {
+        console.error('Failed to initialize KRI operations in created:', error);
+      }
+    }
   },
   methods: {
     ...mapActions('kri', [
@@ -346,7 +299,8 @@ export default {
       'rejectKRILevel', 
       'overrideKRIValue', 
       'calculateKRIFromAtomic',
-      'checkAndAutoRecalculate'
+      'checkAndAutoRecalculate',
+      'refetchUserPermissions'
     ]),
     
     goBack() {
@@ -360,13 +314,11 @@ export default {
       return formatDateFromInt(dateInt);
     },
     
-    // KRI Workflow Action Handlers
+    // KRI Workflow Action Handlers using NEW Manager Pattern
     async handleApproveKRI() {
-      this.approvingKRI = true;
       try {
-        const result = await this.approveKRILevel({
-          kriId: this.id,
-          reportingDate: this.kriDetail.reporting_date
+        const result = await this.executeKRIAction('approve', { 
+          comment: 'Approved from KRI Detail' 
         });
         
         if (result.success) {
@@ -378,8 +330,6 @@ export default {
       } catch (error) {
         console.error('Approve KRI error:', error);
         this.$message.error('Failed to approve KRI');
-      } finally {
-        this.approvingKRI = false;
       }
     },
     
@@ -515,10 +465,30 @@ export default {
     async refreshKRIData() {
       console.log('Refreshing KRI data from database...');
       try {
+        // Refetch user permissions first
+        console.log('Refetching user permissions...');
+        await this.refetchUserPermissions();
+        
         await this.fetchKRIDetail({
           kriId: this.id,
           reportingDate: this.date
         });
+        
+        // Reinitialize KRI operations after refresh
+        if (this.kriDetail) {
+          try {
+            await this.initializeKRIOperations({
+              id: this.kriDetail.kri_id,
+              reportingDate: this.kriDetail.reporting_date,
+              kri_status: this.kriDetail.kri_status,
+              kri_owner: this.kriDetail.kri_owner,
+              data_provider: this.kriDetail.data_provider
+            });
+          } catch (error) {
+            console.error('Failed to initialize KRI operations in refreshKRIData:', error);
+          }
+        }
+        
         console.log('KRI data refreshed successfully');
       } catch (error) {
         console.error('Error refreshing KRI data:', error);
@@ -541,6 +511,21 @@ export default {
           kriId: this.id,
           reportingDate: this.date
         });
+        
+        // Reinitialize KRI operations after force refresh
+        if (this.kriDetail) {
+          try {
+            await this.initializeKRIOperations({
+              id: this.kriDetail.kri_id,
+              reportingDate: this.kriDetail.reporting_date,
+              kri_status: this.kriDetail.kri_status,
+              kri_owner: this.kriDetail.kri_owner,
+              data_provider: this.kriDetail.data_provider
+            });
+          } catch (error) {
+            console.error('Failed to initialize KRI operations in forceRefreshKRIData:', error);
+          }
+        }
         
         // Also refresh the main KRI list to ensure consistency
         const formattedDate = this.date.includes('-') ? this.date : formatDateFromInt(this.date);
@@ -598,6 +583,11 @@ export default {
   font-size: 0.875rem;
 }
 
+.detail-layout {
+  display: flex;
+  flex-direction: column;
+}
+
 .detail-header {
   background: white;
   border-bottom: 1px solid #e5e7eb;
@@ -644,10 +634,20 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0; /* Allow content to shrink */
+  overflow: hidden; /* Prevent content from overflowing */
 }
 
 .info-card {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  min-width: 0; /* Allow card to shrink */
+  overflow: hidden; /* Prevent card content overflow */
+}
+
+/* Ensure card body doesn't overflow */
+.info-card >>> .el-card__body {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .card-header {
@@ -664,10 +664,47 @@ export default {
 @media (max-width: 1024px) {
   .detail-content {
     grid-template-columns: 1fr;
+    padding: 1rem;
   }
   
   .sidebar {
     position: static;
+  }
+  
+  .header-content {
+    padding: 1rem;
+  }
+  
+  .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .header-info h1 {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .detail-content {
+    padding: 0.75rem;
+    gap: 1rem;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .simple-actions-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .simple-actions-content .el-button {
+    width: 100%;
   }
 }
 

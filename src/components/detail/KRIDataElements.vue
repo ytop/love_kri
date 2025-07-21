@@ -6,13 +6,6 @@
         </div>
         <div class="right-actions">
             <el-button
-              type="primary"
-              icon="el-icon-edit"
-              @click="openBulkInputDialog"
-              size="small">
-              Bulk Input
-            </el-button>
-            <el-button
               v-if="canSubmitAtomicData"
               type="success"
               icon="el-icon-upload"
@@ -50,7 +43,8 @@
             </el-button>
         </div>
     </div>
-    <table class="data-table" id="dataElementsTable">
+    <div class="table-container">
+      <table class="data-table" id="dataElementsTable">
         <thead>
             <tr>
                 <th><input type="checkbox" id="selectAllCheckboxes" v-model="selectAll" @change="handleSelectAllChange"></th>
@@ -61,7 +55,7 @@
                 <th>Provider</th>
                 <th>Evidence</th>
                 <th>Comment</th>
-                <th>Actions</th>
+                <th class="fixed-column">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -122,7 +116,7 @@
                 <td>{{ getProviderName(item) }}</td>
                 <td>{{ getEvidenceInfo(item) }}</td>
                 <td>{{ getCommentInfo(item) }}</td>
-                <td>
+                <td class="fixed-column">
                   <div class="row-actions">
                     <template v-if="canEditAtomicElement(item)">
                       <el-button
@@ -191,7 +185,8 @@
                 </td>
             </tr>
         </tbody>
-    </table>
+      </table>
+    </div>
 
     <!-- Calculation Details Section -->
     <div class="formula-result-section">
@@ -275,13 +270,9 @@
 <script>
 import { mapState } from 'vuex';
 import { mapStatus, getStatusTagType, canPerformAction } from '@/utils/helpers';
-import AtomicInputDialog from './AtomicInputDialog.vue';
 
 export default {
   name: 'KRIDataElements',
-  components: {
-    AtomicInputDialog
-  },
   props: {
     atomicData: {
       type: Array,
@@ -303,8 +294,6 @@ export default {
       editingAtomic: null, // Currently editing atomic element ID
       editingValue: null, // Current editing value
       savingAtomic: null, // ID of atomic element being saved
-      showBulkInputDialog: false,
-      previousAtomicData: [], // Previous period data for comparison
       submittingAtomicData: false // Loading state for submitting atomic data
     };
   },
@@ -466,33 +455,25 @@ export default {
         return;
       }
       
-      this.$confirm(`Are you sure you want to approve ${this.selectedItems.length} selected atomic data element(s)?`, 'Confirm Approval', {
-        confirmButtonText: 'Approve',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }).then(async () => {
-        try {
-          const result = await this.$store.dispatch('kri/approveAtomicElements', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date,
-            atomicIds: this.selectedItems
-          });
-          
-          if (result.success) {
-            this.$message.success(`${this.selectedItems.length} atomic element(s) approved successfully`);
-            this.selectedItems = [];
-            this.selectAll = false;
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to approve atomic elements');
-          }
-        } catch (error) {
-          console.error('Error approving atomic elements:', error);
-          this.$message.error('Failed to approve atomic elements');
+      try {
+        const result = await this.$store.dispatch('kri/approveAtomicElements', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicIds: this.selectedItems
+        });
+        
+        if (result.success) {
+          this.$message.success(`${this.selectedItems.length} atomic element(s) approved successfully`);
+          this.selectedItems = [];
+          this.selectAll = false;
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to approve atomic elements');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error approving atomic elements:', error);
+        this.$message.error('Failed to approve atomic elements');
+      }
     },
 
     async rejectSelectedRows() {
@@ -542,33 +523,25 @@ export default {
         return;
       }
       
-      this.$confirm(`Are you sure you want to acknowledge ${this.selectedItems.length} selected atomic data element(s)?`, 'Confirm Acknowledgment', {
-        confirmButtonText: 'Acknowledge',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }).then(async () => {
-        try {
-          const result = await this.$store.dispatch('kri/acknowledgeAtomicElements', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date,
-            atomicIds: this.selectedItems
-          });
-          
-          if (result.success) {
-            this.$message.success(`${this.selectedItems.length} atomic element(s) acknowledged successfully`);
-            this.selectedItems = [];
-            this.selectAll = false;
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to acknowledge atomic elements');
-          }
-        } catch (error) {
-          console.error('Error acknowledging atomic elements:', error);
-          this.$message.error('Failed to acknowledge atomic elements');
+      try {
+        const result = await this.$store.dispatch('kri/acknowledgeAtomicElements', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicIds: this.selectedItems
+        });
+        
+        if (result.success) {
+          this.$message.success(`${this.selectedItems.length} atomic element(s) acknowledged successfully`);
+          this.selectedItems = [];
+          this.selectAll = false;
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to acknowledge atomic elements');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error acknowledging atomic elements:', error);
+        this.$message.error('Failed to acknowledge atomic elements');
+      }
     },
 
     getProviderName(_item) {
@@ -794,31 +767,23 @@ export default {
 
     // Individual row approval/rejection methods
     async approveAtomicElement(item) {
-      this.$confirm(`Are you sure you want to approve atomic element ${item.atomic_id}?`, 'Confirm Approval', {
-        confirmButtonText: 'Approve',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }).then(async () => {
-        try {
-          const result = await this.$store.dispatch('kri/approveAtomicElements', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date,
-            atomicIds: [item.atomic_id]
-          });
+      try {
+        const result = await this.$store.dispatch('kri/approveAtomicElements', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicIds: [item.atomic_id]
+        });
 
-          if (result.success) {
-            this.$message.success(`Atomic element ${item.atomic_id} approved successfully`);
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to approve atomic element');
-          }
-        } catch (error) {
-          console.error('Error approving atomic element:', error);
-          this.$message.error('Failed to approve atomic element');
+        if (result.success) {
+          this.$message.success(`Atomic element ${item.atomic_id} approved successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to approve atomic element');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error approving atomic element:', error);
+        this.$message.error('Failed to approve atomic element');
+      }
     },
 
     async rejectAtomicElement(item) {
@@ -856,31 +821,23 @@ export default {
     },
 
     async acknowledgeAtomicElement(item) {
-      this.$confirm(`Are you sure you want to acknowledge atomic element ${item.atomic_id}?`, 'Confirm Acknowledgment', {
-        confirmButtonText: 'Acknowledge',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }).then(async () => {
-        try {
-          const result = await this.$store.dispatch('kri/acknowledgeAtomicElements', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date,
-            atomicIds: [item.atomic_id]
-          });
+      try {
+        const result = await this.$store.dispatch('kri/acknowledgeAtomicElements', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicIds: [item.atomic_id]
+        });
 
-          if (result.success) {
-            this.$message.success(`Atomic element ${item.atomic_id} acknowledged successfully`);
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to acknowledge atomic element');
-          }
-        } catch (error) {
-          console.error('Error acknowledging atomic element:', error);
-          this.$message.error('Failed to acknowledge atomic element');
+        if (result.success) {
+          this.$message.success(`Atomic element ${item.atomic_id} acknowledged successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to acknowledge atomic element');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error acknowledging atomic element:', error);
+        this.$message.error('Failed to acknowledge atomic element');
+      }
     },
 
     // Bulk input dialog methods
@@ -912,141 +869,109 @@ export default {
         return;
       }
 
-      this.$confirm('Are you sure you want to submit all atomic data elements for approval?', 'Confirm Submission', {
-        confirmButtonText: 'Submit',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }).then(async () => {
-        this.submittingAtomicData = true;
-        try {
-          const result = await this.$store.dispatch('kri/submitAtomicData', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date
-          });
+      this.submittingAtomicData = true;
+      try {
+        const result = await this.$store.dispatch('kri/submitAtomicData', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date
+        });
 
-          if (result.success) {
-            this.$message.success('All atomic data elements submitted for approval successfully.');
-            this.selectedItems = [];
-            this.selectAll = false;
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to submit atomic data for approval.');
-          }
-        } catch (error) {
-          console.error('Error submitting atomic data:', error);
-          this.$message.error('Failed to submit atomic data for approval.');
-        } finally {
-          this.submittingAtomicData = false;
+        if (result.success) {
+          this.$message.success('All atomic data elements submitted for approval successfully.');
+          this.selectedItems = [];
+          this.selectAll = false;
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to submit atomic data for approval.');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error submitting atomic data:', error);
+        this.$message.error('Failed to submit atomic data for approval.');
+      } finally {
+        this.submittingAtomicData = false;
+      }
     },
 
     // New methods for row actions
-    saveAtomicElement(item) {
+    async saveAtomicElement(item) {
       if (!this.hasAtomicValue(item)) {
         this.$message.warning('Cannot save atomic element without a value');
         return;
       }
 
-      this.$confirm(`Are you sure you want to save atomic element ${item.atomic_id}?`, 'Confirm Save', {
-        confirmButtonText: 'Save',
-        cancelButtonText: 'Cancel',
-        type: 'info'
-      }).then(async () => {
-        this.savingAtomic = item.atomic_id;
-        try {
-          const result = await this.$store.dispatch('kri/saveAtomicValue', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date,
-            atomicId: item.atomic_id,
-            value: item.atomic_value.toString()
-          });
+      this.savingAtomic = item.atomic_id;
+      try {
+        const result = await this.$store.dispatch('kri/saveAtomicValue', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicId: item.atomic_id,
+          value: item.atomic_value.toString()
+        });
 
-          if (result.success) {
-            this.$message.success(`Atomic element ${item.atomic_id} saved successfully.`);
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to save atomic element.');
-          }
-        } catch (error) {
-          console.error('Error saving atomic element:', error);
-          this.$message.error('Failed to save atomic element.');
-        } finally {
-          this.savingAtomic = null;
+        if (result.success) {
+          this.$message.success(`Atomic element ${item.atomic_id} saved successfully.`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to save atomic element.');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error saving atomic element:', error);
+        this.$message.error('Failed to save atomic element.');
+      } finally {
+        this.savingAtomic = null;
+      }
     },
 
-    submitAtomicElement(item) {
-      this.$confirm(`Are you sure you want to submit atomic element ${item.atomic_id} for approval?`, 'Confirm Submission', {
-        confirmButtonText: 'Submit',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }).then(async () => {
-        this.savingAtomic = item.atomic_id;
-        try {
-          const result = await this.$store.dispatch('kri/submitAtomicElement', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date,
-            atomicId: item.atomic_id
-          });
+    async submitAtomicElement(item) {
+      this.savingAtomic = item.atomic_id;
+      try {
+        const result = await this.$store.dispatch('kri/submitAtomicElement', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicId: item.atomic_id
+        });
 
-          if (result.success) {
-            this.$message.success(`Atomic element ${item.atomic_id} submitted for approval successfully.`);
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to submit atomic element for approval.');
-          }
-        } catch (error) {
-          console.error('Error submitting atomic element:', error);
-          this.$message.error('Failed to submit atomic element for approval.');
-        } finally {
-          this.savingAtomic = null;
+        if (result.success) {
+          this.$message.success(`Atomic element ${item.atomic_id} submitted for approval successfully.`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to submit atomic element for approval.');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error submitting atomic element:', error);
+        this.$message.error('Failed to submit atomic element for approval.');
+      } finally {
+        this.savingAtomic = null;
+      }
     },
 
-    saveAndSubmitAtomicElement(item) {
+    async saveAndSubmitAtomicElement(item) {
       if (!this.hasAtomicValue(item)) {
         this.$message.warning('Cannot save and submit atomic element without a value');
         return;
       }
 
-      this.$confirm(`Are you sure you want to save and submit atomic element ${item.atomic_id} for approval?`, 'Confirm Submission', {
-        confirmButtonText: 'Save & Submit',
-        cancelButtonText: 'Cancel',
-        type: 'warning'
-      }).then(async () => {
-        this.savingAtomic = item.atomic_id;
-        try {
-          const result = await this.$store.dispatch('kri/saveAndSubmitAtomicElement', {
-            kriId: this.kriDetail.kri_id,
-            reportingDate: this.kriDetail.reporting_date,
-            atomicId: item.atomic_id,
-            value: item.atomic_value.toString()
-          });
+      this.savingAtomic = item.atomic_id;
+      try {
+        const result = await this.$store.dispatch('kri/saveAndSubmitAtomicElement', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicId: item.atomic_id,
+          value: item.atomic_value.toString()
+        });
 
-          if (result.success) {
-            this.$message.success(`Atomic element ${item.atomic_id} saved and submitted for approval successfully.`);
-            this.$emit('data-updated');
-          } else {
-            this.$message.error(result.error || 'Failed to save and submit atomic element.');
-          }
-        } catch (error) {
-          console.error('Error saving and submitting atomic element:', error);
-          this.$message.error('Failed to save and submit atomic element.');
-        } finally {
-          this.savingAtomic = null;
+        if (result.success) {
+          this.$message.success(`Atomic element ${item.atomic_id} saved and submitted for approval successfully.`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to save and submit atomic element.');
         }
-      }).catch(() => {
-        // User cancelled
-      });
+      } catch (error) {
+        console.error('Error saving and submitting atomic element:', error);
+        this.$message.error('Failed to save and submit atomic element.');
+      } finally {
+        this.savingAtomic = null;
+      }
     },
 
     hasAtomicValue(item) {
@@ -1123,13 +1048,79 @@ export default {
     background-color: #c82333;
 }
 
+/* Table Container with Horizontal Scroll */
+.table-container {
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
+  max-width: 100%; /* Constrain to parent width */
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  background: white;
+  contain: layout style;
+  scrollbar-gutter: stable;
+  position: relative;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Fixed Actions Column */
+.data-table th.fixed-column,
+.data-table td.fixed-column {
+  position: sticky;
+  right: 0;
+  background: #f8f9fa; /* Header background */
+  z-index: 2;
+  border-left: 2px solid #e2e8f0;
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  width: 200px;
+}
+
+.data-table td.fixed-column {
+  background: white; /* Body background */
+}
+
+/* Enhanced styling for fixed column */
+.data-table th.fixed-column {
+  background: #f1f5f9; /* Slightly different header background */
+}
+
+/* Add hover effect for fixed column */
+.data-table tbody tr:hover td.fixed-column {
+  background: #f8fafc;
+}
+
+/* Prevent content shift when scrollbar appears */
+.table-container::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background-color: #f1f3f4;
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a8a8;
+}
+
 /* Data Table Styles */
 .data-table {
-    width: 100%;
+    width: auto; /* Let table size naturally */
     border-collapse: collapse;
     border-spacing: 0;
-    margin-bottom: 24px;
+    table-layout: auto; /* Auto layout for natural column sizing */
+    position: relative;
+    transform: translateZ(0); /* Create new stacking context */
 }
+
 .data-table th {
     background: #f8f9fa;
     padding: 12px 16px;
@@ -1140,7 +1131,9 @@ export default {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
 }
+
 .data-table td {
     padding: 14px 16px;
     border-bottom: 1px solid #e2e8f0;
@@ -1332,14 +1325,27 @@ export default {
 /* Row Actions Styling */
 .row-actions {
     display: flex;
-    gap: 8px;
+    gap: 4px;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    width: 100%;
+    min-height: 40px;
 }
 
 .row-actions .el-button {
     padding: 4px 8px;
-    font-size: 11px;
+    font-size: 10px;
     border-radius: 4px;
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    margin: 0;
+}
+
+.row-actions .el-button + .el-button {
+    margin-left: 0;
 }
 
 .no-actions-text {
@@ -1413,4 +1419,5 @@ export default {
         transform: scale(1.02);
     }
 }
+
 </style>

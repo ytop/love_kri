@@ -92,8 +92,8 @@ export const kriOperationMixin = {
       try {
         this.setLoading('init', true);
 
-        const currentUser = user || this.$store.getters['auth/currentUser'] || this.$store.state.user?.currentUser;
-        const permissions = userPermissions || this.$store.getters['auth/userPermissions'] || this.$store.state.user?.permissions;
+        const currentUser = user || this.$store.state.kri?.currentUser;
+        const permissions = userPermissions || this.$store.state.kri?.currentUser?.permissions;
 
         if (!currentUser || !permissions) {
           throw new Error('User or permissions not available');

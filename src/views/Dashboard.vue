@@ -101,12 +101,14 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import { getLastDayOfPreviousMonth, mapStatus as getStatusLabel, getUserDisplayName } from '@/utils/helpers';
+import { validationMixin, errorHandlingMixin } from '@/mixins/validationMixin';
 import KRIFilters from '../components/KRIFilters.vue'; // Changed from SimpleFilters
 import KRITable from '../components/KRITable.vue';
 import KRIChartView from '../components/KRIChartView.vue';
 
 export default {
   name: 'Dashboard',
+  mixins: [validationMixin, errorHandlingMixin],
   components: {
     KRIFilters, // Changed from SimpleFilters
     KRITable,
@@ -191,6 +193,7 @@ export default {
     // Fetch initial data and departments
     try {
       await Promise.all([
+        this.refetchUserPermissions().catch(err => console.warn('Failed to refetch permissions on load:', err)),
         this.fetchKRIItems(defaultDate),
       ]);
     } catch (error) {
@@ -202,7 +205,8 @@ export default {
       'fetchKRIItems', 
       'updateFilters', 
       'resetFilters',
-      'logoutUser'
+      'logoutUser',
+      'refetchUserPermissions'
     ]),
     
     // Helper method to access status mapping in template
@@ -286,6 +290,9 @@ export default {
     // Handle refresh button click
     async handleRefresh() {
       try {
+        // Refetch user permissions first
+        await this.refetchUserPermissions();
+        
         const currentReportingDate = this.filters.reportingDate || getLastDayOfPreviousMonth();
         await this.fetchKRIItems(currentReportingDate);
         this.$message.success('Data refreshed successfully');

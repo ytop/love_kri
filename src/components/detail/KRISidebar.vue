@@ -190,7 +190,8 @@
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import { mapStatus, formatDateFromInt, getStatusTagType, canPerformAction } from '@/utils/helpers';
+import { mapStatus, formatDateFromInt, getStatusTagType } from '@/utils/helpers';
+import PermissionManager from '@/utils/PermissionManager';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { GaugeChart, LineChart } from 'echarts/charts';
@@ -251,7 +252,7 @@ export default {
       
       // Show for Pending Input (10), Under Rework (20), and Saved (30) status
       return [10, 20, 30].includes(this.kriData.kri_status) &&
-             canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
+             PermissionManager.canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
     },
     
     // Check if user can perform review actions (Data Provider Approver)
@@ -263,7 +264,7 @@ export default {
       };
       
       return this.kriData.kri_status === 40 && // Submitted to Data Provider Approver
-             canPerformAction(userPermissions, 'review', this.kriData.kri_status, kriItem);
+             PermissionManager.canPerformAction(userPermissions, 'review', this.kriData.kri_status, kriItem);
     },
     
     // Check if user can perform acknowledge actions (KRI Owner Approver)
@@ -275,7 +276,7 @@ export default {
       };
       
       return this.kriData.kri_status === 50 && // Submitted to KRI Owner Approver
-             canPerformAction(userPermissions, 'acknowledge', this.kriData.kri_status, kriItem);
+             PermissionManager.canPerformAction(userPermissions, 'acknowledge', this.kriData.kri_status, kriItem);
     },
     
     isValidInput() {
@@ -308,8 +309,8 @@ export default {
       };
       
       // Show actions if user can edit or review
-      return canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem) ||
-             canPerformAction(userPermissions, 'review', this.kriData.kri_status, kriItem);
+      return PermissionManager.canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem) ||
+             PermissionManager.canPerformAction(userPermissions, 'review', this.kriData.kri_status, kriItem);
     },
 
     // Check if user can submit atomic data
@@ -321,7 +322,7 @@ export default {
       };
       
       return [10, 20, 30].includes(this.kriData.kri_status) &&
-             canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
+             PermissionManager.canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
     },
 
     // Count approved atomic elements
@@ -355,7 +356,7 @@ export default {
       // Approve action for Data Provider (status 40) or KRI Owner (status 50)
       if ([40, 50].includes(currentStatus)) {
         const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
-        const canApprove = canPerformAction(userPermissions, requiredPermission, currentStatus, kriItem);
+        const canApprove = PermissionManager.canPerformAction(userPermissions, requiredPermission, currentStatus, kriItem);
         
         if (canApprove) {
           actions.push({
@@ -374,7 +375,7 @@ export default {
       // Reject action for approvers
       if ([40, 50].includes(currentStatus)) {
         const requiredPermission = currentStatus === 40 ? 'review' : 'acknowledge';
-        const canReject = canPerformAction(userPermissions, requiredPermission, currentStatus, kriItem);
+        const canReject = PermissionManager.canPerformAction(userPermissions, requiredPermission, currentStatus, kriItem);
         
         if (canReject) {
           actions.push({
@@ -392,7 +393,7 @@ export default {
       
       // Override action for KRI Owner
       if ([40, 50].includes(currentStatus)) {
-        const canOverride = canPerformAction(userPermissions, 'acknowledge', currentStatus, kriItem);
+        const canOverride = PermissionManager.canPerformAction(userPermissions, 'acknowledge', currentStatus, kriItem);
         
         if (canOverride) {
           actions.push({
