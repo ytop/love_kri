@@ -5,6 +5,13 @@
             <h4>Data Elements</h4>
         </div>
         <div class="right-actions">
+            <el-button
+              type="primary"
+              icon="el-icon-edit"
+              @click="openBulkInputDialog"
+              size="small">
+              Bulk Input
+            </el-button>
             <button class="btn btn-success" id="approveSelectedBtn" @click="approveSelectedRows">Approve Selected</button>
             <button class="btn btn-danger" id="rejectSelectedBtn" @click="rejectSelectedRows">Reject Selected</button>
         </div>
@@ -20,17 +27,39 @@
                 <th>Provider</th>
                 <th>Evidence</th>
                 <th>Comment</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             <tr v-if="atomicData.length === 0">
-                <td colspan="8" style="text-align: center; padding: 16px;">No data elements available</td>
+                <td colspan="9" style="text-align: center; padding: 16px;">No data elements available</td>
             </tr>
-            <tr v-else v-for="item in atomicData" :key="item.atomic_id" :data-item-status="mapAtomicStatus(item.atomic_status)">
+            <tr v-for="item in atomicData" :key="item.atomic_id" :data-item-status="mapAtomicStatus(item.atomic_status)">
                 <td><input type="checkbox" class="row-checkbox" :value="item.atomic_id" v-model="selectedItems"></td>
                 <td>{{ item.atomic_id }}</td>
                 <td>{{ item.atomic_metadata }}</td> <!-- Using atomic_metadata for Data Element Name -->
-                <td class="data-value" :data-original-value="item.atomic_value">{{ item.atomic_value }}</td>
+                <td class="data-value" :data-original-value="item.atomic_value">
+                  <template v-if="canEditAtomicElement(item)">
+                    <el-input-number
+                      v-if="editingAtomic === item.atomic_id"
+                      v-model="editingValue"
+                      :precision="2"
+                      size="small"
+                      @blur="saveAtomicValue(item)"
+                      @keyup.enter="saveAtomicValue(item)"
+                      @keyup.esc="cancelEdit"
+                      style="width: 120px"
+                      ref="editInput">
+                    </el-input-number>
+                    <div v-else class="editable-value" @click="startEditAtomic(item)">
+                      <span class="value-display">{{ item.atomic_value || 'Click to edit' }}</span>
+                      <i class="el-icon-edit-outline edit-icon"></i>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <span class="readonly-value">{{ item.atomic_value || 'N/A' }}</span>
+                  </template>
+                </td>
                 <td>
                     <el-tag 
                         :type="getAtomicStatusType(item.atomic_status)"
@@ -42,25 +71,120 @@
                 <td>{{ getProviderName(item) }}</td>
                 <td>{{ getEvidenceInfo(item) }}</td>
                 <td>{{ getCommentInfo(item) }}</td>
+                <td>
+                  <div class="row-actions">
+                    <template v-if="canApproveAtomicElement(item)">
+                      <el-button
+                        type="success"
+                        icon="el-icon-check"
+                        size="mini"
+                        @click="approveAtomicElement(item)">
+                        Approve
+                      </el-button>
+                      <el-button
+                        type="danger"
+                        icon="el-icon-close"
+                        size="mini"
+                        @click="rejectAtomicElement(item)">
+                        Reject
+                      </el-button>
+                    </template>
+                    <span v-else class="no-actions-text">No actions available</span>
+                  </div>
+                </td>
             </tr>
         </tbody>
     </table>
 
     <!-- Calculation Details Section -->
     <div class="formula-result-section">
-        <h4>Calculation Details</h4>
-        <div class="formula-item"><strong>Formula:</strong> (A - B) / C</div>
-        <div class="formula-item"><strong>Calculation:</strong> (1,234,567 - 1,100,000) / 500,000</div>
-        <div class="formula-item"><strong>Result:</strong> 0.269134</div>
+        <div class="formula-header">
+          <h4>
+            <i class="el-icon-s-data"></i>
+            Calculation Details
+          </h4>
+          <el-tag v-if="isDynamicResult" type="success" size="mini" class="live-tag">
+            <i class="el-icon-refresh"></i> Live
+          </el-tag>
+        </div>
+        
+        <div class="formula-content">
+          <div class="formula-item">
+            <div class="formula-label">
+              <i class="el-icon-edit-outline"></i>
+              <strong>Formula:</strong>
+            </div>
+            <code class="formula-code">{{ kriDetail.kri_formula || 'No formula defined' }}</code>
+          </div>
+          
+          <div class="formula-item">
+            <div class="formula-label">
+              <i class="el-icon-s-operation"></i>
+              <strong>Substitution:</strong>
+            </div>
+            <code class="calculation-code">{{ calculateFormula() }}</code>
+          </div>
+          
+          <div class="formula-item result-item">
+            <div class="formula-label">
+              <i class="el-icon-s-marketing"></i>
+              <strong>Result:</strong>
+            </div>
+            <div class="result-container">
+              <span class="result-value" :class="{'result-highlight': isDynamicResult}">
+                {{ calculatedResult }}
+              </span>
+              <div v-if="isDynamicResult" class="result-status">
+                <el-tag type="warning" size="mini">
+                  <i class="el-icon-warning-outline"></i>
+                  Different from stored value ({{ kriDetail.kri_value }})
+                </el-tag>
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="atomicData.length > 0" class="atomic-values-section">
+            <div class="formula-label">
+              <i class="el-icon-collection"></i>
+              <strong>Atomic Values:</strong>
+            </div>
+            <div class="atomic-grid">
+              <div v-for="item in atomicData" :key="item.atomic_id" class="atomic-card">
+                <div class="atomic-header">
+                  <span class="atomic-id">{{ item.atomic_id }}</span>
+                  <el-tag :type="getAtomicStatusType(item.atomic_status)" size="mini">
+                    {{ mapAtomicStatus(item.atomic_status) }}
+                  </el-tag>
+                </div>
+                <div class="atomic-name">{{ item.atomic_metadata || `Element ${item.atomic_id}` }}</div>
+                <div class="atomic-value-display">{{ item.atomic_value || 'N/A' }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
     </div>
+
+    <!-- Atomic Input Dialog -->
+    <atomic-input-dialog
+      v-model="showBulkInputDialog"
+      :atomic-data="atomicData"
+      :kri-detail="kriDetail"
+      :previous-data="previousAtomicData"
+      @data-updated="handleBulkDataUpdate">
+    </atomic-input-dialog>
   </div>
 </template>
 
 <script>
-import { mapStatus, getStatusTagType } from '@/utils/helpers';
+import { mapState } from 'vuex';
+import { mapStatus, getStatusTagType, canPerformAction } from '@/utils/helpers';
+import AtomicInputDialog from './AtomicInputDialog.vue';
 
 export default {
   name: 'KRIDataElements',
+  components: {
+    AtomicInputDialog
+  },
   props: {
     atomicData: {
       type: Array,
@@ -78,8 +202,63 @@ export default {
   data() {
     return {
       selectAll: false,
-      selectedItems: [] // To store atomic_ids of selected items
+      selectedItems: [], // To store atomic_ids of selected items
+      editingAtomic: null, // Currently editing atomic element ID
+      editingValue: null, // Current editing value
+      showBulkInputDialog: false,
+      previousAtomicData: [] // Previous period data for comparison
     };
+  },
+  computed: {
+    ...mapState('kri', ['currentUser']),
+    
+    // Calculate if result is dynamic (different from stored KRI value)
+    isDynamicResult() {
+      const storedValue = parseFloat(this.kriDetail.kri_value) || 0;
+      const calculatedValue = parseFloat(this.calculatedResult) || 0;
+      return Math.abs(storedValue - calculatedValue) > 0.01; // Allow for small floating point differences
+    },
+    
+    // Calculate the result based on atomic values
+    calculatedResult() {
+      if (this.atomicData.length === 0) {
+        return this.kriDetail.kri_value || 'N/A';
+      }
+      
+      try {
+        // Simple calculation based on common formula patterns
+        const values = this.atomicData.map(item => parseFloat(item.atomic_value) || 0);
+        
+        if (values.length === 0) {
+          return 'No valid values';
+        }
+        
+        // Try to parse the formula and calculate
+        const formula = this.kriDetail.kri_formula;
+        if (formula && formula.includes('/')) {
+          // Simple division case: (A - B) / C
+          if (values.length >= 3) {
+            const result = (values[0] - values[1]) / values[2];
+            return isNaN(result) ? 'Invalid calculation' : result.toFixed(4);
+          }
+        } else if (formula && formula.includes('+')) {
+          // Simple sum
+          const result = values.reduce((sum, val) => sum + val, 0);
+          return result.toFixed(4);
+        } else if (formula && formula.includes('-')) {
+          // Simple subtraction
+          const result = values.reduce((diff, val, index) => index === 0 ? val : diff - val, 0);
+          return result.toFixed(4);
+        }
+        
+        // Default: return sum
+        const result = values.reduce((sum, val) => sum + val, 0);
+        return result.toFixed(4);
+      } catch (error) {
+        console.error('Calculation error:', error);
+        return 'Calculation error';
+      }
+    }
   },
   methods: {
     // Use centralized unified status functions
@@ -95,25 +274,80 @@ export default {
       }
     },
 
-    approveSelectedRows() {
+    async approveSelectedRows() {
       if (this.selectedItems.length === 0) {
-        console.warn('No items selected to approve.');
-        // Optionally, show a user message via a notification system if available
+        this.$message.warning('No items selected to approve.');
         return;
       }
-      console.log('Approving selected items:', this.selectedItems);
-      // In a real app, this would dispatch a Vuex action or call a service.
-      // For now, it will just log.
-      // Potentially, clear selection and refresh data or update statuses locally.
+      
+      this.$confirm(`Are you sure you want to approve ${this.selectedItems.length} selected atomic data element(s)?`, 'Confirm Approval', {
+        confirmButtonText: 'Approve',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }).then(async () => {
+        try {
+          const result = await this.$store.dispatch('kri/approveAtomicElements', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date,
+            atomicIds: this.selectedItems
+          });
+          
+          if (result.success) {
+            this.$message.success(`${this.selectedItems.length} atomic element(s) approved successfully`);
+            this.selectedItems = [];
+            this.selectAll = false;
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to approve atomic elements');
+          }
+        } catch (error) {
+          console.error('Error approving atomic elements:', error);
+          this.$message.error('Failed to approve atomic elements');
+        }
+      }).catch(() => {
+        // User cancelled
+      });
     },
 
-    rejectSelectedRows() {
+    async rejectSelectedRows() {
       if (this.selectedItems.length === 0) {
-        console.warn('No items selected to reject.');
+        this.$message.warning('No items selected to reject.');
         return;
       }
-      console.log('Rejecting selected items:', this.selectedItems);
-      // Similar to approve, this would involve backend interaction.
+      
+      try {
+        const reasonPrompt = await this.$prompt('Please provide a reason for rejection:', 'Reject Atomic Elements', {
+          confirmButtonText: 'Reject',
+          cancelButtonText: 'Cancel',
+          inputValidator: (value) => {
+            if (!value || value.trim().length < 3) {
+              return 'Reason must be at least 3 characters long';
+            }
+            return true;
+          }
+        });
+        
+        const result = await this.$store.dispatch('kri/rejectAtomicElements', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicIds: this.selectedItems,
+          reason: reasonPrompt.value
+        });
+        
+        if (result.success) {
+          this.$message.success(`${this.selectedItems.length} atomic element(s) rejected successfully`);
+          this.selectedItems = [];
+          this.selectAll = false;
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to reject atomic elements');
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Error rejecting atomic elements:', error);
+          this.$message.error('Failed to reject atomic elements');
+        }
+      }
     },
 
     getProviderName(_item) {
@@ -130,6 +364,228 @@ export default {
     getCommentInfo(item) {
       // Comments from atomic metadata or audit trail
       return item.comment || item.atomic_metadata || 'No comment';
+    },
+
+    // Calculate formula with actual values substituted
+    calculateFormula() {
+      if (this.atomicData.length === 0 || !this.kriDetail.kri_formula) {
+        return 'No formula or data available';
+      }
+      
+      try {
+        let formula = this.kriDetail.kri_formula;
+        const values = this.atomicData.map(item => parseFloat(item.atomic_value) || 0);
+        
+        // Replace common variable patterns (A, B, C, etc.) with actual values
+        const variables = ['A', 'B', 'C', 'D', 'E', 'F'];
+        variables.forEach((variable, index) => {
+          if (values[index] !== undefined) {
+            formula = formula.replace(new RegExp(variable, 'g'), values[index].toString());
+          }
+        });
+        
+        return formula;
+      } catch (error) {
+        console.error('Formula substitution error:', error);
+        return 'Formula substitution error';
+      }
+    },
+
+    // Permission checking methods
+    canEditAtomicElement(item) {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriDetail.kri_id,
+        reportingDate: this.kriDetail.reporting_date
+      };
+      
+      // Can edit in statuses 10, 20, 30 with proper permissions
+      const canEdit = [10, 20, 30].includes(item.atomic_status);
+      const hasPermission = canPerformAction(userPermissions, 'edit', item.atomic_status, kriItem, item.atomic_id);
+      
+      return canEdit && hasPermission;
+    },
+
+    canApproveAtomicElement(item) {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriDetail.kri_id,
+        reportingDate: this.kriDetail.reporting_date
+      };
+      
+      // Can approve if in appropriate status and has permission
+      const canApprove = [30, 40].includes(item.atomic_status); // Saved or submitted status
+      const hasPermission = canPerformAction(userPermissions, 'review', item.atomic_status, kriItem, item.atomic_id);
+      
+      return canApprove && hasPermission;
+    },
+
+    // Inline editing methods
+    startEditAtomic(item) {
+      this.editingAtomic = item.atomic_id;
+      this.editingValue = parseFloat(item.atomic_value) || 0;
+      this.$nextTick(() => {
+        const input = this.$refs.editInput;
+        if (input && input.focus) {
+          input.focus();
+        }
+      });
+    },
+
+    cancelEdit() {
+      this.editingAtomic = null;
+      this.editingValue = null;
+    },
+
+    async saveAtomicValue(item) {
+      // Enhanced validation
+      if (this.editingValue === null || this.editingValue === '') {
+        this.$message({
+          message: 'Please enter a valid numeric value',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      if (isNaN(this.editingValue)) {
+        this.$message({
+          message: 'Value must be a valid number',
+          type: 'warning',
+          duration: 3000
+        });
+        return;
+      }
+
+      // Check if value actually changed
+      const currentValue = parseFloat(item.atomic_value) || 0;
+      if (Math.abs(currentValue - this.editingValue) < 0.001) {
+        this.cancelEdit();
+        return;
+      }
+
+      const loadingMessage = this.$message({
+        message: `Saving atomic element ${item.atomic_id}...`,
+        type: 'info',
+        duration: 0,
+        iconClass: 'el-icon-loading'
+      });
+
+      try {
+        const result = await this.$store.dispatch('kri/saveAtomicValue', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicId: item.atomic_id,
+          value: this.editingValue.toString()
+        });
+
+        if (result.success) {
+          this.$message({
+            message: `Atomic element ${item.atomic_id} saved successfully`,
+            type: 'success',
+            duration: 2000
+          });
+          this.$emit('data-updated');
+        } else {
+          this.$message({
+            message: result.error || 'Failed to save atomic value',
+            type: 'error',
+            duration: 4000
+          });
+        }
+      } catch (error) {
+        console.error('Error saving atomic value:', error);
+        this.$message({
+          message: 'Network error: Failed to save atomic value',
+          type: 'error',
+          duration: 4000
+        });
+      } finally {
+        loadingMessage.close();
+        this.editingAtomic = null;
+        this.editingValue = null;
+      }
+    },
+
+    // Individual row approval/rejection methods
+    async approveAtomicElement(item) {
+      this.$confirm(`Are you sure you want to approve atomic element ${item.atomic_id}?`, 'Confirm Approval', {
+        confirmButtonText: 'Approve',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }).then(async () => {
+        try {
+          const result = await this.$store.dispatch('kri/approveAtomicElements', {
+            kriId: this.kriDetail.kri_id,
+            reportingDate: this.kriDetail.reporting_date,
+            atomicIds: [item.atomic_id]
+          });
+
+          if (result.success) {
+            this.$message.success(`Atomic element ${item.atomic_id} approved successfully`);
+            this.$emit('data-updated');
+          } else {
+            this.$message.error(result.error || 'Failed to approve atomic element');
+          }
+        } catch (error) {
+          console.error('Error approving atomic element:', error);
+          this.$message.error('Failed to approve atomic element');
+        }
+      }).catch(() => {
+        // User cancelled
+      });
+    },
+
+    async rejectAtomicElement(item) {
+      try {
+        const reasonPrompt = await this.$prompt('Please provide a reason for rejection:', 'Reject Atomic Element', {
+          confirmButtonText: 'Reject',
+          cancelButtonText: 'Cancel',
+          inputValidator: (value) => {
+            if (!value || value.trim().length < 3) {
+              return 'Reason must be at least 3 characters long';
+            }
+            return true;
+          }
+        });
+
+        const result = await this.$store.dispatch('kri/rejectAtomicElements', {
+          kriId: this.kriDetail.kri_id,
+          reportingDate: this.kriDetail.reporting_date,
+          atomicIds: [item.atomic_id],
+          reason: reasonPrompt.value
+        });
+
+        if (result.success) {
+          this.$message.success(`Atomic element ${item.atomic_id} rejected successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to reject atomic element');
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Error rejecting atomic element:', error);
+          this.$message.error('Failed to reject atomic element');
+        }
+      }
+    },
+
+    // Bulk input dialog methods
+    openBulkInputDialog() {
+      // Check if user can edit atomic elements
+      const canEdit = this.atomicData.some(item => this.canEditAtomicElement(item));
+      if (!canEdit) {
+        this.$message.warning('You do not have permission to edit atomic elements for this KRI');
+        return;
+      }
+
+      this.showBulkInputDialog = true;
+    },
+
+    handleBulkDataUpdate() {
+      // Emit event to parent to refresh data
+      this.$emit('data-updated');
+      this.showBulkInputDialog = false;
     }
   },
   watch: {
@@ -253,34 +709,232 @@ export default {
 }
 /* .upload-icon, .comment-icon { } */
 
-/* Formula/Calculation Result Section */
+/* Enhanced Formula/Calculation Result Section */
 .formula-result-section {
     background-color: #f8f9fa;
-    padding: 16px;
-    border-radius: 8px;
-    margin: 15px 0;
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px 0;
     border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
-.formula-result-section h4 {
-    font-size: 16px;
-    margin-bottom: 16px;
+
+.formula-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
     padding-bottom: 12px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.formula-header h4 {
+    font-size: 18px;
     color: #1a202c;
     font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
+
+.live-tag {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.formula-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
 .formula-item {
-    margin-bottom: 8px;
-    font-size: 14px;
-    color: #4a5568;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
-.formula-item strong {
-    display: inline-block;
-    width: 90px;
+
+.formula-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: #718096;
     font-weight: 500;
+    font-size: 14px;
 }
-.formula-item:last-child {
-    margin-bottom: 0;
+
+.formula-code, .calculation-code {
+    background-color: #2d3748;
+    color: #e2e8f0;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    border: 1px solid #4a5568;
+    overflow-x: auto;
+}
+
+.result-item {
+    background-color: white;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.result-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.result-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #059669;
+    padding: 8px 16px;
+    border-radius: 6px;
+    background-color: #f0fdf4;
+}
+
+.result-status {
+    flex: 1;
+}
+
+.atomic-values-section {
+    background-color: white;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.atomic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.atomic-card {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.2s ease;
+}
+
+.atomic-card:hover {
+    border-color: #409eff;
+    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.atomic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.atomic-id {
+    font-weight: 600;
+    color: #409eff;
+    font-size: 12px;
+}
+
+.atomic-name {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.atomic-value-display {
+    font-size: 16px;
+    font-weight: 600;
+    color: #059669;
+    background-color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #d1fae5;
+    text-align: center;
+}
+
+/* Row Actions Styling */
+.row-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.row-actions .el-button {
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+}
+
+.no-actions-text {
+    color: #909399;
+    font-size: 11px;
+    font-style: italic;
+}
+
+/* Enhanced inline editing styles */
+.editable-value {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 80px;
+}
+
+.editable-value:hover {
+    background-color: #f0f9ff;
+    border: 1px solid #409eff;
+}
+
+.value-display {
+    flex: 1;
+}
+
+.edit-icon {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    color: #409eff;
+    font-size: 12px;
+}
+
+.editable-value:hover .edit-icon {
+    opacity: 1;
+}
+
+.readonly-value {
+    color: #606266;
+}
+
+/* Dynamic calculation styling - enhanced */
+.result-highlight {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+    animation: highlightPulse 3s ease-in-out;
+}
+
+@keyframes highlightPulse {
+    0%, 100% { 
+        background-color: #fef3c7; 
+        transform: scale(1);
+    }
+    50% { 
+        background-color: #fbbf24; 
+        transform: scale(1.02);
+    }
 }
 </style>

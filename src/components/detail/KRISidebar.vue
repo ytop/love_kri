@@ -6,14 +6,63 @@
         <span>Quick Actions</span>
       </div>
       <div class="actions">
-        <div v-if="isCalculatedKRI" class="calculated-kri-notice">
+        <div v-if="isCalculatedKRI" class="calculated-kri-actions">
           <el-alert
             title="Calculated KRI"
-            description="Quick actions are disabled for calculated KRIs. Please manage data elements instead."
+            description="Manage atomic data elements to update this KRI value."
             type="info"
             :closable="false"
             show-icon>
           </el-alert>
+          
+          <!-- Calculated KRI Actions -->
+          <template v-if="showCalculatedKRIActions">
+            <div class="calculated-actions">
+              <el-button
+                type="primary"
+                icon="el-icon-refresh"
+                @click="handleCalculateFromAtomic"
+                :loading="actionLoading"
+                size="small"
+                style="width: 100%;">
+                Recalculate KRI Value
+              </el-button>
+              <el-button
+                v-if="canSubmitAtomicData"
+                type="success"
+                icon="el-icon-upload"
+                @click="handleSubmitAtomicData"
+                :loading="actionLoading"
+                size="small"
+                style="width: 100%;">
+                Submit Atomic Data
+              </el-button>
+            </div>
+            <div class="atomic-summary">
+              <div class="summary-item">
+                <label>Total Elements:</label>
+                <span>{{ atomicData.length }}</span>
+              </div>
+              <div class="summary-item">
+                <label>Approved:</label>
+                <span class="approved-count">{{ approvedAtomicCount }}</span>
+              </div>
+              <div class="summary-item">
+                <label>Pending:</label>
+                <span class="pending-count">{{ pendingAtomicCount }}</span>
+              </div>
+              <div class="summary-item">
+                <label>Completeness:</label>
+                <el-progress
+                  :percentage="atomicCompletenessPercentage"
+                  :color="getProgressColor(atomicCompletenessPercentage)"
+                  :stroke-width="6"
+                  :show-text="false">
+                </el-progress>
+                <span class="percentage-text">{{ atomicCompletenessPercentage }}%</span>
+              </div>
+            </div>
+          </template>
         </div>
         <template v-else>
           <!-- Data Input Actions for Pending Input/Under Rework status -->
@@ -255,6 +304,49 @@ export default {
     // Determine if this is a calculated KRI (has atomic data elements)
     isCalculatedKRI() {
       return this.atomicData && this.atomicData.length > 0;
+    },
+
+    // Check if user can perform calculated KRI actions
+    showCalculatedKRIActions() {
+      if (!this.isCalculatedKRI) return false;
+      
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date
+      };
+      
+      // Show actions if user can edit or review
+      return canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem) ||
+             canPerformAction(userPermissions, 'review', this.kriData.kri_status, kriItem);
+    },
+
+    // Check if user can submit atomic data
+    canSubmitAtomicData() {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date
+      };
+      
+      return [10, 20, 30].includes(this.kriData.kri_status) &&
+             canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
+    },
+
+    // Count approved atomic elements
+    approvedAtomicCount() {
+      return this.atomicData.filter(item => item.atomic_status === 60).length;
+    },
+
+    // Count pending atomic elements (not finalized)
+    pendingAtomicCount() {
+      return this.atomicData.filter(item => item.atomic_status !== 60).length;
+    },
+
+    // Calculate atomic data completeness percentage
+    atomicCompletenessPercentage() {
+      if (this.atomicData.length === 0) return 0;
+      return Math.round((this.approvedAtomicCount / this.atomicData.length) * 100);
     },
 
     gaugeOption() {
@@ -672,6 +764,63 @@ export default {
           console.error('Error rejecting KRI:', error);
           this.$message.error('Failed to reject KRI');
         }
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    // Calculated KRI action handlers
+    async handleCalculateFromAtomic() {
+      this.actionLoading = true;
+      
+      try {
+        const result = await this.$store.dispatch('kri/calculateKRIFromAtomic', {
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date
+        });
+        
+        if (result.success) {
+          this.$message.success('KRI value recalculated successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to recalculate KRI value');
+        }
+      } catch (error) {
+        console.error('Error calculating KRI from atomic:', error);
+        this.$message.error('Failed to recalculate KRI value');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async handleSubmitAtomicData() {
+      // Check if all atomic elements have values
+      const missingValues = this.atomicData.filter(item => 
+        !item.atomic_value || item.atomic_value === 'N/A' || item.atomic_value === ''
+      );
+
+      if (missingValues.length > 0) {
+        this.$message.warning(`${missingValues.length} atomic element(s) are missing values. Please complete all data before submission.`);
+        return;
+      }
+
+      this.actionLoading = true;
+      
+      try {
+        const result = await this.$store.dispatch('kri/submitAtomicData', {
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date
+        });
+        
+        if (result.success) {
+          this.$message.success('Atomic data submitted successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to submit atomic data');
+        }
+      } catch (error) {
+        console.error('Error submitting atomic data:', error);
+        this.$message.error('Failed to submit atomic data');
       } finally {
         this.actionLoading = false;
       }

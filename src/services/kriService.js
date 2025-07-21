@@ -589,4 +589,517 @@ export const kriService = {
     return { success: true };
   },
 
+  // Atomic Data Element Management Methods
+
+  // Save atomic value (update specific atomic element)
+  async saveAtomicValue(kriId, reportingDate, atomicId, atomicValue, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      const { data, error } = await supabase
+        .from('kri_atomic')
+        .update({
+          atomic_value: atomicValue,
+          atomic_status: 30 // Saved status
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .eq('atomic_id', parseInt(atomicId))
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving atomic value:', error);
+        throw new Error('Failed to save atomic value');
+      }
+
+      // Add audit trail entry for atomic value change
+      await this.addAuditTrailEntry(kriId, reportingDate, 'atomic_save', `atomic_${atomicId}_value`, null, atomicValue, changedBy, `Atomic element ${atomicId} value saved`);
+
+      return data;
+    } catch (error) {
+      console.error('Save atomic value error:', error);
+      throw error;
+    }
+  },
+
+  // Approve atomic data elements
+  async approveAtomicElements(kriId, reportingDate, atomicIds, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Update multiple atomic elements to approved status (60)
+      const { data, error } = await supabase
+        .from('kri_atomic')
+        .update({
+          atomic_status: 60 // Finalized status
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .in('atomic_id', atomicIds.map(id => parseInt(id)))
+        .select();
+
+      if (error) {
+        console.error('Error approving atomic elements:', error);
+        throw new Error('Failed to approve atomic elements');
+      }
+
+      // Add audit trail entries for each approved element
+      for (const atomicId of atomicIds) {
+        await this.addAuditTrailEntry(
+          kriId, 
+          reportingDate, 
+          'atomic_approve', 
+          `atomic_${atomicId}_status`, 
+          null, 
+          '60', 
+          changedBy, 
+          `Atomic element ${atomicId} approved`
+        );
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Approve atomic elements error:', error);
+      throw error;
+    }
+  },
+
+  // Reject atomic data elements
+  async rejectAtomicElements(kriId, reportingDate, atomicIds, reason, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Update multiple atomic elements to rejected status (20 - Under Rework)
+      const { data, error } = await supabase
+        .from('kri_atomic')
+        .update({
+          atomic_status: 20 // Under Rework status
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .in('atomic_id', atomicIds.map(id => parseInt(id)))
+        .select();
+
+      if (error) {
+        console.error('Error rejecting atomic elements:', error);
+        throw new Error('Failed to reject atomic elements');
+      }
+
+      // Add audit trail entries for each rejected element
+      for (const atomicId of atomicIds) {
+        await this.addAuditTrailEntry(
+          kriId, 
+          reportingDate, 
+          'atomic_reject', 
+          `atomic_${atomicId}_status`, 
+          null, 
+          '20', 
+          changedBy, 
+          `Atomic element ${atomicId} rejected: ${reason}`
+        );
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Reject atomic elements error:', error);
+      throw error;
+    }
+  },
+
+  // Submit atomic data (move all atomic elements to submitted status)
+  async submitAtomicData(kriId, reportingDate, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Update all atomic elements to submitted status (40)
+      const { data, error } = await supabase
+        .from('kri_atomic')
+        .update({
+          atomic_status: 40 // Submitted to Data Provider Approver
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select();
+
+      if (error) {
+        console.error('Error submitting atomic data:', error);
+        throw new Error('Failed to submit atomic data');
+      }
+
+      // Add audit trail entry for atomic data submission
+      await this.addAuditTrailEntry(
+        kriId, 
+        reportingDate, 
+        'atomic_submit', 
+        'atomic_data_status', 
+        null, 
+        '40', 
+        changedBy, 
+        'All atomic data elements submitted for approval'
+      );
+
+      return data;
+    } catch (error) {
+      console.error('Submit atomic data error:', error);
+      throw error;
+    }
+  },
+
+  // Bulk update atomic values (for efficient bulk operations)
+  async bulkUpdateAtomicValues(kriId, reportingDate, atomicUpdates, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      const updatePromises = atomicUpdates.map(async (update) => {
+        const { data, error } = await supabase
+          .from('kri_atomic')
+          .update({
+            atomic_value: update.value,
+            atomic_status: 30 // Saved status
+          })
+          .eq('kri_id', parseInt(kriId))
+          .eq('reporting_date', reportingDateAsInt)
+          .eq('atomic_id', parseInt(update.atomicId))
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`Error updating atomic ${update.atomicId}:`, error);
+          throw new Error(`Failed to update atomic element ${update.atomicId}`);
+        }
+
+        // Add audit trail entry for each atomic value change
+        await this.addAuditTrailEntry(
+          kriId, 
+          reportingDate, 
+          'bulk_atomic_save', 
+          `atomic_${update.atomicId}_value`, 
+          update.oldValue || null, 
+          update.value, 
+          changedBy, 
+          `Atomic element ${update.atomicId} updated via bulk operation`
+        );
+
+        return data;
+      });
+
+      const results = await Promise.all(updatePromises);
+      
+      // Add overall bulk operation audit entry
+      await this.addAuditTrailEntry(
+        kriId, 
+        reportingDate, 
+        'bulk_atomic_operation', 
+        'atomic_data_bulk_update', 
+        null, 
+        `${atomicUpdates.length} elements updated`, 
+        changedBy, 
+        `Bulk update operation completed for ${atomicUpdates.length} atomic elements`
+      );
+
+      return results;
+    } catch (error) {
+      console.error('Bulk update atomic values error:', error);
+      throw error;
+    }
+  },
+
+  // Enhanced calculate KRI value from atomic elements with better formula support
+  async calculateKRIFromAtomic(kriId, reportingDate, changedBy) {
+    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+    
+    try {
+      // Get KRI details and atomic data
+      const [kriDetail, atomicData] = await Promise.all([
+        this.fetchKRIDetail(kriId, reportingDate),
+        this.fetchKRIAtomic(kriId, reportingDate)
+      ]);
+
+      if (!kriDetail || !atomicData || atomicData.length === 0) {
+        throw new Error('KRI or atomic data not found');
+      }
+
+      // Enhanced calculation logic with better formula support
+      const result = this.executeFormulaCalculation(kriDetail.kri_formula, atomicData);
+      
+      if (isNaN(result) || !isFinite(result)) {
+        throw new Error('Calculation resulted in invalid number');
+      }
+
+      // Calculate new breach status
+      const newBreachStatus = calculateBreachStatus(result, kriDetail.warning_line_value, kriDetail.limit_value);
+
+      // Update KRI with calculated value
+      const { data, error } = await supabase
+        .from('kri_item')
+        .update({
+          kri_value: result.toString(),
+          breach_type: newBreachStatus
+        })
+        .eq('kri_id', parseInt(kriId))
+        .eq('reporting_date', reportingDateAsInt)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating calculated KRI value:', error);
+        throw new Error('Failed to update calculated KRI value');
+      }
+
+      // Add audit trail entry
+      await this.addAuditTrailEntry(
+        kriId, 
+        reportingDate, 
+        'calculate_kri', 
+        'kri_value', 
+        kriDetail.kri_value, 
+        result.toString(), 
+        changedBy, 
+        `KRI value calculated from atomic elements: ${result}`
+      );
+
+      return {
+        ...data,
+        calculatedValue: result,
+        previousValue: kriDetail.kri_value,
+        atomicValues: atomicData.map(item => ({ 
+          id: item.atomic_id, 
+          value: item.atomic_value 
+        }))
+      };
+    } catch (error) {
+      console.error('Calculate KRI from atomic error:', error);
+      throw error;
+    }
+  },
+
+  // Enhanced formula execution engine
+  executeFormulaCalculation(formula, atomicData) {
+    if (!formula || !atomicData || atomicData.length === 0) {
+      throw new Error('Invalid formula or atomic data');
+    }
+
+    try {
+      const values = atomicData.map(item => parseFloat(item.atomic_value) || 0);
+      
+      // Create a mapping of variable names to values
+      const variableMap = {};
+      const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+      
+      // Map atomic data to variables
+      atomicData.forEach((item, index) => {
+        if (variables[index]) {
+          variableMap[variables[index]] = parseFloat(item.atomic_value) || 0;
+        }
+        // Also map by atomic_id
+        variableMap[`ATOMIC_${item.atomic_id}`] = parseFloat(item.atomic_value) || 0;
+      });
+
+      // Enhanced formula patterns
+      let result = 0;
+      const normalizedFormula = formula.toUpperCase().trim();
+
+      // Pattern 1: Simple arithmetic with variables (A + B, A - B, A * B, A / B)
+      if (this.isSimpleArithmeticFormula(normalizedFormula)) {
+        result = this.evaluateSimpleArithmetic(normalizedFormula, variableMap);
+      }
+      // Pattern 2: Complex formula with parentheses ((A - B) / C, (A + B) * C, etc.)
+      else if (normalizedFormula.includes('(') && normalizedFormula.includes(')')) {
+        result = this.evaluateComplexFormula(normalizedFormula, variableMap);
+      }
+      // Pattern 3: Percentage calculations (A / B * 100)
+      else if (normalizedFormula.includes('* 100') || normalizedFormula.includes('*100')) {
+        result = this.evaluatePercentageFormula(normalizedFormula, variableMap);
+      }
+      // Pattern 4: SUM function (SUM(A,B,C) or SUM(A:C))
+      else if (normalizedFormula.includes('SUM(')) {
+        result = this.evaluateSumFormula(normalizedFormula, variableMap);
+      }
+      // Pattern 5: AVERAGE function (AVERAGE(A,B,C) or AVG(A:C))
+      else if (normalizedFormula.includes('AVERAGE(') || normalizedFormula.includes('AVG(')) {
+        result = this.evaluateAverageFormula(normalizedFormula, variableMap);
+      }
+      // Pattern 6: MAX/MIN functions
+      else if (normalizedFormula.includes('MAX(') || normalizedFormula.includes('MIN(')) {
+        result = this.evaluateMinMaxFormula(normalizedFormula, variableMap);
+      }
+      // Fallback: Legacy simple patterns
+      else {
+        result = this.evaluateLegacyFormula(formula, values);
+      }
+
+      // Validate result
+      if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) {
+        throw new Error(`Formula calculation resulted in invalid value: ${result}`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Formula execution error:', error);
+      throw new Error(`Formula calculation failed: ${error.message}`);
+    }
+  },
+
+  // Helper methods for formula evaluation
+  isSimpleArithmeticFormula(formula) {
+    const simplePattern = /^[A-Z]\s*[+\-*/]\s*[A-Z](\s*[+\-*/]\s*[A-Z])*$/;
+    return simplePattern.test(formula.replace(/\s/g, ''));
+  },
+
+  evaluateSimpleArithmetic(formula, variableMap) {
+    let expression = formula;
+    Object.keys(variableMap).forEach(variable => {
+      const regex = new RegExp(`\\b${variable}\\b`, 'g');
+      expression = expression.replace(regex, variableMap[variable].toString());
+    });
+    
+    // Use safer evaluation
+    return this.safeEval(expression);
+  },
+
+  evaluateComplexFormula(formula, variableMap) {
+    let expression = formula;
+    Object.keys(variableMap).forEach(variable => {
+      const regex = new RegExp(`\\b${variable}\\b`, 'g');
+      expression = expression.replace(regex, variableMap[variable].toString());
+    });
+    
+    return this.safeEval(expression);
+  },
+
+  evaluatePercentageFormula(formula, variableMap) {
+    let expression = formula;
+    Object.keys(variableMap).forEach(variable => {
+      const regex = new RegExp(`\\b${variable}\\b`, 'g');
+      expression = expression.replace(regex, variableMap[variable].toString());
+    });
+    
+    return this.safeEval(expression);
+  },
+
+  evaluateSumFormula(formula, variableMap) {
+    const sumMatch = formula.match(/SUM\(([^)]+)\)/);
+    if (!sumMatch) throw new Error('Invalid SUM formula');
+    
+    const params = sumMatch[1].split(',').map(p => p.trim());
+    let sum = 0;
+    
+    params.forEach(param => {
+      if (param.includes(':')) {
+        // Range notation (A:C)
+        const [start, end] = param.split(':');
+        const startVar = start.trim();
+        const endVar = end.trim();
+        // For simplicity, sum all variables from start to end
+        const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        const startIndex = variables.indexOf(startVar);
+        const endIndex = variables.indexOf(endVar);
+        
+        if (startIndex !== -1 && endIndex !== -1) {
+          for (let i = startIndex; i <= endIndex; i++) {
+            sum += variableMap[variables[i]] || 0;
+          }
+        }
+      } else {
+        // Single variable
+        sum += variableMap[param] || 0;
+      }
+    });
+    
+    return sum;
+  },
+
+  evaluateAverageFormula(formula, variableMap) {
+    const avgMatch = formula.match(/(AVERAGE|AVG)\(([^)]+)\)/);
+    if (!avgMatch) throw new Error('Invalid AVERAGE formula');
+    
+    const params = avgMatch[2].split(',').map(p => p.trim());
+    const values = [];
+    
+    params.forEach(param => {
+      if (param.includes(':')) {
+        // Range notation
+        const [start, end] = param.split(':');
+        const startVar = start.trim();
+        const endVar = end.trim();
+        const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        const startIndex = variables.indexOf(startVar);
+        const endIndex = variables.indexOf(endVar);
+        
+        if (startIndex !== -1 && endIndex !== -1) {
+          for (let i = startIndex; i <= endIndex; i++) {
+            values.push(variableMap[variables[i]] || 0);
+          }
+        }
+      } else {
+        values.push(variableMap[param] || 0);
+      }
+    });
+    
+    return values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
+  },
+
+  evaluateMinMaxFormula(formula, variableMap) {
+    const minMaxMatch = formula.match(/(MIN|MAX)\(([^)]+)\)/);
+    if (!minMaxMatch) throw new Error('Invalid MIN/MAX formula');
+    
+    const isMax = minMaxMatch[1] === 'MAX';
+    const params = minMaxMatch[2].split(',').map(p => p.trim());
+    const values = [];
+    
+    params.forEach(param => {
+      if (param.includes(':')) {
+        // Range notation
+        const [start, end] = param.split(':');
+        const startVar = start.trim();
+        const endVar = end.trim();
+        const variables = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        const startIndex = variables.indexOf(startVar);
+        const endIndex = variables.indexOf(endVar);
+        
+        if (startIndex !== -1 && endIndex !== -1) {
+          for (let i = startIndex; i <= endIndex; i++) {
+            values.push(variableMap[variables[i]] || 0);
+          }
+        }
+      } else {
+        values.push(variableMap[param] || 0);
+      }
+    });
+    
+    if (values.length === 0) return 0;
+    
+    return isMax ? Math.max(...values) : Math.min(...values);
+  },
+
+  evaluateLegacyFormula(formula, values) {
+    // Legacy fallback for simple patterns
+    if (formula.includes('/') && values.length >= 3) {
+      return (values[0] - values[1]) / values[2];
+    } else if (formula.includes('+')) {
+      return values.reduce((sum, val) => sum + val, 0);
+    } else if (formula.includes('-')) {
+      return values.reduce((diff, val, index) => index === 0 ? val : diff - val, 0);
+    } else if (formula.includes('*')) {
+      return values.reduce((product, val) => product * val, 1);
+    }
+    
+    // Default: sum
+    return values.reduce((sum, val) => sum + val, 0);
+  },
+
+  // Safer alternative to eval() for mathematical expressions
+  safeEval(expression) {
+    // Remove any non-mathematical characters for security
+    const sanitized = expression.replace(/[^0-9+\-*/.() ]/g, '');
+    
+    try {
+      // Use Function constructor instead of eval for better security
+      return new Function(`"use strict"; return (${sanitized})`)();
+    } catch (error) {
+      throw new Error(`Invalid mathematical expression: ${sanitized}`);
+    }
+  }
+
 };

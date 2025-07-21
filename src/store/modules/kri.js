@@ -565,6 +565,390 @@ const actions = {
       commit('SET_ERROR', error.message);
       return { success: false, error: error.message };
     }
+  },
+
+  // Atomic-Level Actions
+  
+  async saveAtomicValue({ commit, state }, { kriId, reportingDate, atomicId, value }) {
+    console.log('saveAtomicValue called with:', { kriId, reportingDate, atomicId, value });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      console.log('KRI not found in saveAtomicValue:', { kriId: String(kriId), reportingDate: String(reportingDate) });
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user can perform save action for atomic element
+    if (!canPerformAction(userPermissions, 'edit', currentKRI.rawData.kri_status, currentKRI, atomicId)) {
+      return { success: false, error: 'Insufficient permissions for atomic element' };
+    }
+    
+    try {
+      // Use kriService to save atomic value
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.saveAtomicValue with:', { kriId, formattedDate, atomicId, value });
+      
+      const updatedAtomic = await kriService.saveAtomicValue(
+        kriId, 
+        formattedDate, 
+        atomicId,
+        value, 
+        state.currentUser.name
+      );
+      
+      // Update local atomic data state
+      const atomicData = [...state.atomicData];
+      const atomicIndex = atomicData.findIndex(item => 
+        item.atomic_id === parseInt(atomicId) && 
+        item.kri_id === parseInt(kriId) && 
+        item.reporting_date === parseInt(reportingDate)
+      );
+      
+      if (atomicIndex !== -1) {
+        atomicData[atomicIndex] = {
+          ...atomicData[atomicIndex],
+          atomic_value: value,
+          atomic_status: 30
+        };
+        commit('SET_ATOMIC_DATA', atomicData);
+      }
+      
+      return { success: true, data: updatedAtomic };
+    } catch (error) {
+      console.error('Error saving atomic value:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async approveAtomicElements({ commit, state }, { kriId, reportingDate, atomicIds }) {
+    console.log('approveAtomicElements called with:', { kriId, reportingDate, atomicIds });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user has permission to approve atomic elements
+    const hasPermission = atomicIds.every(atomicId => 
+      canPerformAction(userPermissions, 'review', currentKRI.rawData.kri_status, currentKRI, atomicId)
+    );
+    
+    if (!hasPermission) {
+      return { success: false, error: 'Insufficient permissions to approve atomic elements' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.approveAtomicElements with:', { kriId, formattedDate, atomicIds });
+      
+      const updatedAtomics = await kriService.approveAtomicElements(
+        kriId, 
+        formattedDate, 
+        atomicIds,
+        state.currentUser.name
+      );
+      
+      // Update local atomic data state
+      const atomicData = [...state.atomicData];
+      atomicIds.forEach(atomicId => {
+        const atomicIndex = atomicData.findIndex(item => 
+          item.atomic_id === parseInt(atomicId) && 
+          item.kri_id === parseInt(kriId) && 
+          item.reporting_date === parseInt(reportingDate)
+        );
+        
+        if (atomicIndex !== -1) {
+          atomicData[atomicIndex] = {
+            ...atomicData[atomicIndex],
+            atomic_status: 60 // Approved status
+          };
+        }
+      });
+      
+      commit('SET_ATOMIC_DATA', atomicData);
+      return { success: true, data: updatedAtomics };
+    } catch (error) {
+      console.error('Error approving atomic elements:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async rejectAtomicElements({ commit, state }, { kriId, reportingDate, atomicIds, reason }) {
+    console.log('rejectAtomicElements called with:', { kriId, reportingDate, atomicIds, reason });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user has permission to reject atomic elements
+    const hasPermission = atomicIds.every(atomicId => 
+      canPerformAction(userPermissions, 'review', currentKRI.rawData.kri_status, currentKRI, atomicId)
+    );
+    
+    if (!hasPermission) {
+      return { success: false, error: 'Insufficient permissions to reject atomic elements' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.rejectAtomicElements with:', { kriId, formattedDate, atomicIds, reason });
+      
+      const updatedAtomics = await kriService.rejectAtomicElements(
+        kriId, 
+        formattedDate, 
+        atomicIds,
+        reason,
+        state.currentUser.name
+      );
+      
+      // Update local atomic data state
+      const atomicData = [...state.atomicData];
+      atomicIds.forEach(atomicId => {
+        const atomicIndex = atomicData.findIndex(item => 
+          item.atomic_id === parseInt(atomicId) && 
+          item.kri_id === parseInt(kriId) && 
+          item.reporting_date === parseInt(reportingDate)
+        );
+        
+        if (atomicIndex !== -1) {
+          atomicData[atomicIndex] = {
+            ...atomicData[atomicIndex],
+            atomic_status: 20 // Under Rework status
+          };
+        }
+      });
+      
+      commit('SET_ATOMIC_DATA', atomicData);
+      return { success: true, data: updatedAtomics };
+    } catch (error) {
+      console.error('Error rejecting atomic elements:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async submitAtomicData({ commit, state }, { kriId, reportingDate }) {
+    console.log('submitAtomicData called with:', { kriId, reportingDate });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user can perform submit action
+    if (!canPerformAction(userPermissions, 'edit', currentKRI.rawData.kri_status, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions to submit atomic data' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.submitAtomicData with:', { kriId, formattedDate });
+      
+      const updatedAtomics = await kriService.submitAtomicData(
+        kriId, 
+        formattedDate,
+        state.currentUser.name
+      );
+      
+      // Update local atomic data state - all elements to submitted status
+      const atomicData = [...state.atomicData];
+      atomicData.forEach((item, index) => {
+        if (item.kri_id === parseInt(kriId) && item.reporting_date === parseInt(reportingDate)) {
+          atomicData[index] = {
+            ...item,
+            atomic_status: 40 // Submitted status
+          };
+        }
+      });
+      
+      commit('SET_ATOMIC_DATA', atomicData);
+      return { success: true, data: updatedAtomics };
+    } catch (error) {
+      console.error('Error submitting atomic data:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async calculateKRIFromAtomic({ commit, state }, { kriId, reportingDate }) {
+    console.log('calculateKRIFromAtomic called with:', { kriId, reportingDate });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user can perform calculation
+    if (!canPerformAction(userPermissions, 'edit', currentKRI.rawData.kri_status, currentKRI)) {
+      return { success: false, error: 'Insufficient permissions to calculate KRI' };
+    }
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.calculateKRIFromAtomic with:', { kriId, formattedDate });
+      
+      const calculationResult = await kriService.calculateKRIFromAtomic(
+        kriId, 
+        formattedDate,
+        state.currentUser.name
+      );
+      
+      // Update local KRI state with calculated value
+      const kriItems = [...state.kriItems];
+      const kriIndex = kriItems.findIndex(item => 
+        item.id === String(kriId) && item.reportingDate === String(reportingDate)
+      );
+      
+      if (kriIndex !== -1) {
+        kriItems[kriIndex] = {
+          ...kriItems[kriIndex],
+          kriValue: calculationResult.calculatedValue.toString(),
+          breachType: calculationResult.breach_type,
+          rawData: {
+            ...kriItems[kriIndex].rawData,
+            kri_value: calculationResult.calculatedValue.toString(),
+            breach_type: calculationResult.breach_type
+          }
+        };
+        
+        commit('SET_KRI_ITEMS', kriItems);
+        
+        // Update kriDetail if it's the same KRI
+        if (state.kriDetail && 
+            String(state.kriDetail.kri_id) === String(kriId) && 
+            String(state.kriDetail.reporting_date) === String(reportingDate)) {
+          commit('SET_KRI_DETAIL', {
+            ...state.kriDetail,
+            kri_value: calculationResult.calculatedValue.toString(),
+            breach_type: calculationResult.breach_type
+          });
+        }
+      }
+      
+      return { success: true, data: calculationResult };
+    } catch (error) {
+      console.error('Error calculating KRI from atomic:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Bulk update atomic values with optimistic updates
+  async bulkUpdateAtomicValues({ commit, state }, { kriId, reportingDate, atomicUpdates }) {
+    console.log('bulkUpdateAtomicValues called with:', { kriId, reportingDate, atomicUpdates });
+    
+    const userPermissions = state.currentUser.permissions;
+    const currentKRI = state.kriItems.find(item => 
+      item.id === String(kriId) && item.reportingDate === String(reportingDate)
+    );
+    
+    if (!currentKRI) {
+      return { success: false, error: 'KRI not found' };
+    }
+    
+    // Check if user has permission for bulk operations
+    const hasPermission = atomicUpdates.every(update => 
+      canPerformAction(userPermissions, 'edit', currentKRI.rawData.kri_status, currentKRI, update.atomicId)
+    );
+    
+    if (!hasPermission) {
+      return { success: false, error: 'Insufficient permissions for bulk atomic update' };
+    }
+    
+    // Optimistic update - update local state first
+    const atomicData = [...state.atomicData];
+    const originalValues = {};
+    
+    // Apply optimistic updates and store original values for rollback
+    atomicUpdates.forEach(update => {
+      const atomicIndex = atomicData.findIndex(item => 
+        item.atomic_id === parseInt(update.atomicId) && 
+        item.kri_id === parseInt(kriId) && 
+        item.reporting_date === parseInt(reportingDate)
+      );
+      
+      if (atomicIndex !== -1) {
+        originalValues[update.atomicId] = {
+          atomic_value: atomicData[atomicIndex].atomic_value,
+          atomic_status: atomicData[atomicIndex].atomic_status
+        };
+        
+        atomicData[atomicIndex] = {
+          ...atomicData[atomicIndex],
+          atomic_value: update.value,
+          atomic_status: 30 // Saved status
+        };
+      }
+    });
+    
+    // Apply optimistic update
+    commit('SET_ATOMIC_DATA', atomicData);
+    
+    try {
+      const formattedDate = formatDateFromInt(reportingDate);
+      console.log('Calling kriService.bulkUpdateAtomicValues with:', { kriId, formattedDate, atomicUpdates });
+      
+      const updatedAtomics = await kriService.bulkUpdateAtomicValues(
+        kriId, 
+        formattedDate, 
+        atomicUpdates.map(update => ({
+          atomicId: update.atomicId,
+          value: update.value,
+          oldValue: originalValues[update.atomicId]?.atomic_value
+        })),
+        state.currentUser.name
+      );
+      
+      // Success - the optimistic update is confirmed
+      return { success: true, data: updatedAtomics };
+    } catch (error) {
+      console.error('Error in bulk atomic update:', error);
+      
+      // Rollback optimistic update
+      const rolledBackData = [...state.atomicData];
+      atomicUpdates.forEach(update => {
+        const atomicIndex = rolledBackData.findIndex(item => 
+          item.atomic_id === parseInt(update.atomicId) && 
+          item.kri_id === parseInt(kriId) && 
+          item.reporting_date === parseInt(reportingDate)
+        );
+        
+        if (atomicIndex !== -1 && originalValues[update.atomicId]) {
+          rolledBackData[atomicIndex] = {
+            ...rolledBackData[atomicIndex],
+            atomic_value: originalValues[update.atomicId].atomic_value,
+            atomic_status: originalValues[update.atomicId].atomic_status
+          };
+        }
+      });
+      
+      commit('SET_ATOMIC_DATA', rolledBackData);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
   }
 };
 

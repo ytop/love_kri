@@ -51,7 +51,10 @@
             <div slot="header" class="card-header">
               <span>KRI Overview</span>
             </div>
-            <k-r-i-overview :kri-data="kriDetail" @data-updated="refreshKRIData" />
+            <k-r-i-overview 
+              :kri-data="kriDetail" 
+              :atomic-data="atomicData"
+              @data-updated="refreshKRIData" />
           </el-card>
           
           <!-- Data Elements -->

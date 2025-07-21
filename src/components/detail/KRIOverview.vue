@@ -21,11 +21,88 @@
       </el-col>
     </el-row>
     
-    <!-- Data Input Section -->
-    <div v-if="canEditKRI" class="data-input-section">
+    <!-- Calculated KRI Special Section -->
+    <div v-if="isCalculatedKRI && kriData.kri_formula" class="calculated-kri-section">
+      <el-card class="formula-card">
+        <div slot="header" class="card-header">
+          <span>
+            <i class="el-icon-s-operation"></i>
+            Calculated KRI
+          </span>
+          <el-tag type="primary" size="small">Auto-calculated</el-tag>
+        </div>
+        
+        <div class="formula-info">
+          <div class="formula-display">
+            <div class="formula-label">
+              <i class="el-icon-edit-outline"></i>
+              <strong>Formula:</strong>
+            </div>
+            <code class="formula-code">{{ kriData.kri_formula }}</code>
+          </div>
+          
+          <div class="calculation-status">
+            <div class="status-item">
+              <span class="status-label">Atomic Data Status:</span>
+              <div class="atomic-progress">
+                <el-progress 
+                  :percentage="atomicDataProgress.percentage" 
+                  :color="atomicDataProgress.color"
+                  :show-text="false"
+                  style="width: 120px;">
+                </el-progress>
+                <span class="progress-text">{{ atomicDataProgress.text }}</span>
+              </div>
+            </div>
+            
+            <div class="status-item">
+              <span class="status-label">Last Calculation:</span>
+              <span class="calculation-time">
+                {{ lastCalculationTime || 'Never calculated' }}
+              </span>
+            </div>
+          </div>
+          
+          <div v-if="hasCalculationMismatch" class="calculation-alert">
+            <el-alert
+              title="Calculation Mismatch Detected"
+              type="warning"
+              :description="`Current stored value (${kriData.kri_value}) differs from calculated value. Click 'Recalculate' to update.`"
+              show-icon
+              :closable="false">
+            </el-alert>
+          </div>
+        </div>
+        
+        <div class="calculated-actions">
+          <el-button
+            type="primary"
+            icon="el-icon-refresh"
+            @click="handleRecalculate"
+            :loading="calculatingKRI"
+            :disabled="!canRecalculate">
+            Recalculate KRI
+          </el-button>
+          <el-button
+            v-if="canSubmitAtomic"
+            type="success"
+            icon="el-icon-upload"
+            @click="handleSubmitAtomic"
+            :loading="submittingAtomic">
+            Submit Atomic Data
+          </el-button>
+        </div>
+      </el-card>
+    </div>
+
+    <!-- Regular Data Input Section (for non-calculated KRIs) -->
+    <div v-else-if="canEditKRI" class="data-input-section">
       <el-card class="input-card">
         <div slot="header" class="card-header">
-          <span>Data Input</span>
+          <span>
+            <i class="el-icon-edit"></i>
+            Manual Data Input
+          </span>
           <el-tag :type="getStatusTagType(kriData.kri_status)" size="small">
             {{ mapStatus(kriData.kri_status) }}
           </el-tag>
@@ -118,6 +195,10 @@ export default {
     kriData: {
       type: Object,
       required: true
+    },
+    atomicData: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
@@ -126,7 +207,9 @@ export default {
         kriValue: null,
         comment: ''
       },
-      inputLoading: false
+      inputLoading: false,
+      calculatingKRI: false,
+      submittingAtomic: false
     };
   },
   computed: {
@@ -157,6 +240,86 @@ export default {
         );
       }
       return this.kriData.breach_type || 'No Breach';
+    },
+
+    // Check if this is a calculated KRI
+    isCalculatedKRI() {
+      return !!(this.kriData.is_calculated_kri && this.kriData.kri_formula);
+    },
+
+    // Atomic data progress for calculated KRIs
+    atomicDataProgress() {
+      if (!this.isCalculatedKRI || !this.atomicData.length) {
+        return { percentage: 0, color: '#f56c6c', text: 'No data' };
+      }
+
+      const totalElements = this.atomicData.length;
+      const approvedElements = this.atomicData.filter(item => item.atomic_status === 60).length;
+      const pendingElements = this.atomicData.filter(item => [30, 40, 50].includes(item.atomic_status)).length;
+      const percentage = totalElements > 0 ? Math.round((approvedElements / totalElements) * 100) : 0;
+
+      let color = '#f56c6c'; // Red
+      let text = `${approvedElements}/${totalElements} approved`;
+
+      if (percentage >= 100) {
+        color = '#67c23a'; // Green
+        text = 'All approved';
+      } else if (percentage >= 50) {
+        color = '#e6a23c'; // Orange
+      } else if (pendingElements > 0) {
+        color = '#409eff'; // Blue
+        text = `${pendingElements} pending approval`;
+      }
+
+      return { percentage, color, text };
+    },
+
+    // Check if calculation is needed (mismatch between stored and calculated value)
+    hasCalculationMismatch() {
+      if (!this.isCalculatedKRI || !this.atomicData.length) return false;
+
+      try {
+        const calculatedValue = this.calculateFromAtomic();
+        const storedValue = parseFloat(this.kriData.kri_value) || 0;
+        return Math.abs(calculatedValue - storedValue) > 0.01;
+      } catch (error) {
+        return false;
+      }
+    },
+
+    // Check if user can recalculate
+    canRecalculate() {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date
+      };
+      
+      return this.isCalculatedKRI && 
+             this.atomicData.length > 0 &&
+             canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
+    },
+
+    // Check if user can submit atomic data
+    canSubmitAtomic() {
+      const userPermissions = this.currentUser.permissions;
+      const kriItem = {
+        id: this.kriData.kri_id,
+        reportingDate: this.kriData.reporting_date
+      };
+      
+      const hasUnsavedAtomic = this.atomicData.some(item => item.atomic_status === 30);
+      
+      return this.isCalculatedKRI && 
+             hasUnsavedAtomic &&
+             canPerformAction(userPermissions, 'edit', this.kriData.kri_status, kriItem);
+    },
+
+    // Get last calculation time (placeholder - would need audit trail data)
+    lastCalculationTime() {
+      // This would ideally come from audit trail data
+      // For now, return a placeholder
+      return 'N/A';
     }
   },
   watch: {
@@ -171,7 +334,7 @@ export default {
     }
   },
   methods: {
-    ...mapActions('kri', ['saveKRIValue', 'submitKRI']),
+    ...mapActions('kri', ['saveKRIValue', 'submitKRI', 'calculateKRIFromAtomic', 'submitAtomicData']),
     
     getBreachTagType,
     getBreachDisplayText,
@@ -273,6 +436,76 @@ export default {
       } finally {
         this.inputLoading = false;
       }
+    },
+
+    // Calculate KRI value from atomic data (client-side preview)
+    calculateFromAtomic() {
+      if (!this.atomicData.length) return 0;
+
+      const values = this.atomicData.map(item => parseFloat(item.atomic_value) || 0);
+      const formula = this.kriData.kri_formula;
+      
+      if (formula && formula.includes('/') && values.length >= 3) {
+        // (A - B) / C pattern
+        return (values[0] - values[1]) / values[2];
+      } else if (formula && formula.includes('+')) {
+        // Sum pattern
+        return values.reduce((sum, val) => sum + val, 0);
+      } else if (formula && formula.includes('-')) {
+        // Subtraction pattern
+        return values.reduce((diff, val, index) => index === 0 ? val : diff - val, 0);
+      }
+      
+      // Default: sum
+      return values.reduce((sum, val) => sum + val, 0);
+    },
+
+    // Handle KRI recalculation
+    async handleRecalculate() {
+      this.calculatingKRI = true;
+      
+      try {
+        const result = await this.calculateKRIFromAtomic({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date
+        });
+        
+        if (result.success) {
+          this.$message.success(`KRI recalculated successfully. New value: ${result.data.calculatedValue}`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to recalculate KRI');
+        }
+      } catch (error) {
+        console.error('Recalculation error:', error);
+        this.$message.error('Failed to recalculate KRI');
+      } finally {
+        this.calculatingKRI = false;
+      }
+    },
+
+    // Handle atomic data submission
+    async handleSubmitAtomic() {
+      this.submittingAtomic = true;
+      
+      try {
+        const result = await this.submitAtomicData({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date
+        });
+        
+        if (result.success) {
+          this.$message.success('Atomic data submitted for approval successfully');
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || 'Failed to submit atomic data');
+        }
+      } catch (error) {
+        console.error('Atomic submission error:', error);
+        this.$message.error('Failed to submit atomic data');
+      } finally {
+        this.submittingAtomic = false;
+      }
     }
   }
 };
@@ -311,11 +544,13 @@ export default {
   color: #ef4444;
 }
 
-.data-input-section {
+.data-input-section,
+.calculated-kri-section {
   margin: 1.5rem 0;
 }
 
-.input-card {
+.input-card,
+.formula-card {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
@@ -367,5 +602,89 @@ export default {
 
 .status-tag {
   margin-left: 0.5rem;
+}
+
+/* Calculated KRI Styles */
+.formula-info {
+  margin-bottom: 20px;
+}
+
+.formula-display {
+  margin-bottom: 16px;
+}
+
+.formula-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.formula-code {
+  background-color: #2d3748;
+  color: #e2e8f0;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  border: 1px solid #4a5568;
+  display: block;
+  overflow-x: auto;
+}
+
+.calculation-status {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.status-item:last-child {
+  margin-bottom: 0;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 14px;
+}
+
+.atomic-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.calculation-time {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.calculation-alert {
+  margin-bottom: 16px;
+}
+
+.calculated-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e9ecef;
 }
 </style>
