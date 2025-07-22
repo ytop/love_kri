@@ -21,15 +21,15 @@
       </td>
       
       <!-- Owner column - empty or show provider -->
-      <td class="atomic-cell">
+      <td class="atomic-cell owner-cell">
         <span class="atomic-provider">{{ getAtomicProvider(atomicItem) }}</span>
       </td>
       
       <!-- Data Provider column - empty -->
-      <td class="atomic-cell"></td>
+      <td class="atomic-cell data-provider-cell"></td>
       
       <!-- Status column - show atomic status -->
-      <td class="atomic-cell">
+      <td class="atomic-cell status-cell">
         <el-tag
           :type="getAtomicStatusType(atomicItem.atomic_status)"
           size="small"
@@ -39,13 +39,13 @@
       </td>
       
       <!-- L1 Risk Type column - empty -->
-      <td class="atomic-cell" v-if="showL1RiskType"></td>
+      <td class="atomic-cell l1-risk-type-cell" v-if="showL1RiskType"></td>
       
       <!-- L2 Risk Type column - empty -->
-      <td class="atomic-cell" v-if="showL2RiskType"></td>
+      <td class="atomic-cell l2-risk-type-cell" v-if="showL2RiskType"></td>
       
       <!-- Breach Type column - empty -->
-      <td class="atomic-cell" v-if="showBreachType"></td>
+      <td class="atomic-cell breach-type-cell" v-if="showBreachType"></td>
       
       <!-- KRI Value column - atomic value with editing -->
       <td class="atomic-cell atomic-value-cell">
@@ -65,10 +65,10 @@
       </td>
       
       <!-- Reporting Cycle column - empty -->
-      <td class="atomic-cell" v-if="showReportingCycle"></td>
+      <td class="atomic-cell reporting-cycle-cell" v-if="showReportingCycle"></td>
       
       <!-- Reporting Date column - empty -->
-      <td class="atomic-cell" v-if="showReportingDate"></td>
+      <td class="atomic-cell reporting-date-cell" v-if="showReportingDate"></td>
       
       <!-- Actions column - atomic-specific actions -->
       <td class="atomic-cell atomic-actions-cell" v-if="showActions">
@@ -453,9 +453,18 @@ export default {
 /* Selection column styling */
 .selection-cell {
   background-color: #f8f9fa !important;
+  width: 55px !important;
+  min-width: 55px !important;
+  max-width: 55px !important;
 }
 
 /* Atomic ID column */
+.atomic-id-cell {
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+}
+
 .atomic-id-container {
   display: flex;
   align-items: center;
@@ -479,6 +488,10 @@ export default {
 }
 
 /* Atomic Name column */
+.atomic-name-cell {
+  min-width: 200px !important;
+}
+
 .atomic-name-container {
   display: flex;
   align-items: center;
@@ -505,16 +518,73 @@ export default {
   font-style: italic;
 }
 
+/* Owner column */
+.owner-cell {
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+}
+
+/* Data Provider column */
+.data-provider-cell {
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
+}
+
 /* Status column */
+.status-cell {
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
+}
+
 .atomic-status-tag {
   font-size: 12px;
   height: 24px;
   line-height: 22px;
 }
 
+/* L1 Risk Type column */
+.l1-risk-type-cell {
+  width: 150px !important;
+  min-width: 150px !important;
+  max-width: 150px !important;
+}
+
+/* L2 Risk Type column */
+.l2-risk-type-cell {
+  width: 150px !important;
+  min-width: 150px !important;
+  max-width: 150px !important;
+}
+
+/* Breach Type column */
+.breach-type-cell {
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
+}
+
 /* Value column */
 .atomic-value-cell {
-  min-width: 120px;
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
+}
+
+/* Reporting Cycle column */
+.reporting-cycle-cell {
+  width: 130px !important;
+  min-width: 130px !important;
+  max-width: 130px !important;
+}
+
+/* Reporting Date column */
+.reporting-date-cell {
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
 }
 
 .atomic-inline-edit {
@@ -543,22 +613,47 @@ export default {
 
 .atomic-actions {
   display: flex;
-  gap: 4px;
+  gap: 2%; /* Match main table's gap */
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
+  width: 100%; /* Match main table */
 }
 
 .atomic-action-button {
-  padding: 5px 12px;
-  font-size: 12px;
-  border-radius: 4px;
-  min-width: 60px;
+  flex: 1;
+  min-width: 0;
+  max-width: 48%;
+  font-size: 11px;
+  padding: 6px 8px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  font-weight: 500;
+  margin-left: 0;
+  margin-right: 0;
+  border-radius: 2px !important;
 }
 
 .atomic-action-button >>> .el-button__inner {
   padding: 0;
+  font-size: 11px;
+}
+
+/* Responsive design for action buttons */
+@media (max-width: 768px) {
+  .atomic-action-button {
+    max-width: 100%;
+    margin-bottom: 2%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .atomic-action-button {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
 }
 
 /* Action Button Colors - matching main table */
@@ -571,6 +666,12 @@ export default {
 .save-button:hover {
   background-color: #2563eb;
   border-color: #2563eb;
+}
+
+.save-button:active,
+.save-button:focus {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
 }
 
 .submit-button,
@@ -588,6 +689,16 @@ export default {
   border-color: #059669;
 }
 
+.submit-button:active,
+.submit-button:focus,
+.approve-button:active,
+.approve-button:focus,
+.acknowledge-button:active,
+.acknowledge-button:focus {
+  background-color: #047857;
+  border-color: #047857;
+}
+
 .reject-button {
   background-color: #ef4444;
   border-color: #ef4444;
@@ -599,18 +710,13 @@ export default {
   border-color: #dc2626;
 }
 
-.no-atomic-actions-text {
-  color: #94a3b8;
-  font-size: 12px;
-  font-style: italic;
+.reject-button:active,
+.reject-button:focus {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
 }
 
-/* Hover effect for atomic rows */
-.atomic-sub-row:hover {
-  background-color: #f1f5f9 !important;
-}
-
-/* Disabled state for action buttons */
+/* Disabled state for all action buttons */
 .atomic-action-button:disabled {
   background-color: #d1d5db;
   border-color: #d1d5db;
@@ -622,5 +728,16 @@ export default {
   background-color: #d1d5db;
   border-color: #d1d5db;
   color: #9ca3af;
+}
+
+.no-atomic-actions-text {
+  color: #94a3b8;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Hover effect for atomic rows */
+.atomic-sub-row:hover {
+  background-color: #f1f5f9 !important;
 }
 </style>

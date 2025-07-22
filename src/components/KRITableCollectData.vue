@@ -1,359 +1,357 @@
 <template>
   <div class="kri-table">
-    <div class="table-wrapper">
-      <el-table
-        ref="table"
-        :data="expandedTableData"
-        v-loading="loading"
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
-        :row-class-name="getRowClassName"
-      >
-      <el-table-column
-        type="selection"
-        width="55"
-        :selectable="isSelectable"
-      />
-      
-      <el-table-column
-        prop="id"
-        label="KRI ID"
-        width="80"
-        sortable
-      />
-      
-      <el-table-column
-        prop="name"
-        label="KRI Name"
-        min-width="200"
-        sortable
-        show-overflow-tooltip
-      >
-        <template slot-scope="scope">
-          <div class="kri-name-container">
-            <!-- Expand/Collapse button for calculated KRIs -->
-            <el-button
-              v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow"
-              type="text"
-              @click.stop="toggleRowExpansion(scope.row)"
-              class="expand-button"
-              :icon="isRowExpanded(scope.row) ? 'el-icon-caret-bottom' : 'el-icon-caret-right'"
-            >
-            </el-button>
-            
-            <!-- KRI Name button -->
-            <el-button
-              v-if="!scope.row.isAtomicRow"
-              type="text"
-              @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
-              class="kri-name-link"
-              :class="{ 'with-expand-button': isCalculatedKRI(scope.row) }"
-            >
-              {{ scope.row.name }}
-            </el-button>
-            
-            <!-- Atomic element name for sub-rows -->
-            <div v-if="scope.row.isAtomicRow" class="atomic-name-display">
-              <i class="el-icon-right atomic-indent"></i>
-              <span class="atomic-element-name">{{ scope.row.name }}</span>
-              <el-tag size="mini" type="info" class="atomic-tag">Atomic</el-tag>
-            </div>
+    <el-table
+      ref="table"
+      :data="expandedTableData"
+      v-loading="loading"
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+      :row-class-name="getRowClassName"
+    >
+    <el-table-column
+      type="selection"
+      width="55"
+      :selectable="isSelectable"
+    />
+    
+    <el-table-column
+      prop="id"
+      label="KRI ID"
+      width="80"
+      sortable
+    />
+    
+    <el-table-column
+      prop="name"
+      label="KRI Name"
+      min-width="200"
+      sortable
+      show-overflow-tooltip
+    >
+      <template slot-scope="scope">
+        <div class="kri-name-container">
+          <!-- Expand/Collapse button for calculated KRIs -->
+          <el-button
+            v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow"
+            type="text"
+            @click.stop="toggleRowExpansion(scope.row)"
+            class="expand-button"
+            :icon="isRowExpanded(scope.row) ? 'el-icon-caret-bottom' : 'el-icon-caret-right'"
+          >
+          </el-button>
+          
+          <!-- KRI Name button -->
+          <el-button
+            v-if="!scope.row.isAtomicRow"
+            type="text"
+            @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
+            class="kri-name-link"
+            :class="{ 'with-expand-button': isCalculatedKRI(scope.row) }"
+          >
+            {{ scope.row.name }}
+          </el-button>
+          
+          <!-- Atomic element name for sub-rows -->
+          <div v-if="scope.row.isAtomicRow" class="atomic-name-display">
+            <i class="el-icon-right atomic-indent"></i>
+            <span class="atomic-element-name">{{ scope.row.name }}</span>
+            <el-tag size="mini" type="info" class="atomic-tag">Atomic</el-tag>
           </div>
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        prop="owner"
-        label="Owner"
-        width="80"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
-        prop="dataProvider"
-        label="Data Provider"
-        width="120"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
-        prop="collectionStatus"
-        label="Status"
-        width="120"
-        sortable
-      >
-        <template slot-scope="scope">
+        </div>
+      </template>
+    </el-table-column>
+    
+    <el-table-column
+      prop="owner"
+      label="Owner"
+      width="80"
+      sortable
+      show-overflow-tooltip
+    />
+    
+    <el-table-column
+      prop="dataProvider"
+      label="Data Provider"
+      width="120"
+      sortable
+      show-overflow-tooltip
+    />
+    
+    <el-table-column
+      prop="collectionStatus"
+      label="Status"
+      width="120"
+      sortable
+    >
+      <template slot-scope="scope">
+        <el-tag
+          :type="getStatusTagType(scope.row.collectionStatus)"
+          size="small"
+          class="status-tag"
+        >
+          {{ scope.row.collectionStatus }}
+        </el-tag>
+      </template>
+    </el-table-column>
+    
+    <el-table-column
+      prop="breachType"
+      label="Breach Type"
+      width="120"
+      sortable
+    >
+      <template slot-scope="scope">
+        <el-tooltip :content="getBreachDescription(scope.row.breachType)" placement="top">
           <el-tag
-            :type="getStatusTagType(scope.row.collectionStatus)"
+            :type="getBreachTagType(scope.row.breachType)"
             size="small"
             class="status-tag"
           >
-            {{ scope.row.collectionStatus }}
+            {{ getBreachDisplayText(scope.row.breachType) }}
           </el-tag>
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        prop="breachType"
-        label="Breach Type"
-        width="120"
-        sortable
-      >
-        <template slot-scope="scope">
-          <el-tooltip :content="getBreachDescription(scope.row.breachType)" placement="top">
-            <el-tag
-              :type="getBreachTagType(scope.row.breachType)"
-              size="small"
-              class="status-tag"
+        </el-tooltip>
+      </template>
+    </el-table-column>
+    
+    <el-table-column
+      prop="kriValue"
+      label="KRI Value"
+      width="140"
+      sortable
+    >
+      <template slot-scope="scope">
+        <!-- Atomic value editing for atomic sub-rows -->
+        <div v-if="scope.row.isAtomicRow && canEditAtomicElement(scope.row)" class="inline-edit atomic-edit">
+          <el-input-number
+            v-model="atomicEditingValues[scope.row.atomic_id]"
+            :precision="2"
+            size="mini"
+            style="width: 100%"
+            :placeholder="scope.row.kriValue"
+            @change="handleAtomicValueChange(scope.row)"
+          />
+        </div>
+        <!-- Regular KRI value editing -->
+        <div v-else-if="!scope.row.isAtomicRow && canEditRow(scope.row)" class="inline-edit">
+          <el-input-number
+            v-model="editingValues[getRowKey(scope.row)]"
+            :precision="2"
+            size="mini"
+            style="width: 100%"
+            :placeholder="scope.row.kriValue"
+            @change="handleValueChange(scope.row)"
+          />
+        </div>
+        <!-- Display-only value -->
+        <div v-else class="value-display">
+          <span :class="{ 'atomic-value': scope.row.isAtomicRow }">
+            {{ scope.row.kriValue || 'N/A' }}
+          </span>
+        </div>
+      </template>
+    </el-table-column>
+    
+    <el-table-column
+      prop="reportingCycle"
+      label="Reporting Cycle"
+      width="130"
+      sortable
+    />
+    
+    <el-table-column
+      prop="reportingDate"
+      label="Reporting Date"
+      width="130"
+      sortable
+    >
+      <template slot-scope="scope">
+        {{ formatReportingDate(scope.row.reportingDate) }}
+      </template>
+    </el-table-column>
+    
+    <el-table-column
+      label="Actions"
+      width="200"
+      fixed="right"
+    >
+      <template slot-scope="scope">
+        <div class="action-buttons">
+          <!-- Atomic Actions for atomic sub-rows -->
+          <template v-if="scope.row.isAtomicRow && canEditAtomicElement(scope.row)">
+            <el-button
+              size="mini"
+              icon="el-icon-check"
+              @click="handleAtomicSave(scope.row)"
+              :disabled="!hasValidAtomicValue(scope.row)"
+              :loading="getAtomicLoading(scope.row)"
+              class="action-button save-button atomic-action"
             >
-              {{ getBreachDisplayText(scope.row.breachType) }}
-            </el-tag>
-          </el-tooltip>
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        prop="kriValue"
-        label="KRI Value"
-        width="140"
-        sortable
-      >
-        <template slot-scope="scope">
-          <!-- Atomic value editing for atomic sub-rows -->
-          <div v-if="scope.row.isAtomicRow && canEditAtomicElement(scope.row)" class="inline-edit atomic-edit">
-            <el-input-number
-              v-model="atomicEditingValues[scope.row.atomic_id]"
-              :precision="2"
+              Save
+            </el-button>
+            
+            <!-- Submit button for atomic status 30 -->
+            <el-button
+              v-if="scope.row.rawData.atomic_status === 30"
               size="mini"
-              style="width: 100%"
-              :placeholder="scope.row.kriValue"
-              @change="handleAtomicValueChange(scope.row)"
-            />
-          </div>
-          <!-- Regular KRI value editing -->
-          <div v-else-if="!scope.row.isAtomicRow && canEditRow(scope.row)" class="inline-edit">
-            <el-input-number
-              v-model="editingValues[getRowKey(scope.row)]"
-              :precision="2"
+              icon="el-icon-upload"
+              @click="handleAtomicSubmitSaved(scope.row)"
+              :loading="getAtomicLoading(scope.row)"
+              class="action-button submit-button atomic-action"
+            >
+              Submit
+            </el-button>
+            
+            <!-- Save and Submit button for atomic statuses 10,20 -->
+            <el-button
+              v-if="[10, 20].includes(scope.row.rawData.atomic_status)"
               size="mini"
-              style="width: 100%"
-              :placeholder="scope.row.kriValue"
-              @change="handleValueChange(scope.row)"
-            />
-          </div>
-          <!-- Display-only value -->
-          <div v-else class="value-display">
-            <span :class="{ 'atomic-value': scope.row.isAtomicRow }">
-              {{ scope.row.kriValue || 'N/A' }}
+              icon="el-icon-upload"
+              @click="handleAtomicSaveAndSubmit(scope.row)"
+              :disabled="!hasValidAtomicValue(scope.row)"
+              :loading="getAtomicLoading(scope.row)"
+              class="action-button submit-button atomic-action"
+            >
+              Save & Submit
+            </el-button>
+          </template>
+          
+          <!-- Atomic Review Actions -->
+          <template v-else-if="scope.row.isAtomicRow && canApproveAtomicElement(scope.row)">
+            <el-button
+              size="mini"
+              icon="el-icon-check"
+              @click="handleAtomicApprove(scope.row)"
+              :loading="getAtomicLoading(scope.row)"
+              class="action-button approve-button atomic-action"
+            >
+              Approve
+            </el-button>
+            <el-button
+              size="mini"
+              icon="el-icon-close"
+              @click="handleAtomicReject(scope.row)"
+              :loading="getAtomicLoading(scope.row)"
+              class="action-button reject-button atomic-action"
+            >
+              Reject
+            </el-button>
+          </template>
+          
+          <!-- Atomic Acknowledge Actions -->
+          <template v-else-if="scope.row.isAtomicRow && canAcknowledgeAtomicElement(scope.row)">
+            <el-button
+              size="mini"
+              icon="el-icon-check"
+              @click="handleAtomicAcknowledge(scope.row)"
+              :loading="getAtomicLoading(scope.row)"
+              class="action-button acknowledge-button atomic-action"
+            >
+              Ack
+            </el-button>
+            <el-button
+              size="mini"
+              icon="el-icon-close"
+              @click="handleAtomicReject(scope.row)"
+              :loading="getAtomicLoading(scope.row)"
+              class="action-button reject-button atomic-action"
+            >
+              Reject
+            </el-button>
+          </template>
+          
+          <!-- Input Actions for editable KRI rows -->
+          <template v-else-if="!scope.row.isAtomicRow && canEditRow(scope.row)">
+            <el-button
+              size="mini"
+              icon="el-icon-check"
+              @click="handleSingleSave(scope.row)"
+              :disabled="!hasValidValue(scope.row)"
+              :loading="getRowLoading(scope.row)"
+              class="action-button save-button"
+            >
+              Save
+            </el-button>
+            
+            <!-- Submit button for status 30 (Saved) - can submit without new input -->
+            <el-button
+              v-if="scope.row.rawData.kri_status === 30"
+              size="mini"
+              icon="el-icon-upload"
+              @click="handleSingleSubmitSaved(scope.row)"
+              :loading="getRowLoading(scope.row)"
+              class="action-button submit-button"
+            >
+              Submit
+            </el-button>
+            
+            <!-- Save and Submit button for statuses 10,20 - requires input -->
+            <el-button
+              v-if="[10, 20].includes(scope.row.rawData.kri_status)"
+              size="mini"
+              icon="el-icon-upload"
+              @click="handleSingleSaveAndSubmit(scope.row)"
+              :disabled="!hasValidValue(scope.row)"
+              :loading="getRowLoading(scope.row)"
+              class="action-button submit-button"
+            >
+              Save & Submit
+            </el-button>
+          </template>
+          
+          <!-- Review Actions for Data Provider Approver -->
+          <template v-else-if="!scope.row.isAtomicRow && canReviewRow(scope.row)">
+            <el-button
+              size="mini"
+              icon="el-icon-check"
+              @click="handleSingleApprove(scope.row)"
+              :loading="getRowLoading(scope.row)"
+              class="action-button approve-button"
+            >
+              Approve
+            </el-button>
+            <el-button
+              size="mini"
+              icon="el-icon-close"
+              @click="handleSingleReject(scope.row)"
+              :loading="getRowLoading(scope.row)"
+              class="action-button reject-button"
+            >
+              Reject
+            </el-button>
+          </template>
+          
+          <!-- Acknowledge Actions for KRI Owner Approver -->
+          <template v-else-if="!scope.row.isAtomicRow && canAcknowledgeRow(scope.row)">
+            <el-button
+              size="mini"
+              icon="el-icon-check"
+              @click="handleSingleAcknowledge(scope.row)"
+              :loading="getRowLoading(scope.row)"
+              class="action-button acknowledge-button"
+            >
+              Ack
+            </el-button>
+            <el-button
+              size="mini"
+              icon="el-icon-close"
+              @click="handleSingleReject(scope.row)"
+              :loading="getRowLoading(scope.row)"
+              class="action-button reject-button"
+            >
+              Reject
+            </el-button>
+          </template>
+          
+          <!-- No actions available -->
+          <template v-else>
+            <span class="no-actions-text">
+              {{ scope.row.isAtomicRow ? 'Atomic view only' : 'Click KRI name to view' }}
             </span>
-          </div>
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        prop="reportingCycle"
-        label="Reporting Cycle"
-        width="130"
-        sortable
-      />
-      
-      <el-table-column
-        prop="reportingDate"
-        label="Reporting Date"
-        width="130"
-        sortable
-      >
-        <template slot-scope="scope">
-          {{ formatReportingDate(scope.row.reportingDate) }}
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        label="Actions"
-        width="200"
-        fixed="right"
-      >
-        <template slot-scope="scope">
-          <div class="action-buttons">
-            <!-- Atomic Actions for atomic sub-rows -->
-            <template v-if="scope.row.isAtomicRow && canEditAtomicElement(scope.row)">
-              <el-button
-                size="mini"
-                icon="el-icon-check"
-                @click="handleAtomicSave(scope.row)"
-                :disabled="!hasValidAtomicValue(scope.row)"
-                :loading="getAtomicLoading(scope.row)"
-                class="action-button save-button atomic-action"
-              >
-                Save
-              </el-button>
-              
-              <!-- Submit button for atomic status 30 -->
-              <el-button
-                v-if="scope.row.rawData.atomic_status === 30"
-                size="mini"
-                icon="el-icon-upload"
-                @click="handleAtomicSubmitSaved(scope.row)"
-                :loading="getAtomicLoading(scope.row)"
-                class="action-button submit-button atomic-action"
-              >
-                Submit
-              </el-button>
-              
-              <!-- Save and Submit button for atomic statuses 10,20 -->
-              <el-button
-                v-if="[10, 20].includes(scope.row.rawData.atomic_status)"
-                size="mini"
-                icon="el-icon-upload"
-                @click="handleAtomicSaveAndSubmit(scope.row)"
-                :disabled="!hasValidAtomicValue(scope.row)"
-                :loading="getAtomicLoading(scope.row)"
-                class="action-button submit-button atomic-action"
-              >
-                Save & Submit
-              </el-button>
-            </template>
-            
-            <!-- Atomic Review Actions -->
-            <template v-else-if="scope.row.isAtomicRow && canApproveAtomicElement(scope.row)">
-              <el-button
-                size="mini"
-                icon="el-icon-check"
-                @click="handleAtomicApprove(scope.row)"
-                :loading="getAtomicLoading(scope.row)"
-                class="action-button approve-button atomic-action"
-              >
-                Approve
-              </el-button>
-              <el-button
-                size="mini"
-                icon="el-icon-close"
-                @click="handleAtomicReject(scope.row)"
-                :loading="getAtomicLoading(scope.row)"
-                class="action-button reject-button atomic-action"
-              >
-                Reject
-              </el-button>
-            </template>
-            
-            <!-- Atomic Acknowledge Actions -->
-            <template v-else-if="scope.row.isAtomicRow && canAcknowledgeAtomicElement(scope.row)">
-              <el-button
-                size="mini"
-                icon="el-icon-check"
-                @click="handleAtomicAcknowledge(scope.row)"
-                :loading="getAtomicLoading(scope.row)"
-                class="action-button acknowledge-button atomic-action"
-              >
-                Ack
-              </el-button>
-              <el-button
-                size="mini"
-                icon="el-icon-close"
-                @click="handleAtomicReject(scope.row)"
-                :loading="getAtomicLoading(scope.row)"
-                class="action-button reject-button atomic-action"
-              >
-                Reject
-              </el-button>
-            </template>
-            
-            <!-- Input Actions for editable KRI rows -->
-            <template v-else-if="!scope.row.isAtomicRow && canEditRow(scope.row)">
-              <el-button
-                size="mini"
-                icon="el-icon-check"
-                @click="handleSingleSave(scope.row)"
-                :disabled="!hasValidValue(scope.row)"
-                :loading="getRowLoading(scope.row)"
-                class="action-button save-button"
-              >
-                Save
-              </el-button>
-              
-              <!-- Submit button for status 30 (Saved) - can submit without new input -->
-              <el-button
-                v-if="scope.row.rawData.kri_status === 30"
-                size="mini"
-                icon="el-icon-upload"
-                @click="handleSingleSubmitSaved(scope.row)"
-                :loading="getRowLoading(scope.row)"
-                class="action-button submit-button"
-              >
-                Submit
-              </el-button>
-              
-              <!-- Save and Submit button for statuses 10,20 - requires input -->
-              <el-button
-                v-if="[10, 20].includes(scope.row.rawData.kri_status)"
-                size="mini"
-                icon="el-icon-upload"
-                @click="handleSingleSaveAndSubmit(scope.row)"
-                :disabled="!hasValidValue(scope.row)"
-                :loading="getRowLoading(scope.row)"
-                class="action-button submit-button"
-              >
-                Save & Submit
-              </el-button>
-            </template>
-            
-            <!-- Review Actions for Data Provider Approver -->
-            <template v-else-if="!scope.row.isAtomicRow && canReviewRow(scope.row)">
-              <el-button
-                size="mini"
-                icon="el-icon-check"
-                @click="handleSingleApprove(scope.row)"
-                :loading="getRowLoading(scope.row)"
-                class="action-button approve-button"
-              >
-                Approve
-              </el-button>
-              <el-button
-                size="mini"
-                icon="el-icon-close"
-                @click="handleSingleReject(scope.row)"
-                :loading="getRowLoading(scope.row)"
-                class="action-button reject-button"
-              >
-                Reject
-              </el-button>
-            </template>
-            
-            <!-- Acknowledge Actions for KRI Owner Approver -->
-            <template v-else-if="!scope.row.isAtomicRow && canAcknowledgeRow(scope.row)">
-              <el-button
-                size="mini"
-                icon="el-icon-check"
-                @click="handleSingleAcknowledge(scope.row)"
-                :loading="getRowLoading(scope.row)"
-                class="action-button acknowledge-button"
-              >
-                Ack
-              </el-button>
-              <el-button
-                size="mini"
-                icon="el-icon-close"
-                @click="handleSingleReject(scope.row)"
-                :loading="getRowLoading(scope.row)"
-                class="action-button reject-button"
-              >
-                Reject
-              </el-button>
-            </template>
-            
-            <!-- No actions available -->
-            <template v-else>
-              <span class="no-actions-text">
-                {{ scope.row.isAtomicRow ? 'Atomic view only' : 'Click KRI name to view' }}
-              </span>
-            </template>
-          </div>
-        </template>
-      </el-table-column>
-      </el-table>
-    </div>
+          </template>
+        </div>
+      </template>
+    </el-table-column>
+    </el-table>
     
     <!-- Batch Actions -->
     <div class="table-actions" v-if="data.length > 0">
@@ -1417,47 +1415,6 @@ export default {
 </script>
 
 <style scoped>
-/* Table wrapper with horizontal scroll */
-.table-wrapper {
-  overflow-x: auto;
-  overflow-y: visible;
-  max-width: 100%;
-  min-width: 0;
-  contain: layout style;
-  scrollbar-gutter: stable;
-  position: relative;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-}
-
-/* Prevent content shift when scrollbar appears */
-.table-wrapper::-webkit-scrollbar {
-  height: 12px;
-}
-
-.table-wrapper::-webkit-scrollbar-track {
-  background-color: #f1f3f4;
-  border-radius: 6px;
-}
-
-.table-wrapper::-webkit-scrollbar-thumb {
-  background-color: #c1c1c1;
-  border-radius: 6px;
-}
-
-.table-wrapper::-webkit-scrollbar-thumb:hover {
-  background-color: #a8a8a8;
-}
-
-.table-wrapper >>> .el-table {
-  min-width: 1200px; /* Minimum width to ensure columns aren't too cramped */
-  position: relative;
-}
-
-.table-wrapper >>> .el-table__body-wrapper {
-  contain: layout;
-}
-
 /* Prevent ResizeObserver loops */
 .kri-table >>> .el-table__header-wrapper,
 .kri-table >>> .el-table__body-wrapper,
@@ -1765,7 +1722,7 @@ export default {
 }
 
 .kri-table >>> .atomic-sub-row td {
-  padding: 8px 12px !important;
+  padding: 0px 0px !important;
   font-size: 12px;
   color: #64748b;
   border-bottom: 1px solid #f1f5f9 !important;

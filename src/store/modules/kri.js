@@ -1305,7 +1305,7 @@ const actions = {
   },
 
   // Fetch atomic data for a specific KRI (for table expansion)
-  async fetchAtomicData({ commit, state }, { kriId, reportingDate }) {
+  async fetchAtomicData(_, { kriId, reportingDate }) {
     console.log('fetchAtomicData called with:', { kriId, reportingDate });
     
     // Convert reporting date YYYYMMDD or YYYY-MM-DD to integer format (YYYYMMDD)

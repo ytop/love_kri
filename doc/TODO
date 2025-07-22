@@ -3,13 +3,16 @@ Completed:
   - Current: Implemented Frontend, UI is ready
   - Next: test different situations, and fix the logic
 15. ResizeObserver loop completed with undelivered notifications warning
+3. dropdown for atomic data element bulk input / actions
+
+Marked Not Fixed:
+16. Atomic sub-row styling, specifically the action buttons, requires CSS mathing
 
 Working:
 1. add Object Storage for evidence upload
   - test if it works with supabase
   - test local storage
   Current: Implemented service, need to test with frontend
-3. dropdown for atomic data element bulk input / actions
 
 Pending:
 4. add Object Storage preview for evidence
