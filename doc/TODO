@@ -9,9 +9,9 @@ Working:
   - test if it works with supabase
   - test local storage
   Current: Implemented service, need to test with frontend
+3. dropdown for atomic data element bulk input / actions
 
 Pending:
-3. dropdown for atomic data element bulk input / actions
 4. add Object Storage preview for evidence
 5. modify atomic data element input dialog (new window?)
 6. Improve UI/UX design

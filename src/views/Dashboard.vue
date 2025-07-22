@@ -3,24 +3,42 @@
     <!-- Header -->
     <div class="dashboard-header">
       <div class="header-content">
-                  <div class="header-info">
-            <h1>KRI Dashboard</h1>
-            <p>Monitor and manage key risk indicators</p>
-          </div>
-          <div class="header-stats">
+        <div class="header-info">
+          <h1>KRI Dashboard</h1>
+          <p>Monitor and manage key risk indicators</p>
+        </div>
+        <div class="header-stats">
           <el-tag type="info">{{ filteredKRIItems.length }} KRIs</el-tag>
         </div>
         <div class="header-actions">
-          <el-badge v-if="showPendingButton" :value="totalPendingKRIsCount" class="item" type="danger" :hidden="totalPendingKRIsCount === 0">
-            <el-button size="medium" @click="navigateToStatusPage()">Pending KRIs</el-button>
+          <el-badge
+            v-if="showPendingButton"
+            :value="totalPendingKRIsCount"
+            class="item"
+            type="danger"
+            :hidden="totalPendingKRIsCount === 0"
+          >
+            <el-button size="medium" @click="navigateToStatusPage">
+              Pending KRIs
+            </el-button>
           </el-badge>
           <!-- Login/Logout Button -->
           <div class="auth-section">
-            <el-button v-if="isAuthenticated" type="primary" size="medium" @click="handleLogout">
+            <el-button
+              v-if="isAuthenticated"
+              type="primary"
+              size="medium"
+              @click="handleLogout"
+            >
               <i class="el-icon-switch-button"></i>
               Logout ({{ getUserDisplayName(currentUser) }})
             </el-button>
-            <el-button v-else type="primary" size="medium" @click="handleLogin">
+            <el-button
+              v-else
+              type="primary"
+              size="medium"
+              @click="handleLogin"
+            >
               <i class="el-icon-user"></i>
               Login
             </el-button>
@@ -332,6 +350,29 @@ export default {
   justify-content: space-between;
   align-items: center;
   gap: 1rem; /* Added for spacing between elements */
+}
+
+/* Responsive: Stack header elements on smaller screens */
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .header-info {
+    text-align: center;
+  }
+  
+  .header-stats {
+    text-align: center;
+  }
+  
+  .header-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
 }
 
 .header-info {

@@ -1,7 +1,6 @@
 import Vue from 'vue';
 import Router from 'vue-router';
 import Dashboard from '../views/Dashboard.vue';
-import KRIListByStatus from '../views/KRIListByStatus.vue';
 import KRIWorkflowPage from '../views/KRIWorkflowPage.vue';
 import Login from '../views/Login.vue';
 import AdminManagement from '../views/AdminManagement.vue';
@@ -39,14 +38,6 @@ const router = new Router({
       path: '/kris/pending',
       name: 'PendingKRIs',
       component: KRIWorkflowPage,
-      meta: { requiresAuth: true }
-    },
-    // Generic status-based route for other statuses
-    {
-      path: '/kris/status/:status',
-      name: 'KRIsByStatus',
-      component: KRIListByStatus,
-      props: true,
       meta: { requiresAuth: true }
     },
     {

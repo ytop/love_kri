@@ -3,7 +3,7 @@
     <div class="table-wrapper">
       <el-table
         ref="table"
-        :data="sortedData"
+        :data="expandedTableData"
         v-loading="loading"
         style="width: 100%"
         @selection-change="handleSelectionChange"
@@ -30,13 +30,35 @@
         show-overflow-tooltip
       >
         <template slot-scope="scope">
-          <el-button
-            type="text"
-            @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
-            class="kri-name-link"
-          >
-            {{ scope.row.name }}
-          </el-button>
+          <div class="kri-name-container">
+            <!-- Expand/Collapse button for calculated KRIs -->
+            <el-button
+              v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow"
+              type="text"
+              @click.stop="toggleRowExpansion(scope.row)"
+              class="expand-button"
+              :icon="isRowExpanded(scope.row) ? 'el-icon-caret-bottom' : 'el-icon-caret-right'"
+            >
+            </el-button>
+            
+            <!-- KRI Name button -->
+            <el-button
+              v-if="!scope.row.isAtomicRow"
+              type="text"
+              @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
+              class="kri-name-link"
+              :class="{ 'with-expand-button': isCalculatedKRI(scope.row) }"
+            >
+              {{ scope.row.name }}
+            </el-button>
+            
+            <!-- Atomic element name for sub-rows -->
+            <div v-if="scope.row.isAtomicRow" class="atomic-name-display">
+              <i class="el-icon-right atomic-indent"></i>
+              <span class="atomic-element-name">{{ scope.row.name }}</span>
+              <el-tag size="mini" type="info" class="atomic-tag">Atomic</el-tag>
+            </div>
+          </div>
         </template>
       </el-table-column>
       
@@ -99,7 +121,19 @@
         sortable
       >
         <template slot-scope="scope">
-          <div v-if="canEditRow(scope.row)" class="inline-edit">
+          <!-- Atomic value editing for atomic sub-rows -->
+          <div v-if="scope.row.isAtomicRow && canEditAtomicElement(scope.row)" class="inline-edit atomic-edit">
+            <el-input-number
+              v-model="atomicEditingValues[scope.row.atomic_id]"
+              :precision="2"
+              size="mini"
+              style="width: 100%"
+              :placeholder="scope.row.kriValue"
+              @change="handleAtomicValueChange(scope.row)"
+            />
+          </div>
+          <!-- Regular KRI value editing -->
+          <div v-else-if="!scope.row.isAtomicRow && canEditRow(scope.row)" class="inline-edit">
             <el-input-number
               v-model="editingValues[getRowKey(scope.row)]"
               :precision="2"
@@ -109,8 +143,11 @@
               @change="handleValueChange(scope.row)"
             />
           </div>
-          <div v-else>
-            {{ scope.row.kriValue }}
+          <!-- Display-only value -->
+          <div v-else class="value-display">
+            <span :class="{ 'atomic-value': scope.row.isAtomicRow }">
+              {{ scope.row.kriValue || 'N/A' }}
+            </span>
           </div>
         </template>
       </el-table-column>
@@ -140,8 +177,91 @@
       >
         <template slot-scope="scope">
           <div class="action-buttons">
-            <!-- Input Actions for editable rows -->
-            <template v-if="canEditRow(scope.row)">
+            <!-- Atomic Actions for atomic sub-rows -->
+            <template v-if="scope.row.isAtomicRow && canEditAtomicElement(scope.row)">
+              <el-button
+                size="mini"
+                icon="el-icon-check"
+                @click="handleAtomicSave(scope.row)"
+                :disabled="!hasValidAtomicValue(scope.row)"
+                :loading="getAtomicLoading(scope.row)"
+                class="action-button save-button atomic-action"
+              >
+                Save
+              </el-button>
+              
+              <!-- Submit button for atomic status 30 -->
+              <el-button
+                v-if="scope.row.rawData.atomic_status === 30"
+                size="mini"
+                icon="el-icon-upload"
+                @click="handleAtomicSubmitSaved(scope.row)"
+                :loading="getAtomicLoading(scope.row)"
+                class="action-button submit-button atomic-action"
+              >
+                Submit
+              </el-button>
+              
+              <!-- Save and Submit button for atomic statuses 10,20 -->
+              <el-button
+                v-if="[10, 20].includes(scope.row.rawData.atomic_status)"
+                size="mini"
+                icon="el-icon-upload"
+                @click="handleAtomicSaveAndSubmit(scope.row)"
+                :disabled="!hasValidAtomicValue(scope.row)"
+                :loading="getAtomicLoading(scope.row)"
+                class="action-button submit-button atomic-action"
+              >
+                Save & Submit
+              </el-button>
+            </template>
+            
+            <!-- Atomic Review Actions -->
+            <template v-else-if="scope.row.isAtomicRow && canApproveAtomicElement(scope.row)">
+              <el-button
+                size="mini"
+                icon="el-icon-check"
+                @click="handleAtomicApprove(scope.row)"
+                :loading="getAtomicLoading(scope.row)"
+                class="action-button approve-button atomic-action"
+              >
+                Approve
+              </el-button>
+              <el-button
+                size="mini"
+                icon="el-icon-close"
+                @click="handleAtomicReject(scope.row)"
+                :loading="getAtomicLoading(scope.row)"
+                class="action-button reject-button atomic-action"
+              >
+                Reject
+              </el-button>
+            </template>
+            
+            <!-- Atomic Acknowledge Actions -->
+            <template v-else-if="scope.row.isAtomicRow && canAcknowledgeAtomicElement(scope.row)">
+              <el-button
+                size="mini"
+                icon="el-icon-check"
+                @click="handleAtomicAcknowledge(scope.row)"
+                :loading="getAtomicLoading(scope.row)"
+                class="action-button acknowledge-button atomic-action"
+              >
+                Ack
+              </el-button>
+              <el-button
+                size="mini"
+                icon="el-icon-close"
+                @click="handleAtomicReject(scope.row)"
+                :loading="getAtomicLoading(scope.row)"
+                class="action-button reject-button atomic-action"
+              >
+                Reject
+              </el-button>
+            </template>
+            
+            <!-- Input Actions for editable KRI rows -->
+            <template v-else-if="!scope.row.isAtomicRow && canEditRow(scope.row)">
               <el-button
                 size="mini"
                 icon="el-icon-check"
@@ -180,7 +300,7 @@
             </template>
             
             <!-- Review Actions for Data Provider Approver -->
-            <template v-else-if="canReviewRow(scope.row)">
+            <template v-else-if="!scope.row.isAtomicRow && canReviewRow(scope.row)">
               <el-button
                 size="mini"
                 icon="el-icon-check"
@@ -202,7 +322,7 @@
             </template>
             
             <!-- Acknowledge Actions for KRI Owner Approver -->
-            <template v-else-if="canAcknowledgeRow(scope.row)">
+            <template v-else-if="!scope.row.isAtomicRow && canAcknowledgeRow(scope.row)">
               <el-button
                 size="mini"
                 icon="el-icon-check"
@@ -223,9 +343,11 @@
               </el-button>
             </template>
             
-            <!-- No actions available - show KRI name link instead -->
+            <!-- No actions available -->
             <template v-else>
-              <span class="no-actions-text">Click KRI name to view</span>
+              <span class="no-actions-text">
+                {{ scope.row.isAtomicRow ? 'Atomic view only' : 'Click KRI name to view' }}
+              </span>
             </template>
           </div>
         </template>
@@ -324,10 +446,16 @@ export default {
   data() {
     return {
       editingValues: {}, // Store editing values for each row (mixin handles the rest)
+      atomicEditingValues: {}, // Store editing values for atomic elements
       // Batch loading state
       batchLoading: false,
       // Row-level loading states
-      rowLoadingStates: {}
+      rowLoadingStates: {},
+      // Atomic-level loading states
+      atomicLoadingStates: {},
+      // Expansion state management
+      expandedRows: {},
+      atomicDataCache: {}
     };
   },
   computed: {
@@ -338,23 +466,82 @@ export default {
       return this.data;
     },
     
-    // Sort data by role - input actions first, then approval actions
-    sortedData() {
+    // Create expanded table data with atomic sub-rows (default expanded for calculated KRIs)
+    expandedTableData() {
       const inputRows = [];
       const approvalRows = [];
       const otherRows = [];
       
       this.data.forEach(row => {
+        let processedRow = { ...row };
+        
+        // Classify the row type
         if (this.canEditRow(row)) {
-          inputRows.push({ ...row, rowType: 'input' });
+          processedRow.rowType = 'input';
+          inputRows.push(processedRow);
         } else if (this.canReviewRow(row) || this.canAcknowledgeRow(row)) {
-          approvalRows.push({ ...row, rowType: 'approval' });
+          processedRow.rowType = 'approval';
+          approvalRows.push(processedRow);
         } else {
-          otherRows.push({ ...row, rowType: 'other' });
+          processedRow.rowType = 'other';
+          otherRows.push(processedRow);
+        }
+        
+        // Add atomic sub-rows for calculated KRIs
+        if (this.isCalculatedKRI(row)) {
+          // Default to expanded for collect data table
+          if (!Object.prototype.hasOwnProperty.call(this.expandedRows, this.getRowKey(row))) {
+            this.$set(this.expandedRows, this.getRowKey(row), true);
+            // Auto-load atomic data for calculated KRIs
+            this.loadAtomicData(row);
+          }
+          
+          if (this.isRowExpanded(row)) {
+            const atomicData = this.atomicDataCache[this.getRowKey(row)];
+            if (atomicData && atomicData.length > 0) {
+              atomicData.forEach(atomicItem => {
+                const atomicRow = {
+                  ...atomicItem,
+                  isAtomicRow: true,
+                  parentKriId: row.id,
+                  parentReportingDate: row.reportingDate,
+                  // Map atomic properties to table column structure
+                  id: `${row.id}_atomic_${atomicItem.atomic_id}`,
+                  name: atomicItem.atomic_metadata || `Element ${atomicItem.atomic_id}`,
+                  kriValue: atomicItem.atomic_value,
+                  collectionStatus: this.mapAtomicStatus(atomicItem.atomic_status),
+                  owner: row.owner,
+                  dataProvider: row.dataProvider,
+                  reportingDate: row.reportingDate,
+                  reportingCycle: row.reportingCycle,
+                  rowType: processedRow.rowType, // Inherit parent's row type
+                  rawData: {
+                    ...atomicItem,
+                    kri_status: atomicItem.atomic_status,
+                    atomic_status: atomicItem.atomic_status
+                  }
+                };
+                
+                // Add to appropriate section based on parent row type
+                if (processedRow.rowType === 'input') {
+                  inputRows.push(atomicRow);
+                } else if (processedRow.rowType === 'approval') {
+                  approvalRows.push(atomicRow);
+                } else {
+                  otherRows.push(atomicRow);
+                }
+              });
+            }
+          }
         }
       });
       
       return [...inputRows, ...approvalRows, ...otherRows];
+    },
+    
+    // Update sortedData to use expandedTableData for backward compatibility
+    sortedData() {
+      return this.expandedTableData;
     },
     
     // Check if we have both input and approval sections
@@ -800,8 +987,9 @@ export default {
       }
     },
 
-    isSelectable() {
-      return true;
+    isSelectable(row) {
+      // Only main KRI rows should be selectable, not atomic sub-rows
+      return !row.isAtomicRow;
     },
     
     // Get row loading state
@@ -832,10 +1020,22 @@ export default {
     getRowClassName({ row, rowIndex }) {
       const classes = [];
       
-      if (row.rowType === 'input') {
-        classes.push('input-row');
-      } else if (row.rowType === 'approval') {
-        classes.push('approval-row');
+      if (row.isAtomicRow) {
+        classes.push('atomic-sub-row');
+      } else {
+        if (row.rowType === 'input') {
+          classes.push('input-row');
+        } else if (row.rowType === 'approval') {
+          classes.push('approval-row');
+        }
+        
+        // Add calculated KRI classes
+        if (this.isCalculatedKRI(row)) {
+          classes.push('calculated-kri-row');
+          if (this.isRowExpanded(row)) {
+            classes.push('expanded');
+          }
+        }
       }
       
       // Add divider class to first approval row if we have both sections
@@ -850,8 +1050,366 @@ export default {
     selectAllRows() {
       if (this.$refs.table) {
         this.sortedData.forEach(row => {
-          this.$refs.table.toggleRowSelection(row, true);
+          // Only select main KRI rows, not atomic sub-rows
+          if (!row.isAtomicRow) {
+            this.$refs.table.toggleRowSelection(row, true);
+          }
         });
+      }
+    },
+    
+    // Calculated KRI detection
+    isCalculatedKRI(row) {
+      // Check if this KRI has the calculated flag
+      return row.rawData?.is_calculated_kri === true || 
+             row.rawData?.is_calculated_kri === 1 ||
+             row.isCalculated === true;
+    },
+    
+    // Expansion state management
+    getRowKey(row) {
+      return `${row.id}_${row.reportingDate}`;
+    },
+    
+    isRowExpanded(row) {
+      return this.expandedRows[this.getRowKey(row)] || false;
+    },
+    
+    async toggleRowExpansion(row) {
+      const key = this.getRowKey(row);
+      const isExpanded = this.isRowExpanded(row);
+      
+      if (isExpanded) {
+        // Collapse the row
+        this.$set(this.expandedRows, key, false);
+      } else {
+        // Expand the row - fetch atomic data if not cached
+        if (!this.atomicDataCache[key]) {
+          await this.loadAtomicData(row);
+        }
+        this.$set(this.expandedRows, key, true);
+      }
+    },
+    
+    async loadAtomicData(row) {
+      const key = this.getRowKey(row);
+      
+      try {
+        // Use the store to fetch atomic data
+        const result = await this.$store.dispatch('kri/fetchAtomicData', {
+          kriId: row.id,
+          reportingDate: row.reportingDate
+        });
+        
+        if (result.success) {
+          const atomicData = result.data || [];
+          this.$set(this.atomicDataCache, key, atomicData);
+          
+          // Initialize atomic editing values
+          atomicData.forEach(item => {
+            if (!this.atomicEditingValues[item.atomic_id]) {
+              this.$set(this.atomicEditingValues, item.atomic_id, parseFloat(item.atomic_value) || 0);
+            }
+          });
+        } else {
+          console.error('Failed to load atomic data:', result.error);
+          this.$set(this.atomicDataCache, key, []);
+        }
+      } catch (error) {
+        console.error('Error loading atomic data:', error);
+        this.$set(this.atomicDataCache, key, []);
+      }
+    },
+    
+    // Status mapping for atomic elements
+    mapAtomicStatus(status) {
+      const statusMap = {
+        10: 'Pending Input',
+        20: 'Under Rework', 
+        30: 'Saved',
+        40: 'Submitted to Data Provider Approver',
+        50: 'Submitted to KRI Owner Approver',
+        60: 'Finalized'
+      };
+      return statusMap[status] || 'Unknown';
+    },
+    
+    // Atomic permission checking
+    canEditAtomicElement(atomicRow) {
+      if (!this.currentUser || !this.currentUser.permissions || !atomicRow.isAtomicRow) {
+        return false;
+      }
+      
+      const kriItem = {
+        id: atomicRow.parentKriId,
+        reportingDate: atomicRow.parentReportingDate,
+        kri_owner: atomicRow.owner,
+        data_provider: atomicRow.dataProvider
+      };
+      
+      // Can edit in statuses 10, 20, 30 with proper permissions
+      const canEdit = [10, 20, 30].includes(atomicRow.rawData.atomic_status);
+      const hasPermission = PermissionManager.canPerformAction(
+        this.currentUser.permissions, 
+        'edit', 
+        atomicRow.rawData.atomic_status, 
+        kriItem
+      );
+      
+      return canEdit && hasPermission && StatusManager.allowsEdit(atomicRow.rawData.atomic_status);
+    },
+    
+    canApproveAtomicElement(atomicRow) {
+      if (!this.currentUser || !this.currentUser.permissions || !atomicRow.isAtomicRow) {
+        return false;
+      }
+      
+      const kriItem = {
+        id: atomicRow.parentKriId,
+        reportingDate: atomicRow.parentReportingDate,
+        kri_owner: atomicRow.owner,
+        data_provider: atomicRow.dataProvider
+      };
+      
+      // Can only approve items in status 40 (Submitted to Data Provider Approver)
+      const canApprove = atomicRow.rawData.atomic_status === 40;
+      const hasPermission = PermissionManager.canPerformAction(
+        this.currentUser.permissions,
+        'review',
+        atomicRow.rawData.atomic_status,
+        kriItem
+      );
+      
+      return canApprove && hasPermission;
+    },
+    
+    canAcknowledgeAtomicElement(atomicRow) {
+      if (!this.currentUser || !this.currentUser.permissions || !atomicRow.isAtomicRow) {
+        return false;
+      }
+      
+      const kriItem = {
+        id: atomicRow.parentKriId,
+        reportingDate: atomicRow.parentReportingDate,
+        kri_owner: atomicRow.owner,
+        data_provider: atomicRow.dataProvider
+      };
+      
+      // Can acknowledge if in submitted to KRI Owner status and has permission
+      const canAcknowledge = atomicRow.rawData.atomic_status === 50;
+      const hasPermission = PermissionManager.canPerformAction(
+        this.currentUser.permissions,
+        'acknowledge',
+        atomicRow.rawData.atomic_status,
+        kriItem
+      );
+      
+      return canAcknowledge && hasPermission;
+    },
+    
+    // Atomic value validation
+    hasValidAtomicValue(atomicRow) {
+      if (!atomicRow.isAtomicRow) return false;
+      const value = this.atomicEditingValues[atomicRow.atomic_id];
+      return value !== null && value !== undefined && value !== '';
+    },
+    
+    // Atomic loading state management
+    getAtomicLoading(atomicRow) {
+      if (!atomicRow.isAtomicRow) return false;
+      return this.atomicLoadingStates[atomicRow.atomic_id] || false;
+    },
+    
+    setAtomicLoading(atomicRow, loading) {
+      if (atomicRow.isAtomicRow) {
+        this.$set(this.atomicLoadingStates, atomicRow.atomic_id, loading);
+      }
+    },
+    
+    // Atomic event handlers
+    handleAtomicValueChange(_atomicRow) {
+      // This is called when user changes the atomic input value
+      // Value is already stored in atomicEditingValues, no immediate action needed
+    },
+    
+    // Atomic action handlers
+    async handleAtomicSave(atomicRow) {
+      const value = this.atomicEditingValues[atomicRow.atomic_id];
+      if (!value) {
+        this.$message.warning('Please enter a valid atomic value');
+        return;
+      }
+      
+      this.setAtomicLoading(atomicRow, true);
+      
+      try {
+        const result = await this.$store.dispatch('kri/saveAtomicValue', {
+          kriId: atomicRow.parentKriId,
+          reportingDate: atomicRow.parentReportingDate,
+          atomicId: atomicRow.atomic_id,
+          value: value.toString()
+        });
+        
+        if (result.success) {
+          this.$message.success(`Atomic element ${atomicRow.atomic_id} saved successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || `Failed to save atomic element ${atomicRow.atomic_id}`);
+        }
+      } catch (error) {
+        console.error('Atomic save error:', error);
+        this.$message.error(`Failed to save atomic element ${atomicRow.atomic_id}`);
+        this.$emit('data-updated');
+      } finally {
+        this.setAtomicLoading(atomicRow, false);
+      }
+    },
+    
+    async handleAtomicSubmitSaved(atomicRow) {
+      this.setAtomicLoading(atomicRow, true);
+      
+      try {
+        const result = await this.$store.dispatch('kri/submitAtomicElement', {
+          kriId: atomicRow.parentKriId,
+          reportingDate: atomicRow.parentReportingDate,
+          atomicId: atomicRow.atomic_id
+        });
+        
+        if (result.success) {
+          this.$message.success(`Atomic element ${atomicRow.atomic_id} submitted successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || `Failed to submit atomic element ${atomicRow.atomic_id}`);
+        }
+      } catch (error) {
+        console.error('Atomic submit error:', error);
+        this.$message.error(`Failed to submit atomic element ${atomicRow.atomic_id}`);
+        this.$emit('data-updated');
+      } finally {
+        this.setAtomicLoading(atomicRow, false);
+      }
+    },
+    
+    async handleAtomicSaveAndSubmit(atomicRow) {
+      const value = this.atomicEditingValues[atomicRow.atomic_id];
+      if (!value) {
+        this.$message.warning('Please enter a valid atomic value');
+        return;
+      }
+      
+      this.setAtomicLoading(atomicRow, true);
+      
+      try {
+        const result = await this.$store.dispatch('kri/saveAndSubmitAtomicElement', {
+          kriId: atomicRow.parentKriId,
+          reportingDate: atomicRow.parentReportingDate,
+          atomicId: atomicRow.atomic_id,
+          value: value.toString()
+        });
+        
+        if (result.success) {
+          this.$message.success(`Atomic element ${atomicRow.atomic_id} saved and submitted successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || `Failed to save and submit atomic element ${atomicRow.atomic_id}`);
+        }
+      } catch (error) {
+        console.error('Atomic save and submit error:', error);
+        this.$message.error(`Failed to save and submit atomic element ${atomicRow.atomic_id}`);
+        this.$emit('data-updated');
+      } finally {
+        this.setAtomicLoading(atomicRow, false);
+      }
+    },
+    
+    async handleAtomicApprove(atomicRow) {
+      this.setAtomicLoading(atomicRow, true);
+      
+      try {
+        const result = await this.$store.dispatch('kri/approveAtomicElements', {
+          kriId: atomicRow.parentKriId,
+          reportingDate: atomicRow.parentReportingDate,
+          atomicIds: [atomicRow.atomic_id]
+        });
+        
+        if (result.success) {
+          this.$message.success(`Atomic element ${atomicRow.atomic_id} approved successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || `Failed to approve atomic element ${atomicRow.atomic_id}`);
+        }
+      } catch (error) {
+        console.error('Atomic approve error:', error);
+        this.$message.error(`Failed to approve atomic element ${atomicRow.atomic_id}`);
+        this.$emit('data-updated');
+      } finally {
+        this.setAtomicLoading(atomicRow, false);
+      }
+    },
+    
+    async handleAtomicAcknowledge(atomicRow) {
+      this.setAtomicLoading(atomicRow, true);
+      
+      try {
+        const result = await this.$store.dispatch('kri/acknowledgeAtomicElements', {
+          kriId: atomicRow.parentKriId,
+          reportingDate: atomicRow.parentReportingDate,
+          atomicIds: [atomicRow.atomic_id]
+        });
+        
+        if (result.success) {
+          this.$message.success(`Atomic element ${atomicRow.atomic_id} acknowledged successfully`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || `Failed to acknowledge atomic element ${atomicRow.atomic_id}`);
+        }
+      } catch (error) {
+        console.error('Atomic acknowledge error:', error);
+        this.$message.error(`Failed to acknowledge atomic element ${atomicRow.atomic_id}`);
+        this.$emit('data-updated');
+      } finally {
+        this.setAtomicLoading(atomicRow, false);
+      }
+    },
+    
+    async handleAtomicReject(atomicRow) {
+      try {
+        const reason = await this.showInputPrompt(
+          'Reject Atomic Element', 
+          'Please provide a reason for rejection:',
+          (value) => {
+            if (!value || value.trim().length < 3) {
+              return 'Reason must be at least 3 characters long';
+            }
+            return true;
+          }
+        );
+        
+        if (!reason) return; // User cancelled
+        
+        this.setAtomicLoading(atomicRow, true);
+        
+        const result = await this.$store.dispatch('kri/rejectAtomicElements', {
+          kriId: atomicRow.parentKriId,
+          reportingDate: atomicRow.parentReportingDate,
+          atomicIds: [atomicRow.atomic_id],
+          reason
+        });
+        
+        if (result.success) {
+          this.$message.success(`Atomic element ${atomicRow.atomic_id} rejected and sent back for rework`);
+          this.$emit('data-updated');
+        } else {
+          this.$message.error(result.error || `Failed to reject atomic element ${atomicRow.atomic_id}`);
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Atomic reject error:', error);
+          this.$message.error(`Failed to reject atomic element ${atomicRow.atomic_id}`);
+          this.$emit('data-updated');
+        }
+      } finally {
+        this.setAtomicLoading(atomicRow, false);
       }
     }
   }
@@ -1162,5 +1720,110 @@ export default {
     max-width: 22%;
     font-size: 13px;
   }
+}
+
+/* KRI Name container for expand functionality */
+.kri-name-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.expand-button {
+  padding: 0 4px !important;
+  font-size: 14px;
+  color: #64748b;
+  min-width: 20px;
+}
+
+.expand-button:hover {
+  color: #3b82f6;
+}
+
+.kri-name-link.with-expand-button {
+  margin-left: 0;
+}
+
+/* Calculated KRI row styling */
+.kri-table >>> .calculated-kri-row {
+  background-color: #fefefe;
+}
+
+.kri-table >>> .calculated-kri-row.expanded {
+  background-color: #f0f9ff;
+  border-bottom: 2px solid #bfdbfe;
+}
+
+/* Atomic sub-row styling */
+.kri-table >>> .atomic-sub-row {
+  background-color: #fafbfc !important;
+  border-left: 3px solid #e2e8f0 !important;
+}
+
+.kri-table >>> .atomic-sub-row:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.kri-table >>> .atomic-sub-row td {
+  padding: 8px 12px !important;
+  font-size: 12px;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* Atomic name display styling */
+.atomic-name-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.atomic-indent {
+  color: #cbd5e0;
+  font-size: 10px;
+}
+
+.atomic-element-name {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.atomic-tag {
+  font-size: 10px;
+  height: 18px;
+  line-height: 16px;
+}
+
+/* Atomic value styling */
+.atomic-edit {
+  background-color: #fef3c7;
+  padding: 2px;
+  border-radius: 3px;
+}
+
+.value-display .atomic-value {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 11px;
+  color: #059669;
+  font-weight: 600;
+  background-color: #f0fdf4;
+  padding: 4px 8px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* Atomic action buttons */
+.atomic-action {
+  font-size: 9px !important;
+  padding: 2px 4px !important;
+  margin: 1px !important;
+  border-radius: 2px !important;
+}
+
+.atomic-action >>> .el-button__inner {
+  padding: 0;
+  font-size: 9px;
 }
 </style>

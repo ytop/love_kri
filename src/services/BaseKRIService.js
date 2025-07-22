@@ -12,6 +12,7 @@ export class BaseKRIService {
    */
   parseReportingDate(reportingDate) {
     if (!reportingDate) return null;
+    if (typeof reportingDate === 'number') return reportingDate;
     return parseInt(reportingDate.replace(/-/g, ''), 10);
   }
 

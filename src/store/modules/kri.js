@@ -190,7 +190,16 @@ const actions = {
     } catch (error) {
       console.log('Database error, loading mock data:', error.message);
       // Load mock data matching actual database schema
-      const reportingDateInt = reportingDate ? parseInt(reportingDate.replace(/-/g, ''), 10) : 20241231;
+      let reportingDateInt = 20241231;
+      if (reportingDate) {
+        if (typeof reportingDate === 'number') {
+          reportingDateInt = reportingDate;
+        } else if (typeof reportingDate === 'string') {
+          reportingDateInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+        } else {
+          reportingDateInt = parseInt(String(reportingDate).replace(/-/g, ''), 10);
+        }
+      }
       
       const mockKRIData = [
         {
@@ -259,7 +268,14 @@ const actions = {
       console.log('Database error for KRI detail, loading mock data:', error.message);
       
       // Load mock detail data
-      const reportingDateInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+      let reportingDateInt;
+      if (typeof reportingDate === 'number') {
+        reportingDateInt = reportingDate;
+      } else if (typeof reportingDate === 'string') {
+        reportingDateInt = parseInt(reportingDate.replace(/-/g, ''), 10);
+      } else {
+        reportingDateInt = parseInt(String(reportingDate).replace(/-/g, ''), 10);
+      }
       const kriIdInt = parseInt(kriId);
       
       const mockKRIDetail = {
@@ -1285,6 +1301,39 @@ const actions = {
       commit('SET_ATOMIC_DATA', rolledBackData);
       commit('SET_ERROR', error.message);
       return { success: false, error: error.message };
+    }
+  },
+
+  // Fetch atomic data for a specific KRI (for table expansion)
+  async fetchAtomicData({ commit, state }, { kriId, reportingDate }) {
+    console.log('fetchAtomicData called with:', { kriId, reportingDate });
+    
+    // Convert reporting date YYYYMMDD or YYYY-MM-DD to integer format (YYYYMMDD)
+    let formattedDate;
+    if (typeof reportingDate === 'number') {
+      formattedDate = reportingDate;
+    } else if (typeof reportingDate === 'string') {
+      if (reportingDate.includes('-')) {
+        formattedDate = parseInt(reportingDate.replace(/-/g, ''), 10); // Convert YYYY-MM-DD to YYYYMMDD
+      } else {
+        formattedDate = parseInt(reportingDate, 10); // Already in YYYYMMDD format
+      }
+    } else {
+      console.warn('Incorrect reporting date format:',reportingDate,'(', typeof reportingDate,')');
+      formattedDate = parseInt(String(reportingDate).replace(/-/g, ''), 10); // Try to convert to YYYYMMDD
+    }
+    
+    try {
+      // Use the service to fetch atomic data
+      const atomicData = await kriService.fetchKRIAtomic(kriId, formattedDate);
+      
+      // Return the data directly for table usage
+      return { success: true, data: atomicData };
+    } catch (error) {
+      console.log('Database error for atomic data, returning empty array:', error.message);
+      
+      // Return empty array as fallback
+      return { success: true, data: [] };
     }
   },
 
