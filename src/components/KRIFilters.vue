@@ -38,7 +38,7 @@
                 style="width: 180px;"
               >
                 <el-option 
-                  v-for="option in collectionStatusOptions" 
+                  v-for="option in STATUS_VALUES" 
                   :key="option.value"
                   :label="option.label" 
                   :value="option.value" 
@@ -189,7 +189,7 @@
 </template>
 
 <script>
-import { COLLECTION_STATUS_OPTIONS } from '@/utils/helpers';
+import { STATUS_VALUES } from '@/utils/types';
 
 export default {
   name: 'KRIFilters',
@@ -210,7 +210,7 @@ export default {
   data() {
     return {
       localFilters: { ...this.filters },
-      collectionStatusOptions: COLLECTION_STATUS_OPTIONS
+      STATUS_VALUES: STATUS_VALUES
     };
   },
   computed: {

@@ -101,15 +101,13 @@ export class ObjectStorage {
 
   /**
    * Generate a unique file path
-   * @param {number} kriId - KRI ID
-   * @param {number} reportingDate - Reporting date as integer (YYYYMMDD)
    * @param {string} filename - Original filename
    * @returns {string} Unique file path
    */
-  generateFilePath(kriId, reportingDate, filename) {
+  generateFilePath(filename) {
     const timestamp = Date.now();
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-    return `kri_evidence/${kriId}/${reportingDate}/${timestamp}_${sanitizedFilename}`;
+    return `kri_evidence/${timestamp}_${sanitizedFilename}`;
   }
 
   /**
@@ -421,142 +419,99 @@ export class MockStorageProvider extends ObjectStorage {
   }
 }
 
-/**
- * Storage Factory
- * Creates storage provider instances based on configuration
- */
-export class StorageFactory {
-  static create(providerType, config = {}) {
-    switch (providerType.toLowerCase()) {
-    case 'supabase':
-      if (!config.supabaseClient) {
-        throw new Error('Supabase client is required for SupabaseStorageProvider');
-      }
-      return new SupabaseStorageProvider(config.supabaseClient, config);
-      
-    case 'local':
-      return new LocalStorageProvider(config);
-      
-    case 'mock':
-      return new MockStorageProvider(config);
-      
-    default:
-      throw new Error(`Unknown storage provider: ${providerType}`);
-    }
-  }
 
-  static getAvailableProviders() {
-    return ['supabase', 'local', 'mock'];
-  }
-}
+// ----------------------------- Storage Provider -----------------------------
 
 /**
- * Storage Manager
- * Manages storage provider instances and configuration
+ * Evidence Storage Service
+ * Handles only object storage operations for evidence files.
+ * No database operations are performed here.
+ * 
+ * Now manages its own storage provider instance internally (was StorageManager).
  */
-export class StorageManager {
-  constructor() {
+export class EvidenceStorageService {
+  // ----------------------------- Constructor -----------------------------
+  /**
+   * @param {Object} options
+   *   - storageProvider: (optional) an ObjectStorage instance to use directly
+   *   - storageProviderConfig: (optional) config for storage provider if not provided
+   */
+  constructor(options = {}) {
+    // Allow passing in a storage provider instance directly
     this._storageProvider = null;
+    this._storageProviderConfig = options.storageProviderConfig || {};
+
+    if (options.storageProvider) {
+      // Check that the provided storageProvider is an ObjectStorage subclass
+      if (
+        typeof options.storageProvider === 'object' &&
+        options.storageProvider instanceof ObjectStorage
+      ) {
+        // If it's a subclass of ObjectStorage, allow
+        this._storageProvider = options.storageProvider;
+      } else {
+        throw new Error('storageProvider must be an instance of ObjectStorage');
+      }
+    }
   }
 
   getStorageProvider() {
     if (!this._storageProvider) {
       // Default to Supabase storage provider
-      // TODO: use other storage providers for production
-      this._storageProvider = StorageFactory.create('supabase', {
+      this._storageProvider = new SupabaseStorageProvider(supabase, {
         supabaseClient: supabase,
         bucketName: 'evidence',
-        maxFileSize: 10 * 1024 * 1024, // 10MB
+        maxFileSize: 10 * 1024 * 1024,
         allowedTypes: [
           'application/pdf',
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'application/vnd.ms-excel',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'text/plain',
           'text/csv'
-        ]
+        ],
+        ...this._storageProviderConfig
       });
     }
     return this._storageProvider;
   }
 
   setStorageProvider(provider) {
+    if (!(provider instanceof ObjectStorage)) {
+      throw new Error('Storage provider must be an instance of ObjectStorage');
+    }
     this._storageProvider = provider;
   }
-}
 
-/**
- * Evidence Storage Service
- * Combines storage operations with database operations for evidence management
- */
-export class EvidenceStorageService {
-  constructor(storageManager, supabaseClient) {
-    this.storageManager = storageManager;
-    this.supabase = supabaseClient;
-  }
 
-  async uploadEvidence(kriId, reportingDate, file, description, uploadedBy) {
-    const reportingDateAsInt = parseInt(reportingDate.replace(/-/g, ''), 10);
-    
+  // ----------------------------- Evidence -----------------------------
+  /**
+   * @param {string} filename - The name of the file
+   * @param {File} file - The file object to upload
+   * @param {string} description - The description of the file
+   * @param {string} uploadedBy - The user who uploaded the file
+   * Upload evidence file to object storage.
+   * Returns file info only, does not write to database.
+   */
+  async uploadEvidence(filename, file, description = '', uploadedBy = 'anonymous') {
+    if (!filename) throw new Error('filename is required');
+    if (!file) throw new Error('file is required');
+
     try {
-      const storage = this.storageManager.getStorageProvider();
-      
+      const storage = this.getStorageProvider();
+
       // Generate unique file path
-      const filePath = storage.generateFilePath(kriId, reportingDateAsInt, file.name);
-      
+      const filePath = storage.generateFilePath(filename);
+
       // Upload file to storage
       const uploadResult = await storage.uploadFile(file, filePath, {
-        kriId: kriId,
-        reportingDate: reportingDateAsInt,
+        filename: filename,
         description: description,
         uploadedBy: uploadedBy
       });
 
-      // Save evidence metadata to database
-      const { data, error } = await this.supabase
-        .from('kri_evidence')
-        .insert({
-          kri_id: parseInt(kriId),
-          reporting_date: reportingDateAsInt,
-          file_name: file.name,
-          file_url: uploadResult.url,
-          description: description,
-          uploaded_by: uploadedBy
-        })
-        .select()
-        .single();
-
-      if (error) {
-        // If database insert fails, try to clean up uploaded file
-        try {
-          await storage.deleteFile(uploadResult.url);
-        } catch (deleteError) {
-          console.error('Failed to clean up uploaded file after database error:', deleteError);
-        }
-        throw new Error(`Failed to save evidence metadata: ${error.message}`);
-      }
-
-      // Add audit trail entry for file upload - delegate to external audit service
-      if (this.auditService) {
-        await this.auditService.addAuditTrailEntry(
-          kriId, 
-          reportingDate, 
-          'file_upload', 
-          'evidence', 
-          null, 
-          file.name, 
-          uploadedBy, 
-          `File uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB) via ${storage.getProviderName()}`
-        );
-      }
-
       return {
         success: true,
-        evidence: data,
         fileInfo: {
           path: uploadResult.path,
           url: uploadResult.url,
@@ -569,51 +524,25 @@ export class EvidenceStorageService {
     }
   }
 
-  async deleteEvidence(evidenceId, deletedBy) {
+  /**
+   * Delete evidence file from object storage.
+   * Requires file URL and info as input (no DB lookup).
+   * @param {string} file_url - The URL of the file
+   * @param {string} deletedBy
+   */
+  async deleteEvidence(file_url, deletedBy = 'anonymous') {
     try {
-      // First get the evidence record to obtain file info
-      const { data: evidence, error: fetchError } = await this.supabase
-        .from('kri_evidence')
-        .select('*')
-        .eq('evidence_id', evidenceId)
-        .single();
-
-      if (fetchError) {
-        throw new Error(`Failed to fetch evidence record: ${fetchError.message}`);
-      }
-
-      const storage = this.storageManager.getStorageProvider();
+      const storage = this.getStorageProvider();
 
       // Delete file from storage
-      await storage.deleteFile(evidence.file_url);
-
-      // Delete evidence record from database
-      const { error: deleteError } = await this.supabase
-        .from('kri_evidence')
-        .delete()
-        .eq('evidence_id', evidenceId);
-
-      if (deleteError) {
-        throw new Error(`Failed to delete evidence record: ${deleteError.message}`);
-      }
-
-      // Add audit trail entry for file deletion - delegate to external audit service
-      if (this.auditService) {
-        await this.auditService.addAuditTrailEntry(
-          evidence.kri_id,
-          evidence.reporting_date.toString(),
-          'file_delete',
-          'evidence',
-          evidence.file_name,
-          null,
-          deletedBy,
-          `File deleted: ${evidence.file_name} via ${storage.getProviderName()}`
-        );
-      }
+      await storage.deleteFile(file_url);
 
       return {
         success: true,
-        deletedEvidence: evidence
+        deletedFile: {
+          file_url: file_url,
+          deletedBy: deletedBy
+        }
       };
     } catch (error) {
       console.error('Delete evidence error:', error);
@@ -621,29 +550,23 @@ export class EvidenceStorageService {
     }
   }
 
-  async downloadEvidence(evidenceId) {
+  /**
+   * Download evidence file from object storage.
+   * Requires file URL and file name as input (no DB lookup).
+   * @param {string} file_url - The URL of the file
+   * @param {string} filename - The name of the file
+   */
+  async downloadEvidence(file_url, filename) {
     try {
-      // Get evidence record
-      const { data: evidence, error: fetchError } = await this.supabase
-        .from('kri_evidence')
-        .select('*')
-        .eq('evidence_id', evidenceId)
-        .single();
+      const storage = this.getStorageProvider();
 
-      if (fetchError) {
-        throw new Error(`Failed to fetch evidence record: ${fetchError.message}`);
-      }
-
-      const storage = this.storageManager.getStorageProvider();
-      
       // Download file from storage
-      const fileBlob = await storage.downloadFile(evidence.file_url, evidence.file_name);
+      const fileBlob = await storage.downloadFile(file_url, filename);
 
       return {
         success: true,
         file: fileBlob,
-        filename: evidence.file_name,
-        evidence: evidence
+        filename: filename
       };
     } catch (error) {
       console.error('Download evidence error:', error);
@@ -651,22 +574,21 @@ export class EvidenceStorageService {
     }
   }
 
-  async getEvidenceUrl(evidenceId) {
+  /**
+   * Get public URL for evidence file.
+   * Requires file path as input (no DB lookup).
+   * @param {string} filePath
+   * @param {string} fileName
+   */
+  async getEvidenceUrl(filePath, fileName) {
     try {
-      const { data: evidence, error } = await this.supabase
-        .from('kri_evidence')
-        .select('file_url, file_name')
-        .eq('evidence_id', evidenceId)
-        .single();
-
-      if (error) {
-        throw new Error(`Failed to fetch evidence URL: ${error.message}`);
-      }
+      const storage = this.getStorageProvider();
+      const url = await storage.getFileUrl(filePath);
 
       return {
         success: true,
-        url: evidence.file_url,
-        filename: evidence.file_name
+        url: url,
+        filename: fileName
       };
     } catch (error) {
       console.error('Get evidence URL error:', error);
@@ -674,9 +596,6 @@ export class EvidenceStorageService {
     }
   }
 
-  setAuditService(auditService) {
-    this.auditService = auditService;
-  }
 }
 
 /*

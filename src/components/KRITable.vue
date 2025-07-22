@@ -148,8 +148,8 @@
 </template>
 
 <script>
-import { formatDateFromInt, getStatusTagTypeFromLabel, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/helpers';
-
+import { formatDateFromInt } from '@/utils/helpers';
+import { getStatusTagType, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/types';
 export default {
   name: 'KRITable',
   props: {
@@ -246,7 +246,7 @@ export default {
     },
     
     getStatusTagType(status) {
-      return getStatusTagTypeFromLabel(status);
+      return getStatusTagType(status);
     },
     
     getBreachTagType,

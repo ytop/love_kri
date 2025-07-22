@@ -422,7 +422,8 @@
 
 <script>
 import { mapState } from 'vuex';
-import { formatDateFromInt, getStatusTagTypeFromLabel, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/helpers';
+import { formatDateFromInt } from '@/utils/helpers';
+import { getStatusTagType, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/types';
 import { kriCollectDataTableMixin } from '@/mixins/kriTableMixin';
 import { kriOperationMixin } from '@/mixins/kriOperationMixin';
 import PermissionManager from '@/utils/PermissionManager';
@@ -806,8 +807,9 @@ export default {
     
     async handleSingleApprove(row) {
       try {
-        const result = await this.executeRowAction(row, 'approve', { 
-          comment: 'Approved by Data Provider Approver' 
+        const result = await this.executeRowAction(row, 'review', { 
+          comment: 'Approved by Data Provider Approver',
+          decision: 'approve'
         });
         
         if (result.success) {
@@ -825,8 +827,8 @@ export default {
     
     async handleSingleAcknowledge(row) {
       try {
-        const result = await this.executeRowAction(row, 'approve', { 
-          comment: 'Acknowledged by KRI Owner Approver' 
+        const result = await this.executeRowAction(row, 'acknowledge', { 
+          comment: 'Acknowledged by KRI Owner Approver',
         });
         
         if (result.success) {
@@ -857,7 +859,19 @@ export default {
         
         if (!reason) return; // User cancelled
         
-        const result = await this.executeRowAction(row, 'reject', { reason });
+        // Use appropriate action based on status: 'review' for status 40, 'acknowledge' for status 50
+        let actionName;
+        if (row.rawData.kri_status === 50) {
+          actionName = 'acknowledge';
+        } else if (row.rawData.kri_status === 40) {
+          actionName = 'review';
+        } else {
+          throw new Error('Invalid kri_status for reject action: ' + row.rawData.kri_status);
+        }
+        const result = await this.executeRowAction(row, actionName, { 
+          reason,
+          decision: 'reject'
+        });
         
         if (result.success) {
           this.$message.success(`KRI ${row.id} rejected and sent back for rework`);
@@ -1003,7 +1017,7 @@ export default {
     },
     
     getStatusTagType(status) {
-      return getStatusTagTypeFromLabel(status);
+      return getStatusTagType(status);
     },
     
     getBreachTagType,
