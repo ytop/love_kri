@@ -163,6 +163,21 @@ export const kriTableMixin = {
           ...row
         });
 
+        // INSERT_YOUR_CODE
+        // Log all relevant information for debugging
+        console.log('[executeRowAction] Action:', {
+          row,
+          actionName,
+          actionData,
+          rowId: row.id,
+          reportingDate: row.reportingDate,
+          kri_status: row.rawData?.kri_status || 10,
+          initializedOperations: this.kriOperations ? true : false,
+          currentUser: this.currentUser,
+          selectedRows: this.selectedRows,
+          rowLoadingStates: this.rowLoadingStates,
+        });
+
         // Execute the action
         const result = await this.executeKRIAction(actionName, actionData);
         

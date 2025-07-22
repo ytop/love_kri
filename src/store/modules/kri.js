@@ -1603,6 +1603,37 @@ const actions = {
       commit('SET_ERROR', error.message);
       return { success: false, error: error.message };
     }
+  },
+
+  async uploadEvidence({ commit, state }, { kriId, reportingDate, file, description }) {
+    try {
+      const result = await kriService.uploadEvidence({
+        kriId,
+        reportingDate,
+        file,
+        description,
+        uploadedBy: state.currentUser.name || state.currentUser.uuid || 'Unknown User'
+      });
+
+      if (result.success) {
+        // Refresh evidence data after successful upload
+        try {
+          const evidenceData = await kriService.fetchKRIEvidence(kriId, reportingDate);
+          commit('SET_EVIDENCE_DATA', evidenceData);
+        } catch (error) {
+          console.log('Evidence refresh failed, using existing data:', error.message);
+        }
+
+        return { success: true, data: result.data };
+      } else {
+        console.error('Evidence upload failed:', result.error);
+        return { success: false, error: result.error || 'Upload failed' };
+      }
+    } catch (error) {
+      console.error('Error uploading evidence:', error);
+      commit('SET_ERROR', error.message);
+      return { success: false, error: error.message };
+    }
   }
 };
 
@@ -1694,6 +1725,16 @@ const getters = {
   // Check if user is authenticated
   isAuthenticated: (state) => {
     return !!(state.currentUser && state.currentUser.uuid);
+  },
+
+  // Get current user permissions
+  currentUserPermissions: (state) => {
+    return state.currentUser ? state.currentUser.permissions || {} : {};
+  },
+
+  // Get current user
+  currentUser: (state) => {
+    return state.currentUser;
   },
   
 };

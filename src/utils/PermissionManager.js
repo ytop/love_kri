@@ -43,6 +43,8 @@ class PermissionManager {
       hasPermission,
       allUserPermissions: userPermissions
     });
+    // too annoying
+    // TODO: remove this
     
     if (!hasPermission) {
       console.log(`canPerformAction: No ${action} permission for ${key}`);

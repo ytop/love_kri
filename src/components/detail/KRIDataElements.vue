@@ -114,7 +114,21 @@
                     </el-tag>
                 </td>
                 <td>{{ getProviderName(item) }}</td>
-                <td>{{ getEvidenceInfo(item) }}</td>
+                <td class="evidence-cell">
+                  <div class="evidence-content">
+                    <span class="evidence-info">{{ getEvidenceInfo(item) }}</span>
+                    <el-button
+                      v-if="canUploadEvidence"
+                      type="text"
+                      size="mini"
+                      icon="el-icon-upload2"
+                      @click="showUploadModal"
+                      class="evidence-upload-btn"
+                    >
+                      Upload
+                    </el-button>
+                  </div>
+                </td>
                 <td>{{ getCommentInfo(item) }}</td>
                 <td class="fixed-column">
                   <div class="row-actions">
@@ -264,15 +278,28 @@
       :previous-data="previousAtomicData"
       @data-updated="handleBulkDataUpdate">
     </atomic-input-dialog>
+
+    <!-- Evidence Upload Modal -->
+    <evidence-upload-modal
+      :visible.sync="uploadModalVisible"
+      :kri-id="kriDetail.kri_id"
+      :reporting-date="kriDetail.reporting_date"
+      @upload-success="handleUploadSuccess"
+    />
   </div>
 </template>
 
 <script>
 import { mapState } from 'vuex';
 import { mapStatus, getStatusTagType, canPerformAction } from '@/utils/helpers';
+import EvidenceUploadModal from '@/components/shared/EvidenceUploadModal';
+import PermissionManager from '@/utils/PermissionManager';
 
 export default {
   name: 'KRIDataElements',
+  components: {
+    EvidenceUploadModal
+  },
   props: {
     atomicData: {
       type: Array,
@@ -294,7 +321,8 @@ export default {
       editingAtomic: null, // Currently editing atomic element ID
       editingValue: null, // Current editing value
       savingAtomic: null, // ID of atomic element being saved
-      submittingAtomicData: false // Loading state for submitting atomic data
+      submittingAtomicData: false, // Loading state for submitting atomic data
+      uploadModalVisible: false // Evidence upload modal visibility
     };
   },
   computed: {
@@ -433,6 +461,21 @@ export default {
       const hasEditableElements = this.atomicData.some(item => [10, 20, 30].includes(item.atomic_status));
       
       return hasEditPermission && hasEditableElements && this.atomicData.length > 0;
+    },
+
+    canUploadEvidence() {
+      // User can upload evidence if they have edit permission and status allows editing
+      const kriItem = {
+        id: this.kriDetail.kri_id,
+        reportingDate: this.kriDetail.reporting_date
+      };
+      
+      return PermissionManager.canPerformAction(
+        this.currentUser.permissions,
+        'edit',
+        this.kriDetail.kri_status,
+        kriItem
+      );
     }
   },
   methods: {
@@ -976,6 +1019,16 @@ export default {
 
     hasAtomicValue(item) {
       return item.atomic_value !== null && item.atomic_value !== '' && item.atomic_value !== 'N/A';
+    },
+
+    showUploadModal() {
+      this.uploadModalVisible = true;
+    },
+
+    handleUploadSuccess() {
+      // Emit event to parent component to refresh evidence data
+      this.$emit('evidence-uploaded');
+      this.$message.success('Evidence uploaded successfully');
     }
   },
   watch: {
@@ -1418,6 +1471,37 @@ export default {
         background-color: #fbbf24; 
         transform: scale(1.02);
     }
+}
+
+/* Evidence Cell Styling */
+.evidence-cell {
+  padding: 8px 12px;
+}
+
+.evidence-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  min-height: 32px;
+}
+
+.evidence-info {
+  font-size: 12px;
+  color: #606266;
+  white-space: nowrap;
+}
+
+.evidence-upload-btn {
+  padding: 2px 6px;
+  font-size: 11px;
+  height: 22px;
+  margin: 0;
+}
+
+.evidence-upload-btn:hover {
+  color: #409eff;
+  background-color: #ecf5ff;
 }
 
 </style>

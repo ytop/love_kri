@@ -54,6 +54,7 @@
             <k-r-i-overview 
               :kri-data="kriDetail" 
               :atomic-data="atomicData"
+              :evidence-data="evidenceData"
               @data-updated="refreshKRIData" />
           </el-card>
           
@@ -66,6 +67,8 @@
               :atomic-data="atomicData"
               :kri-detail="kriDetail"
               :evidence-data="evidenceData"
+              @data-updated="refreshKRIData"
+              @evidence-uploaded="refreshKRIData"
             />
           </el-card>
           
@@ -98,6 +101,11 @@
             <k-r-i-evidence-audit 
               :evidence-data="evidenceData"
               :audit-data="auditTrailData"
+              :kri-id="String(kriDetail.kri_id)"
+              :reporting-date="kriDetail.reporting_date"
+              :current-status="kriDetail.kri_status"
+              :kri-item="kriDetail"
+              @evidence-uploaded="refreshKRIData"
             />
           <!-- </el-card> -->
         </div>

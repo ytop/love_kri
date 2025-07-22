@@ -182,6 +182,41 @@
         </div>
       </el-col>
     </el-row>
+
+    <!-- Latest Evidence Section -->
+    <el-row v-if="latestEvidence" :gutter="24" style="margin-top: 1rem;">
+      <el-col :span="24">
+        <div class="evidence-section">
+          <div class="evidence-header">
+            <label>
+              <i class="el-icon-paperclip"></i>
+              Latest Evidence
+            </label>
+            <el-tag type="info" size="mini">{{ totalEvidenceCount }} files total</el-tag>
+          </div>
+          <div class="evidence-item">
+            <div class="evidence-info">
+              <span class="file-name">{{ latestEvidence.file_name }}</span>
+              <span class="file-meta">
+                Uploaded by {{ latestEvidence.uploaded_by || 'Unknown' }} 
+                on {{ formatDate(latestEvidence.uploaded_at) }}
+              </span>
+              <p v-if="latestEvidence.description" class="file-description">
+                {{ latestEvidence.description }}
+              </p>
+            </div>
+            <el-button
+              type="text"
+              size="small"
+              icon="el-icon-download"
+              @click="downloadEvidence(latestEvidence)"
+            >
+              Download
+            </el-button>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -197,6 +232,10 @@ export default {
       required: true
     },
     atomicData: {
+      type: Array,
+      default: () => []
+    },
+    evidenceData: {
       type: Array,
       default: () => []
     }
@@ -320,6 +359,25 @@ export default {
       // This would ideally come from audit trail data
       // For now, return a placeholder
       return 'N/A';
+    },
+
+    // Get the latest uploaded evidence file
+    latestEvidence() {
+      if (!this.evidenceData.length) return null;
+      
+      // Sort by upload date (most recent first) and return the first one
+      const sortedEvidence = [...this.evidenceData].sort((a, b) => {
+        const dateA = new Date(a.uploaded_at || 0);
+        const dateB = new Date(b.uploaded_at || 0);
+        return dateB - dateA;
+      });
+      
+      return sortedEvidence[0];
+    },
+
+    // Get total evidence count
+    totalEvidenceCount() {
+      return this.evidenceData.length;
     }
   },
   watch: {
@@ -506,6 +564,31 @@ export default {
       } finally {
         this.submittingAtomic = false;
       }
+    },
+
+    // Format date for display
+    formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      try {
+        return new Date(dateString).toLocaleDateString();
+      } catch (error) {
+        return 'Invalid Date';
+      }
+    },
+
+    // Download evidence file
+    downloadEvidence(evidence) {
+      if (evidence.file_url) {
+        const link = document.createElement('a');
+        link.href = evidence.file_url;
+        link.download = evidence.file_name;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        this.$message.warning('File URL not available');
+      }
     }
   }
 };
@@ -686,5 +769,72 @@ export default {
   gap: 12px;
   padding-top: 12px;
   border-top: 1px solid #e9ecef;
+}
+
+/* Evidence Section Styles */
+.evidence-section {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.evidence-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.evidence-header label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.evidence-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  background-color: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.evidence-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 4px rgba(64, 158, 255, 0.1);
+}
+
+.evidence-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.file-meta {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.file-description {
+  font-size: 12px;
+  color: #495057;
+  margin: 4px 0 0 0;
+  font-style: italic;
 }
 </style>

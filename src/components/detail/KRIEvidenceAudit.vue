@@ -5,6 +5,18 @@
     </div>
     <el-tabs v-else v-model="activeTab" type="border-card">
       <el-tab-pane label="Evidence" name="evidence">
+        <div class="evidence-header">
+          <el-button
+            v-if="canUploadEvidence"
+            type="primary"
+            size="small"
+            icon="el-icon-upload2"
+            @click="showUploadModal"
+          >
+            Upload Evidence
+          </el-button>
+        </div>
+        
         <div v-if="evidenceData.length === 0" class="no-data">
           <p>No evidence files available</p>
         </div>
@@ -109,12 +121,27 @@
         </div>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- Evidence Upload Modal -->
+    <evidence-upload-modal
+      :visible.sync="uploadModalVisible"
+      :kri-id="kriId"
+      :reporting-date="reportingDate"
+      @upload-success="handleUploadSuccess"
+    />
   </div>
 </template>
 
 <script>
+import EvidenceUploadModal from '@/components/shared/EvidenceUploadModal';
+import PermissionManager from '@/utils/PermissionManager';
+import { mapGetters } from 'vuex';
+
 export default {
   name: 'KRIEvidenceAudit',
+  components: {
+    EvidenceUploadModal
+  },
   props: {
     evidenceData: {
       type: Array,
@@ -123,16 +150,45 @@ export default {
     auditData: {
       type: Array,
       required: true
+    },
+    kriId: {
+      type: String,
+      required: true
+    },
+    reportingDate: {
+      type: Number,
+      required: true
+    },
+    currentStatus: {
+      type: Number,
+      required: true
+    },
+    kriItem: {
+      type: Object,
+      required: true
     }
   },
   data() {
     return {
-      activeTab: 'evidence' // Set Evidence as the default active tab
+      activeTab: 'evidence', // Set Evidence as the default active tab
+      uploadModalVisible: false
     };
   },
   computed: {
+    ...mapGetters('kri', ['currentUserPermissions', 'currentUser']),
+    
     bothDataEmpty() {
       return this.evidenceData.length === 0 && this.auditData.length === 0;
+    },
+
+    canUploadEvidence() {
+      // User can upload evidence if they have edit permission and status allows editing
+      return PermissionManager.canPerformAction(
+        this.currentUserPermissions,
+        'edit',
+        this.currentStatus,
+        this.kriItem
+      );
     }
   },
   methods: {
@@ -157,6 +213,16 @@ export default {
       } else {
         this.$message.warning('File URL not available');
       }
+    },
+
+    showUploadModal() {
+      this.uploadModalVisible = true;
+    },
+
+    handleUploadSuccess() {
+      // Emit event to parent component to refresh evidence data
+      this.$emit('evidence-uploaded');
+      this.$message.success('Evidence uploaded successfully');
     }
   }
 };
@@ -165,6 +231,14 @@ export default {
 <style scoped>
 .evidence-audit {
   padding: 0.5rem 0;
+}
+
+.evidence-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 0 5px;
 }
 
 .no-data-prominent {
