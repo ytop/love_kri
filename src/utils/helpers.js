@@ -1,4 +1,5 @@
 import { format, lastDayOfMonth, subMonths } from 'date-fns';
+import Permission from '@/utils/permission';
 
 // ---------------------------------- helper functions ----------------------------------
 
@@ -104,6 +105,20 @@ export const ATOMIC_PERMISSION_PATTERNS = {
 // Check if permission is an atomic-level permission
 export const isAtomicPermission = (permission) => {
   return Object.values(ATOMIC_PERMISSION_PATTERNS).some(pattern => pattern.test(permission));
+};
+
+// Extract atomic ID from atomic permission (e.g., "atomic1_edit" -> "1")
+export const getAtomicIdFromPermission = (permission) => {
+  const match = permission.match(/^atomic(\d+)_/);
+  return match ? parseInt(match[1], 10) : null;
+};
+
+// Helper function to calculate pending KRIs based on user permissions
+export const calculatePendingKRIs = (kriItems, userPermissions) => {
+  if (!Array.isArray(kriItems) || !Array.isArray(userPermissions) || userPermissions.length === 0) {
+    return [];
+  }
+  return kriItems.filter(item => Permission.needsUserAction(item, userPermissions));
 };
 
 // Get user display name with fallback options based on database schema

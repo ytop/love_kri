@@ -18,7 +18,7 @@
             type="danger"
             :hidden="totalPendingKRIsCount === 0"
           >
-            <el-button size="medium" @click="navigateToStatusPage">
+            <el-button size="medium" @click="navigateToPendingKRI">
               Pending KRIs
             </el-button>
           </el-badge>
@@ -162,10 +162,9 @@ export default {
       });
     },
     
-    navigateToStatusPage() {
+    navigateToPendingKRI() {
       this.$router.push({
-        name: 'KRIListByStatus',
-        params: { status: 'pending' }
+        name: 'PendingKRIs'
       });
     },
     

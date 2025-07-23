@@ -1,23 +1,14 @@
 import { kriService } from '@/services/kriService';
 import { mapStatus, transformKRIData } from '@/utils/types';
 import sessionStorageUtil from '@/utils/sessionStorage';
-import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, calculatePendingKRIs } from '@/utils/helpers';
 import Permission from '@/utils/permission';
 
 // Extract atomic ID from atomic permission (e.g., "atomic1_edit" -> "1")
-export const getAtomicIdFromPermission = (permission) => {
-  const match = permission.match(/^atomic(\d+)_/);
-  return match ? parseInt(match[1], 10) : null;
-};
+// Moved to helpers.js
 
 // Helper function to calculate pending KRIs based on user permissions
-const calculatePendingKRIs = (kriItems, userPermissions) => {
-  if (!Array.isArray(kriItems) || !Array.isArray(userPermissions) || userPermissions.length === 0) {
-    return [];
-  }
-  
-  return kriItems.filter(item => Permission.needsUserAction(item, userPermissions));
-};
+// Moved to helpers.js
 
 const state = {
   kriItems: [],

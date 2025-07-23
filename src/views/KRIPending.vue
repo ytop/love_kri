@@ -63,12 +63,6 @@
 
       <!-- KRI Table -->
       <el-card class="table-card">
-        <div slot="header" class="table-header">
-          <span>{{ tableTitle }}</span>
-          <el-tooltip :content="tableTooltip" placement="top">
-            <i class="el-icon-info table-info-icon"></i>
-          </el-tooltip>
-        </div>
         <div v-if="error" class="error-message">
           <el-alert
             title="Error loading data"
@@ -77,11 +71,10 @@
             show-icon>
           </el-alert>
         </div>
-        <k-r-i-table-collect-data
+        <k-r-i-table
           :data="workflowItems"
           :loading="loading"
           @row-click="handleKRIClick"
-          @data-updated="refreshData"
           @selection-change="handleSelectionChange"
         />
         <div v-if="!loading && workflowItems.length === 0 && !error" class="no-data-message">
@@ -93,6 +86,183 @@
     </div>
   </div>
 </template>
+
+<script>
+import { mapState, mapGetters, mapActions } from 'vuex';
+import KRIFilters from '@/components/KRIFilters.vue';
+import KRITable from '@/components/KRITable.vue';
+import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+import StatusManager from '@/utils/types';
+
+export default {
+  name: 'KRIPending',
+  components: {
+    KRIFilters,
+    KRITable
+  },
+  data() {
+    return {
+      showAdvancedFilters: false,
+      selectedRows: []
+    };
+  },
+  computed: {
+    ...mapState('kri', ['loading', 'error', 'filters']),
+    ...mapGetters('kri', [
+      'pendingKRIItems',
+      'currentUser', 
+      'isAuthenticated',
+      'availableDepartments'
+    ]),
+    
+    // Main data source for the table
+    workflowItems() {
+      // Use pendingKRIItems directly - they're already filtered by permission
+      return this.pendingKRIItems || [];
+    },
+    
+    // Page metadata
+    pageTitle() {
+      return 'Pending KRI Items';
+    },
+    
+    workflowDescription() {
+      return 'items requiring your attention';
+    },
+    
+    tableTooltip() {
+      return 'These KRI items require your input, review, or approval based on their current status';
+    },
+    
+    emptyMessage() {
+      return 'No pending KRI items found. All items have been processed or you do not have permissions to modify any KRI items.';
+    },
+    
+    // Check if any filters are active
+    hasActiveFilters() {
+      const filters = this.filters;
+      return !!(
+        filters.kriOwner ||
+        filters.dataProvider ||
+        filters.department ||
+        filters.collectionStatus ||
+        filters.l1RiskType ||
+        filters.l2RiskType ||
+        filters.kriName ||
+        filters.kriId ||
+        filters.reportingCycle ||
+        filters.kriType ||
+        filters.breachType
+      );
+    },
+    
+    // Generate status tags shown in the UI
+    statusTags() {
+      if (!this.workflowItems.length) return [];
+      
+      // Get unique statuses from pending items
+      const statusCounts = {};
+      this.workflowItems.forEach(item => {
+        const status = item.collectionStatus || item.kriStatus;
+        const statusLabel = typeof status === 'number' ? StatusManager.mapStatus(status) : status;
+        statusCounts[statusLabel] = (statusCounts[statusLabel] || 0) + 1;
+      });
+      
+      // Convert to tag format
+      return Object.entries(statusCounts).map(([status, count]) => ({
+        key: status,
+        label: `${status} (${count})`,
+        type: StatusManager.getStatusTagType(status)
+      }));
+    }
+  },
+  methods: {
+    ...mapActions('kri', [
+      'fetchKRIItems', 
+      'updateFilters', 
+      'resetFilters', 
+      'restoreUserFromStorage',
+      'initPermission'
+    ]),
+    
+    // Navigation methods
+    goBack() {
+      this.$router.push({ name: 'Dashboard' });
+    },
+    
+    handleKRIClick(row) {
+      // For now, just show a message since detail page isn't implemented
+      this.$message.info(`KRI Detail page not implemented yet. KRI ID: ${row.kriId || row.id}, Date: ${row.reportingDate}`);
+      
+      // Future implementation when detail page is ready:
+      // this.$router.push({
+      //   name: 'KRIDetail',
+      //   params: {
+      //     id: row.kriId || row.id,
+      //     date: row.reportingDate
+      //   }
+      // });
+    },
+    
+    // Filter management methods
+    handleFilterChange(newFilters) {
+      this.updateFilters(newFilters);
+      // Note: No need to refresh data as pendingKRIItems are already cached
+      // The computed workflowItems will automatically update through reactivity
+    },
+    
+    handleResetFilters() {
+      this.resetFilters();
+    },
+    
+    handleToggleAdvancedFilters() {
+      this.showAdvancedFilters = !this.showAdvancedFilters;
+    },
+    
+    // Data refresh method
+    async refreshData() {
+      try {
+        const reportingDate = this.filters.reportingDate || getLastDayOfPreviousMonth();
+        
+        // Refresh main KRI data which will recalculate pending items
+        await this.fetchKRIItems(reportingDate);
+        
+        this.$message.success('Data refreshed');
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+        this.$message.error('Failed to refresh data');
+      }
+    },
+    
+    // Selection handling
+    handleSelectionChange(selection) {
+      this.selectedRows = selection;
+      // Emit for parent components if needed
+      this.$emit('selection-change', selection);
+    }
+  },
+  async created() {
+    // Restore user session if available
+    await this.restoreUserFromStorage();
+    
+    // Initialize permissions if user is authenticated
+    if (this.isAuthenticated) {
+      try {
+        await this.initPermission();
+      } catch (error) {
+        console.error('Error initializing permissions:', error);
+      }
+    }
+    
+    // Load initial data if needed
+    // Note: Dashboard should have already loaded data and calculated pendingKRIItems
+    // But refresh if we don't have any data
+    if (!this.workflowItems.length && this.isAuthenticated) {
+      await this.refreshData();
+    }
+  }
+};
+</script>
 
 <style scoped>
 .kri-workflow-page {
