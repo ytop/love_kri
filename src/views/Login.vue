@@ -54,7 +54,7 @@
 </template>
 
 <script>
-import { kriService } from '@/services/kriService';
+import { authenticateUser, validateUserData } from '@/utils/login';
 import { mapActions, mapGetters } from 'vuex';
 
 export default {
@@ -77,7 +77,7 @@ export default {
     ...mapGetters('kri', ['isAuthenticated'])
   },
   methods: {
-    ...mapActions('kri', ['updateFilters', 'initPermission']),
+    ...mapActions('kri', ['updateFilters', 'setCurrentUser']),
     
     async handleLogin() {
       if (!this.$refs.loginForm) return;
@@ -88,30 +88,30 @@ export default {
         
         this.loading = true;
         
-        const userData = await kriService.fetchUser(this.loginForm.username);
+        // Use login utility for authentication
+        const userData = await authenticateUser(this.loginForm.username);
         
-        if (!userData || userData.length === 0) {
+        if (!userData) {
           this.$message.error('User not found. Please check your username.');
           return;
         }
         
-        const user = userData[0];
+        // Validate user data structure
+        if (!validateUserData(userData)) {
+          this.$message.error('Invalid user data received. Please try again.');
+          return;
+        }
         
-        this.$store.commit('kri/SET_CURRENT_USER', {
-          uuid: user.User_UUID,
-          name: user.User_ID,
-          department: user.Department,
-          authenticated: true
-        });
-        
-        await this.initPermission();
+        // Use store action instead of direct commit
+        await this.setCurrentUser(userData);
         
         this.$message.success('Login successful!');
-        this.$router.push('/dashboard');
+        this.goBack();
         
       } catch (error) {
         console.error('Login error:', error);
-        this.$message.error('Login failed. Please try again.');
+        const errorMessage = error.message || 'Login failed. Please try again.';
+        this.$message.error(errorMessage);
       } finally {
         this.loading = false;
       }

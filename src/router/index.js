@@ -74,7 +74,7 @@ router.beforeEach((to, from, next) => {
     });
   } else if (redirectIfAuthenticated && isAuthenticated) {
     // Redirect to dashboard if trying to access login while authenticated
-    next({ name: 'Dashboard' });
+    next({ path: '/' });
   } else {
     next();
   }

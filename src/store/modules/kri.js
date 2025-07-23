@@ -194,18 +194,12 @@ const actions = {
 
   async initPermission({ commit, state }) {
     const rawPermissions = await kriService.fetchUserPermission(state.currentUser.uuid, '*', state.filters.reportingDate);
-    console.log('Raw permissions:', rawPermissions);
-    
     // Parse the permissions to convert actions string to array
     const parsedPermissions = rawPermissions.map(permission => ({
       ...permission,
       actionsArray: permission.actions ? permission.actions.split(',').map(a => a.trim()) : []
     }));
-    
-    console.log('Parsed permissions:', parsedPermissions);
     commit('SET_USER_PERMISSIONS', parsedPermissions);
-
-    console.log('Current user permissions:', state.currentUser.permissions);
   },
 
   async fetchAtomicDataForCalculatedKRIs({ commit, state }) {
@@ -213,11 +207,9 @@ const actions = {
     const calculatedKRIs = state.kriItems.filter(item => item.isCalculatedKri);
     
     if (calculatedKRIs.length === 0) {
-      console.log('No calculated KRIs found, skipping atomic data fetch');
       return;
     }
 
-    console.log(`Loading atomic data for ${calculatedKRIs.length} calculated KRIs...`);
     
     try {
       // Fetch atomic data for all calculated KRIs in parallel
@@ -230,7 +222,6 @@ const actions = {
       // Flatten all atomic data into single array
       const allAtomicData = atomicDataResults.flat();
       
-      console.log(`Loaded ${allAtomicData.length} atomic data items`);
       commit('SET_ATOMIC_DATA', allAtomicData);
       
     } catch (error) {
@@ -246,6 +237,25 @@ const actions = {
 
   resetTableColumnPreferences({ commit }, tableType) {
     commit('RESET_TABLE_COLUMN_PREFERENCES', tableType);
+  },
+
+  // User authentication action
+  async setCurrentUser({ commit, dispatch }, userData) {
+    try {
+      if (!userData || !userData.uuid || !userData.name) {
+        throw new Error('Invalid user data: missing required fields');
+      }
+
+      commit('SET_CURRENT_USER', userData);
+      
+      // Initialize permissions for the authenticated user
+      await dispatch('initPermission');
+      
+      return userData;
+    } catch (error) {
+      console.error('Error setting current user:', error);
+      throw error;
+    }
   },
 };
 

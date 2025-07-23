@@ -5,15 +5,7 @@
     </div>
     
     <div v-else-if="error || !kriDetail" class="error-container">
-      <el-card>
-        <div class="error-content">
-          <i class="el-icon-warning" style="font-size: 48px; color: #f56c6c;"></i>
-          <h2>Error loading KRI Details</h2>
-          <p>There was a problem fetching data, or the KRI does not exist.</p>
-          <p v-if="error" class="error-message">{{ error }}</p>
-          <el-button @click="goBack" type="primary">Back to Dashboard</el-button>
-        </div>
-      </el-card>
+      <NotFound />
     </div>
     
     <div v-else class="detail-layout">
@@ -123,7 +115,16 @@
   </div>
 </template>
 
+<script>
+import NotFound from './NotFound.vue';
 
+export default {
+  name: 'KRIDetail',
+  components: {
+    NotFound
+  }
+};
+</script>
 
 <style scoped>
 .kri-detail {

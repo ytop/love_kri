@@ -44,10 +44,6 @@ export class KRICalculationService {
         }
       });
 
-      // Log the variable mapping for debugging
-      console.log('Variable mapping:', variableMap);
-      console.log('Original formula:', formula);
-
       // Enhanced formula patterns
       let result = 0;
       const normalizedFormula = formula.toUpperCase().trim();
@@ -211,7 +207,6 @@ export class KRICalculationService {
       expression = expression.replace(regex, variableMap[variable].toString());
     });
     
-    console.log('After substitution (complex):', expression);
     
     // Check for empty or invalid expression after substitution
     if (!expression.trim() || expression.trim() === '()' || /^[() \s]*$/.test(expression)) {

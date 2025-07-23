@@ -263,11 +263,7 @@ class BaseKRIService {
  * @returns {Promise<object>} Query result (may be single or multiple records)
  */
   async fetchUser(userId, select = '*') {
-    let query = supabase
-      .from('kri_user')
-      .select(select)
-      .eq('User_ID', userId);
-    return query;
+    return this.generalFetch('kri_user', ['User_ID'], [userId], select);
   }
 
   /**
@@ -282,8 +278,9 @@ class BaseKRIService {
   // but kriId and reportingDate could be '*' to fetch all records
   // reportingDate is recommended to be a single value
   async fetchUserPermission(userUuid, kriId = '*', reportingDate = '*', select = '*') {
-    if (userUuid === '*') userUuid = null;
-    return this.generalFetch('kri_user_permission', ['user_uuid', 'kri_id', 'reporting_date'], [userUuid, kriId, reportingDate], select);
+    if (!userUuid || userUuid === '*') throw new Error('userUuid cannot be "*"');
+    const reportingDateInts = this.parseReportingDate(reportingDate);
+    return this.generalFetch('kri_user_permission', ['user_uuid', 'kri_id', 'reporting_date'], [userUuid, kriId, reportingDateInts], select);
   }
 
   // /**
@@ -414,8 +411,8 @@ export const kriService = {
     return data;
   },
 
-  async fetchUserPermission(userUuid, kriId = '*', reportingDate = '*') {
-    const { data } = await baseKRIService.fetchUserPermission(userUuid, kriId, reportingDate);
+  async fetchUserPermission(userUuid, kriId = '*', reportingDate = '*', select = '*') {
+    const { data } = await baseKRIService.fetchUserPermission(userUuid, kriId, reportingDate, select);
     return data;
   },
 

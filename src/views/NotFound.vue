@@ -5,7 +5,10 @@
         <i class="el-icon-warning" style="font-size: 64px; color: #f56c6c;"></i>
         <h1>404 - Page Not Found</h1>
         <p>The page you are looking for doesn't exist.</p>
-        <el-button type="primary" @click="$router.push('/')">
+        <el-button type="primary" @click="$router.go(-1)">
+          Back to Previous Page
+        </el-button>
+        <el-button type="secondary" @click="$router.push('/')">
           Back to Dashboard
         </el-button>
       </div>
