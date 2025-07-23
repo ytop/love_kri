@@ -7,23 +7,23 @@ Completed:
 
 Marked Not Fixed:
 16. Atomic sub-row styling, specifically the action buttons, requires CSS mathing
-
+Sorting Order is in String Order, not in Int Order
+  state: sort of implemented, but not working, seems sorted in random order???
 Working:
 1. add Object Storage for evidence upload
   - test if it works with supabase
   - test local storage
   Current: Implemented service, need to test with frontend
-16. Sorting Order is in String Order, not in Int Order
 
 Pending:
-4. add Object Storage preview for evidence
-5. modify atomic data element input dialog (new window?)
-6. Improve UI/UX design
-7. add audit trail for atomic data element
-8. add historical data for atomic data element
-9. add formula change for atomic data element
-10. Add unit and adaption to DB
-11. Negative warining and limit value (4 limits)
-12, STD div avg 12 month, fluctuation range
-13, new tabele for formula calculation
-14. add department display in formula
+add Object Storage preview for evidence
+modify atomic data element input dialog (new window?)
+Improve UI/UX design
+add audit trail for atomic data element
+add historical data for atomic data element
+add formula change for atomic data element
+Add unit and adaption to DB
+Negative warining and limit value (4 limits)
+STD div avg 12 month, fluctuation range
+new tabele for formula calculation
+add department display in formula

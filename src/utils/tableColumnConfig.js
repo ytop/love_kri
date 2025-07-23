@@ -25,7 +25,9 @@ class TableColumnManager {
       key: 'id',
       label: 'KRI ID',
       minWidth: 80,
-      required: true
+      required: true,
+      sortType: 'numeric',
+      sortable: true
     },
     name: {
       key: 'name',
@@ -68,7 +70,9 @@ class TableColumnManager {
       key: 'kriValue',
       label: 'KRI Value',
       minWidth: 100,
-      required: true
+      required: true,
+      sortType: 'numeric',
+      sortable: true
     },
     reportingCycle: {
       key: 'reportingCycle',

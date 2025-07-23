@@ -53,6 +53,77 @@
   </div>
 </template>
 
+<script>
+import { kriService } from '@/services/kriService';
+import { mapActions, mapGetters } from 'vuex';
+
+export default {
+  name: 'Login',
+  data() {
+    return {
+      loading: false,
+      loginForm: {
+        username: ''
+      },
+      loginRules: {
+        username: [
+          { required: true, message: 'Please enter your username', trigger: 'blur' },
+          { min: 2, message: 'Username must be at least 2 characters', trigger: 'blur' }
+        ]
+      }
+    };
+  },
+  computed: {
+    ...mapGetters('kri', ['isAuthenticated'])
+  },
+  methods: {
+    ...mapActions('kri', ['updateFilters', 'initPermission']),
+    
+    async handleLogin() {
+      if (!this.$refs.loginForm) return;
+      
+      try {
+        const valid = await this.$refs.loginForm.validate();
+        if (!valid) return;
+        
+        this.loading = true;
+        
+        const userData = await kriService.fetchUser(this.loginForm.username);
+        
+        if (!userData || userData.length === 0) {
+          this.$message.error('User not found. Please check your username.');
+          return;
+        }
+        
+        const user = userData[0];
+        
+        this.$store.commit('kri/SET_CURRENT_USER', {
+          uuid: user.User_UUID,
+          name: user.User_ID,
+          department: user.Department,
+          authenticated: true
+        });
+        
+        await this.initPermission();
+        
+        this.$message.success('Login successful!');
+        this.$router.push('/dashboard');
+        
+      } catch (error) {
+        console.error('Login error:', error);
+        this.$message.error('Login failed. Please try again.');
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    goBack() {
+      this.$router.go(-1);
+    }
+  }
+};
+</script>
+
 <style scoped>
 .login-container {
   min-height: 100vh;

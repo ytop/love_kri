@@ -162,3 +162,14 @@ export const getKRIStatusLabel = (status) => {
   const StatusManager = require('@/utils/types').default;
   return StatusManager.mapStatus(status);
 };
+
+// ---------------------------------- Sorting Utilities ----------------------------------
+
+// Numeric sort function for KRI ID column
+export const sortNumeric = (a, b) => {
+  // Handle both ID and kriId properties
+  const aId = parseInt(a || 0, 10);
+  const bId = parseInt(b || 0, 10);
+  return aId - bId;
+};
+

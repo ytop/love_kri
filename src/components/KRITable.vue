@@ -135,7 +135,8 @@
           :width="column.width"
           :min-width="column.minWidth"
           :fixed="column.fixed"
-          sortable
+          :sortable="column?.sortable ?? false"
+          :sort-method="getSortMethod(column?.sortType ?? 'string')"
           show-overflow-tooltip
         />
       </template>
@@ -151,7 +152,8 @@ import {
   getBreachDisplayText, 
   getBreachDescription, 
   calculateAtomicBreach,
-  getKRIStatusLabel
+  getKRIStatusLabel,
+  sortNumeric
 } from '@/utils/helpers';
 import expandableTableMixin from '@/mixins/expandableTableMixin';
 import TableColumnConfig from '@/components/TableColumnConfig.vue';
@@ -235,6 +237,14 @@ export default {
     
     getBreachDescription(breachType) {
       return getBreachDescription(breachType);
+    },
+    getSortMethod(dataType) {
+      if (dataType === 'numeric') {
+        return sortNumeric;
+      } else if (dataType === 'string') {
+        return (a,b) => {return a.localeCompare(b);};
+      }
+      throw new Error(`Invalid data type: ${dataType}`);
     },
 
     handlePreferencesChanged() {

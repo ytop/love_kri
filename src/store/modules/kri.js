@@ -274,9 +274,16 @@ const getters = {
     }
     
     if (state.filters.collectionStatus) {
-      filtered = filtered.filter(item => 
-        item.collectionStatus === state.filters.collectionStatus
-      );
+      filtered = filtered.filter(item => {
+        // Handle both numeric and string status values
+        let itemStatus = item.collectionStatus;
+        if (typeof itemStatus === 'string') {
+          // Import StatusManager dynamically to avoid circular deps
+          const StatusManager = require('@/utils/types').default;
+          itemStatus = StatusManager.getLabelToNumber(itemStatus);
+        }
+        return itemStatus === state.filters.collectionStatus;
+      });
     }
     
     if (state.filters.l1RiskType) {
@@ -288,6 +295,36 @@ const getters = {
     if (state.filters.kriName) {
       filtered = filtered.filter(item => 
         item.name.toLowerCase().includes(state.filters.kriName.toLowerCase())
+      );
+    }
+    
+    if (state.filters.kriId) {
+      filtered = filtered.filter(item => 
+        item.id && item.id.toString().includes(state.filters.kriId.toString())
+      );
+    }
+    
+    if (state.filters.reportingCycle) {
+      filtered = filtered.filter(item => 
+        item.reportingCycle && item.reportingCycle.toLowerCase().includes(state.filters.reportingCycle.toLowerCase())
+      );
+    }
+    
+    if (state.filters.l2RiskType) {
+      filtered = filtered.filter(item => 
+        item.l2RiskType && item.l2RiskType.toLowerCase().includes(state.filters.l2RiskType.toLowerCase())
+      );
+    }
+    
+    if (state.filters.kriType) {
+      filtered = filtered.filter(item => 
+        item.kriType && item.kriType.toLowerCase().includes(state.filters.kriType.toLowerCase())
+      );
+    }
+    
+    if (state.filters.breachType) {
+      filtered = filtered.filter(item => 
+        item.breachType && item.breachType.toLowerCase().includes(state.filters.breachType.toLowerCase())
       );
     }
     
