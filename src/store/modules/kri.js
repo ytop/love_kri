@@ -1,12 +1,22 @@
 import { kriService } from '@/services/kriService';
-import { mapStatus, transformKRIData, USER_PERMISSIONS } from '@/utils/types';
+import { mapStatus, transformKRIData } from '@/utils/types';
 import sessionStorageUtil from '@/utils/sessionStorage';
 import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+import Permission from '@/utils/permission';
 
 // Extract atomic ID from atomic permission (e.g., "atomic1_edit" -> "1")
 export const getAtomicIdFromPermission = (permission) => {
   const match = permission.match(/^atomic(\d+)_/);
   return match ? parseInt(match[1], 10) : null;
+};
+
+// Helper function to calculate pending KRIs based on user permissions
+const calculatePendingKRIs = (kriItems, userPermissions) => {
+  if (!Array.isArray(kriItems) || !Array.isArray(userPermissions) || userPermissions.length === 0) {
+    return [];
+  }
+  
+  return kriItems.filter(item => Permission.needsUserAction(item, userPermissions));
 };
 
 const state = {
@@ -16,6 +26,7 @@ const state = {
   evidenceData: [],
   auditTrailData: [],
   historicalData: [],
+  pendingKRIItems: [], // Cached pending KRIs for performance
   loading: false,
   error: null,
   // User role and department management
@@ -60,6 +71,9 @@ const mutations = {
   },
   SET_KRI_ITEMS(state, items) {
     state.kriItems = items;
+  },
+  SET_PENDING_KRI_ITEMS(state, items) {
+    state.pendingKRIItems = items;
   },
   SET_KRI_DETAIL(state, detail) {
     state.kriDetail = detail;
@@ -136,7 +150,7 @@ const mutations = {
 };
 
 const actions = {
-  async fetchKRIItems({ commit }, reportingDate) {
+  async fetchKRIItems({ commit, state }, reportingDate) {
     commit('SET_LOADING', true);
     commit('SET_ERROR', null);
     
@@ -144,6 +158,14 @@ const actions = {
       const data = await kriService.fetchKRIItems(reportingDate);
       const transformedData = transformKRIData(data, mapStatus);
       commit('SET_KRI_ITEMS', transformedData);
+      
+      // Calculate and store pending KRIs if user has permissions
+      if (state.currentUser.permissions && state.currentUser.permissions.length > 0) {
+        const pendingKRIs = calculatePendingKRIs(transformedData, state.currentUser.permissions);
+        commit('SET_PENDING_KRI_ITEMS', pendingKRIs);
+      } else {
+        commit('SET_PENDING_KRI_ITEMS', []);
+      }
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;
@@ -200,6 +222,12 @@ const actions = {
       actionsArray: permission.actions ? permission.actions.split(',').map(a => a.trim()) : []
     }));
     commit('SET_USER_PERMISSIONS', parsedPermissions);
+    
+    // Recalculate pending KRIs when permissions change
+    if (state.kriItems.length > 0) {
+      const pendingKRIs = calculatePendingKRIs(state.kriItems, parsedPermissions);
+      commit('SET_PENDING_KRI_ITEMS', pendingKRIs);
+    }
   },
 
   async fetchAtomicDataForCalculatedKRIs({ commit, state }) {
@@ -356,40 +384,18 @@ const getters = {
     return state.filters.reportingDate;
   },
 
-  // Check if user can perform action on KRI/atomic
+  /**
+   * Check if user can perform action on KRI/atomic using Permission utility
+   * 
+   * @param {Object} state - Vuex state
+   * @returns {Function} Function that takes (kriId, atomicId, action) and returns boolean
+   */
   canPerform: (state) => (kriId, atomicId, action) => {
     if (!state.currentUser || !state.currentUser.permissions) {
       return false;
     }
     
-    // Validate action against defined permissions
-    if (!Object.values(USER_PERMISSIONS).includes(action)) {
-      console.warn(`Invalid action: ${action}. Valid actions are:`, Object.values(USER_PERMISSIONS));
-      return false;
-    }
-    
-    // Find permission record for this KRI
-    const permission = state.currentUser.permissions.find(p => p.kri_id === kriId);
-    if (!permission || !permission.actions) {
-      return false;
-    }
-    
-    // Use pre-parsed actions array if available, otherwise raise error
-    const actionsArray = permission.actionsArray;
-    if (!actionsArray) {
-      throw new Error(`Permission actions not properly parsed for KRI ${kriId}. Call initPermission() first.`);
-    }
-    
-    // Check for atomic-specific permission first (e.g., "atomic1_edit")
-    if (atomicId !== null && atomicId !== undefined) {
-      const atomicAction = `atomic${atomicId}_${action}`;
-      if (actionsArray.includes(atomicAction)) {
-        return true;
-      }
-    }
-    
-    // Check for general permission (e.g., "edit")
-    return actionsArray.includes(action);
+    return Permission.canPerform(kriId, atomicId, action, state.currentUser.permissions);
   },
 
   // Get available departments from KRI items for filtering
@@ -407,18 +413,17 @@ const getters = {
     return state.currentUser && state.currentUser.uuid && state.currentUser.authenticated;
   },
 
-  // Count pending KRIs that need user attention
+  // Get pending KRIs that need user attention (stored in state for performance)
+  pendingKRIItems: (state) => {
+    return state.pendingKRIItems;
+  },
+
+  // Count of pending KRIs (simplified - just returns length from state)
   totalPendingKRIsCount: (state, getters) => {
-    if (!getters.isAuthenticated) return 0;
-    
-    return getters.filteredKRIItems.filter(item => {
-      const status = item.collectionStatus;
-      // Based on database schema, these are statuses that need attention
-      return status === 10 || // PENDING_INPUT
-             status === 20 || // UNDER_REWORK  
-             status === 40 || // SUBMITTED_TO_DATA_PROVIDER_APPROVER
-             status === 50;   // SUBMITTED_TO_KRI_OWNER_APPROVER
-    }).length;
+    if (!getters.isAuthenticated) {
+      return 0;
+    }
+    return state.pendingKRIItems.length;
   },
 
   // Determine if pending button should be visible
