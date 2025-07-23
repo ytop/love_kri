@@ -5,6 +5,7 @@ import KRIPending from '../views/KRIPending.vue';
 import Login from '../views/Login.vue';
 import AdminManagement from '../views/AdminManagement.vue';
 import NotFound from '../views/NotFound.vue';
+import UnderConstruction from '../views/UnderConstruction.vue';
 import store from '../store';
 
 Vue.use(Router);
@@ -27,12 +28,17 @@ const router = new Router({
       component: Dashboard,
       meta: { requiresAuth: false }
     },
+    // {
+    //   path: '/kri/:id/:date',
+    //   name: 'KRIDetail',
+    //   component: () => import('../views/KRIDetail.vue'),
+    //   props: true,
+    //   meta: { requiresAuth: false }
+    // },
     {
       path: '/kri/:id/:date',
       name: 'KRIDetail',
-      component: () => import('../views/KRIDetail.vue'),
-      props: true,
-      meta: { requiresAuth: false }
+      redirect: '/under-construction'
     },
     {
       path: '/kri/pending',
@@ -45,6 +51,12 @@ const router = new Router({
       name: 'AdminManagement',
       component: AdminManagement,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/under-construction',
+      name: 'UnderConstruction',
+      component: UnderConstruction,
+      meta: { requiresAuth: false }
     },
     {
       path: '*',

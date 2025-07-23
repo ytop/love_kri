@@ -72,12 +72,12 @@
           </el-alert>
         </div>
         <k-r-i-table
-          :data="workflowItems"
+          :data="filteredPendingKRIItems"
           :loading="loading"
           @row-click="handleKRIClick"
           @selection-change="handleSelectionChange"
         />
-        <div v-if="!loading && workflowItems.length === 0 && !error" class="no-data-message">
+        <div v-if="!loading && filteredPendingKRIItems.length === 0 && !error" class="no-data-message">
           <el-empty :description="emptyMessage">
             <el-button type="primary" @click="goBack">Go to Dashboard</el-button>
           </el-empty>
@@ -110,6 +110,7 @@ export default {
     ...mapState('kri', ['loading', 'error', 'filters']),
     ...mapGetters('kri', [
       'pendingKRIItems',
+      'filteredPendingKRIItems',
       'currentUser', 
       'isAuthenticated',
       'availableDepartments'
@@ -135,6 +136,9 @@ export default {
     },
     
     emptyMessage() {
+      if (this.hasActiveFilters && this.workflowItems.length > 0) {
+        return 'No pending KRI items match the current filters. Try adjusting or resetting the filters to see more items.';
+      }
       return 'No pending KRI items found. All items have been processed or you do not have permissions to modify any KRI items.';
     },
     
@@ -156,13 +160,13 @@ export default {
       );
     },
     
-    // Generate status tags shown in the UI
+    // Generate status tags shown in the UI (based on filtered items)
     statusTags() {
-      if (!this.workflowItems.length) return [];
+      if (!this.filteredPendingKRIItems.length) return [];
       
-      // Get unique statuses from pending items
+      // Get unique statuses from filtered pending items
       const statusCounts = {};
-      this.workflowItems.forEach(item => {
+      this.filteredPendingKRIItems.forEach(item => {
         const status = item.collectionStatus || item.kriStatus;
         const statusLabel = typeof status === 'number' ? StatusManager.mapStatus(status) : status;
         statusCounts[statusLabel] = (statusCounts[statusLabel] || 0) + 1;
@@ -182,7 +186,8 @@ export default {
       'updateFilters', 
       'resetFilters', 
       'restoreUserFromStorage',
-      'initPermission'
+      'initPermission',
+      'fetchAtomicDataForCalculatedKRIs'
     ]),
     
     // Navigation methods
@@ -191,17 +196,13 @@ export default {
     },
     
     handleKRIClick(row) {
-      // For now, just show a message since detail page isn't implemented
-      this.$message.info(`KRI Detail page not implemented yet. KRI ID: ${row.kriId || row.id}, Date: ${row.reportingDate}`);
-      
-      // Future implementation when detail page is ready:
-      // this.$router.push({
-      //   name: 'KRIDetail',
-      //   params: {
-      //     id: row.kriId || row.id,
-      //     date: row.reportingDate
-      //   }
-      // });
+      this.$router.push({
+        name: 'KRIDetail',
+        params: {
+          id: row.kriId || row.id,
+          date: row.reportingDate
+        }
+      });
     },
     
     // Filter management methods
@@ -226,6 +227,14 @@ export default {
         
         // Refresh main KRI data which will recalculate pending items
         await this.fetchKRIItems(reportingDate);
+        
+        // Background load: Fetch atomic data for calculated KRIs (non-blocking)
+        this.$nextTick(() => {
+          this.fetchAtomicDataForCalculatedKRIs().catch(error => {
+            console.warn('Background atomic data loading failed:', error);
+            // Don't show error to user - this is background loading
+          });
+        });
         
         this.$message.success('Data refreshed');
       } catch (error) {

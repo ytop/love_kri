@@ -129,7 +129,7 @@
         <!-- Standard columns -->
         <el-table-column
           v-else
-          :key="column.key"
+          :key="column.uniqueKey"
           :prop="column.key"
           :label="column.label"
           :width="column.width"
@@ -145,7 +145,7 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex';
+import { mapGetters, mapActions } from 'vuex';
 import StatusManager from '@/utils/types';
 import { 
   getBreachTagType, 
@@ -153,7 +153,8 @@ import {
   getBreachDescription, 
   calculateAtomicBreach,
   getKRIStatusLabel,
-  sortNumeric
+  sortNumeric,
+  loadTablePreferencesFromStorage
 } from '@/utils/helpers';
 import expandableTableMixin from '@/mixins/expandableTableMixin';
 import TableColumnConfig from '@/components/TableColumnConfig.vue';
@@ -181,11 +182,18 @@ export default {
     };
   },
   computed: {
-    ...mapGetters('kri', ['getVisibleColumnsForTable']),
+    ...mapGetters('kri', ['getVisibleColumnsForTable', 'getColumnOrderForTable']),
 
     visibleColumns() {
       const visibleColumnKeys = this.getVisibleColumnsForTable(this.tableType);
-      return TableColumnManager.getVisibleColumns(this.tableType, visibleColumnKeys);
+      const columnOrder = this.getColumnOrderForTable(this.tableType);
+      const columns = TableColumnManager.getVisibleColumns(this.tableType, visibleColumnKeys, columnOrder);
+      
+      // Add position-aware keys to force Vue re-rendering when order changes
+      return columns.map((column, index) => ({
+        ...column,
+        uniqueKey: `${column.key}-${index}`
+      }));
     },
 
     displayTableData() {
@@ -210,7 +218,12 @@ export default {
       });
     }
   },
+  mounted() {
+    // Load column preferences from localStorage on component initialization
+    this.loadColumnPreferencesFromStorage();
+  },
   methods: {
+    ...mapActions('kri', ['updateTableColumnPreferences']),
     // Event handlers
     handleRowClick(row) {
       if (!row.isAtomicRow) {
@@ -250,6 +263,24 @@ export default {
     handlePreferencesChanged() {
       // Force reactivity update when preferences change
       this.$forceUpdate();
+      // Also trigger a nextTick to ensure DOM updates
+      this.$nextTick(() => {
+        // Ensure table layout recalculates after column changes
+        if (this.$refs.table) {
+          this.$refs.table.doLayout();
+        }
+      });
+    },
+
+    loadColumnPreferencesFromStorage() {
+      const stored = loadTablePreferencesFromStorage(this.tableType);
+      if (stored && (stored.visibleColumns || stored.columnOrder)) {
+        // Update Vuex store with loaded preferences
+        this.updateTableColumnPreferences({
+          tableType: this.tableType,
+          preferences: stored
+        });
+      }
     }
   }
 };

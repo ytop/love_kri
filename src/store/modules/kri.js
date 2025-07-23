@@ -1,14 +1,8 @@
 import { kriService } from '@/services/kriService';
 import { mapStatus, transformKRIData } from '@/utils/types';
 import sessionStorageUtil from '@/utils/sessionStorage';
-import { getLastDayOfPreviousMonth, calculatePendingKRIs } from '@/utils/helpers';
+import { getLastDayOfPreviousMonth, applyKRIFilters, calculatePendingKRIs } from '@/utils/helpers';
 import Permission from '@/utils/permission';
-
-// Extract atomic ID from atomic permission (e.g., "atomic1_edit" -> "1")
-// Moved to helpers.js
-
-// Helper function to calculate pending KRIs based on user permissions
-// Moved to helpers.js
 
 const state = {
   kriItems: [],
@@ -31,10 +25,12 @@ const state = {
   // Table column preferences
   tableColumnPreferences: {
     kriTable: {
-      visibleColumns: []
+      visibleColumns: [],
+      columnOrder: []
     },
     kriCollectTable: {
-      visibleColumns: []
+      visibleColumns: [],
+      columnOrder: []
     }
   },
   filters: {
@@ -128,13 +124,27 @@ const mutations = {
   // Table column preference mutations
   SET_TABLE_COLUMN_PREFERENCES(state, { tableType, preferences }) {
     if (state.tableColumnPreferences[tableType]) {
-      state.tableColumnPreferences[tableType] = { ...state.tableColumnPreferences[tableType], ...preferences };
+      // Ensure Vue detects array changes by creating a new object
+      const newPreferences = {
+        ...state.tableColumnPreferences[tableType],
+        ...preferences
+      };
+      // Force reactivity by replacing the entire object
+      state.tableColumnPreferences = {
+        ...state.tableColumnPreferences,
+        [tableType]: newPreferences
+      };
     }
   },
   RESET_TABLE_COLUMN_PREFERENCES(state, tableType) {
     if (state.tableColumnPreferences[tableType]) {
-      state.tableColumnPreferences[tableType] = {
-        visibleColumns: []
+      // Force reactivity by replacing the entire tableColumnPreferences object
+      state.tableColumnPreferences = {
+        ...state.tableColumnPreferences,
+        [tableType]: {
+          visibleColumns: [],
+          columnOrder: []
+        }
       };
     }
   }
@@ -280,84 +290,7 @@ const actions = {
 
 const getters = {
   filteredKRIItems: (state) => {
-    let filtered = [...state.kriItems];
-    
-    if (state.filters.kriOwner) {
-      filtered = filtered.filter(item => 
-        item.owner.toLowerCase().includes(state.filters.kriOwner.toLowerCase())
-      );
-    }
-    
-    if (state.filters.dataProvider) {
-      filtered = filtered.filter(item => 
-        item.dataProvider.toLowerCase().includes(state.filters.dataProvider.toLowerCase())
-      );
-    }
-    
-    if (state.filters.department) {
-      filtered = filtered.filter(item => 
-        // Match either Owner or Data Provider with department
-        item.owner.toLowerCase().includes(state.filters.department.toLowerCase()) ||
-        item.dataProvider.toLowerCase().includes(state.filters.department.toLowerCase())
-      );
-    }
-    
-    if (state.filters.collectionStatus) {
-      filtered = filtered.filter(item => {
-        // Handle both numeric and string status values
-        let itemStatus = item.collectionStatus;
-        if (typeof itemStatus === 'string') {
-          // Import StatusManager dynamically to avoid circular deps
-          const StatusManager = require('@/utils/types').default;
-          itemStatus = StatusManager.getLabelToNumber(itemStatus);
-        }
-        return itemStatus === state.filters.collectionStatus;
-      });
-    }
-    
-    if (state.filters.l1RiskType) {
-      filtered = filtered.filter(item => 
-        item.l1RiskType.toLowerCase().includes(state.filters.l1RiskType.toLowerCase())
-      );
-    }
-    
-    if (state.filters.kriName) {
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(state.filters.kriName.toLowerCase())
-      );
-    }
-    
-    if (state.filters.kriId) {
-      filtered = filtered.filter(item => 
-        item.id && item.id.toString().includes(state.filters.kriId.toString())
-      );
-    }
-    
-    if (state.filters.reportingCycle) {
-      filtered = filtered.filter(item => 
-        item.reportingCycle && item.reportingCycle.toLowerCase().includes(state.filters.reportingCycle.toLowerCase())
-      );
-    }
-    
-    if (state.filters.l2RiskType) {
-      filtered = filtered.filter(item => 
-        item.l2RiskType && item.l2RiskType.toLowerCase().includes(state.filters.l2RiskType.toLowerCase())
-      );
-    }
-    
-    if (state.filters.kriType) {
-      filtered = filtered.filter(item => 
-        item.kriType && item.kriType.toLowerCase().includes(state.filters.kriType.toLowerCase())
-      );
-    }
-    
-    if (state.filters.breachType) {
-      filtered = filtered.filter(item => 
-        item.breachType && item.breachType.toLowerCase().includes(state.filters.breachType.toLowerCase())
-      );
-    }
-    
-    return filtered;
+    return applyKRIFilters(state.kriItems, state.filters);
   },
 
   // Get current user permissions
@@ -407,6 +340,11 @@ const getters = {
   // Get pending KRIs that need user attention (stored in state for performance)
   pendingKRIItems: (state) => {
     return state.pendingKRIItems;
+  },
+
+  // Get filtered pending KRIs for display in pending page  
+  filteredPendingKRIItems: (state) => {
+    return applyKRIFilters(state.pendingKRIItems, state.filters);
   },
 
   // Count of pending KRIs (simplified - just returns length from state)
@@ -489,12 +427,17 @@ const getters = {
 
   // Table column preference getters
   getTableColumnPreferences: (state) => (tableType) => {
-    return state.tableColumnPreferences[tableType] || { visibleColumns: [] };
+    return state.tableColumnPreferences[tableType] || { visibleColumns: [], columnOrder: [] };
   },
 
   getVisibleColumnsForTable: (state) => (tableType) => {
     const preferences = state.tableColumnPreferences[tableType];
     return preferences ? preferences.visibleColumns : [];
+  },
+
+  getColumnOrderForTable: (state) => (tableType) => {
+    const preferences = state.tableColumnPreferences[tableType];
+    return preferences ? preferences.columnOrder : [];
   },
   
 };

@@ -188,3 +188,94 @@ export const sortNumeric = (a, b) => {
   return aId - bId;
 };
 
+// ---------------------------------- Filter Utilities ----------------------------------
+
+/**
+ * Apply standard KRI filters to a list of items
+ * Reusable filtering logic for both filteredKRIItems and filteredPendingKRIItems
+ * @param {Array} items - Array of KRI items to filter
+ * @param {Object} filters - Filter object from store state
+ * @returns {Array} Filtered array of KRI items
+ */
+export const applyKRIFilters = (items, filters) => {
+  let filtered = [...items];
+  
+  if (filters.kriOwner) {
+    filtered = filtered.filter(item => 
+      item.owner.toLowerCase().includes(filters.kriOwner.toLowerCase())
+    );
+  }
+  
+  if (filters.dataProvider) {
+    filtered = filtered.filter(item => 
+      item.dataProvider.toLowerCase().includes(filters.dataProvider.toLowerCase())
+    );
+  }
+  
+  if (filters.department) {
+    filtered = filtered.filter(item => 
+      // Match either Owner or Data Provider with department
+      item.owner.toLowerCase().includes(filters.department.toLowerCase()) ||
+      item.dataProvider.toLowerCase().includes(filters.department.toLowerCase())
+    );
+  }
+  
+  if (filters.collectionStatus) {
+    filtered = filtered.filter(item => {
+      // Handle both numeric and string status values
+      let itemStatus = item.collectionStatus;
+      if (typeof itemStatus === 'string') {
+        // Import StatusManager dynamically to avoid circular deps
+        const StatusManager = require('@/utils/types').default;
+        itemStatus = StatusManager.getLabelToNumber(itemStatus);
+      }
+      return itemStatus === filters.collectionStatus;
+    });
+  }
+  
+  if (filters.l1RiskType) {
+    filtered = filtered.filter(item => 
+      item.l1RiskType.toLowerCase().includes(filters.l1RiskType.toLowerCase())
+    );
+  }
+  
+  if (filters.kriName) {
+    filtered = filtered.filter(item => 
+      item.name.toLowerCase().includes(filters.kriName.toLowerCase())
+    );
+  }
+  
+  if (filters.kriId) {
+    filtered = filtered.filter(item => 
+      item.id && item.id.toString().includes(filters.kriId.toString())
+    );
+  }
+  
+  if (filters.reportingCycle) {
+    filtered = filtered.filter(item => 
+      item.reportingCycle && item.reportingCycle.toLowerCase().includes(filters.reportingCycle.toLowerCase())
+    );
+  }
+  
+  if (filters.l2RiskType) {
+    filtered = filtered.filter(item => 
+      item.l2RiskType && item.l2RiskType.toLowerCase().includes(filters.l2RiskType.toLowerCase())
+    );
+  }
+  
+  if (filters.kriType) {
+    filtered = filtered.filter(item => 
+      item.kriType && item.kriType.toLowerCase().includes(filters.kriType.toLowerCase())
+    );
+  }
+  
+  if (filters.breachType) {
+    filtered = filtered.filter(item => 
+      item.breachType && item.breachType.toLowerCase().includes(filters.breachType.toLowerCase())
+    );
+  }
+  
+  return filtered;
+};
+
+

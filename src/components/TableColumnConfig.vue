@@ -15,29 +15,54 @@
     <el-dialog
       title="Configure Table Columns"
       :visible.sync="dialogVisible"
-      width="500px"
+      width="600px"
       :close-on-click-modal="false"
     >
       <div class="config-content">
-        <!-- Column selection -->
+        <!-- Column ordering and visibility -->
         <div class="section">
-          <h4>Visible Columns</h4>
-          <p class="section-desc">Select which columns to display in the table</p>
+          <h4>Column Order & Visibility</h4>
+          <p class="section-desc">Drag to reorder columns and toggle visibility</p>
           
-          <el-checkbox-group v-model="localVisibleColumns" class="column-checkboxes">
-            <div v-for="column in availableColumns" :key="column.key" class="column-item">
-              <el-checkbox 
-                :label="column.key" 
-                :disabled="column.required"
-                class="column-checkbox"
-              >
-                {{ column.label }}
+          <draggable 
+            v-model="localColumns" 
+            class="column-list"
+            ghost-class="ghost-item"
+            chosen-class="chosen-item"
+            drag-class="drag-item"
+            handle=".drag-handle"
+            :animation="200"
+          >
+            <div 
+              v-for="column in localColumns" 
+              :key="column.key" 
+              class="column-item"
+              :class="{ 'disabled-column': !column.enabled }"
+            >
+              <!-- Drag handle -->
+              <div class="drag-handle">
+                <i class="el-icon-s-grid"></i>
+              </div>
+              
+              <!-- Column info -->
+              <div class="column-info">
+                <span class="column-label">{{ column.label }}</span>
                 <el-tag v-if="column.required" size="mini" type="info" class="required-tag">
                   Required
                 </el-tag>
-              </el-checkbox>
+              </div>
+              
+              <!-- Enable/disable toggle -->
+              <div class="column-toggle">
+                <el-switch 
+                  v-model="column.enabled"
+                  :disabled="column.required"
+                  size="small"
+                >
+                </el-switch>
+              </div>
             </div>
-          </el-checkbox-group>
+          </draggable>
         </div>
       </div>
 
@@ -71,9 +96,13 @@ import {
   loadTablePreferencesFromStorage,
   clearTablePreferencesFromStorage 
 } from '@/utils/helpers';
+import draggable from 'vuedraggable';
 
 export default {
   name: 'TableColumnConfig',
+  components: {
+    draggable
+  },
   props: {
     tableType: {
       type: String,
@@ -84,15 +113,11 @@ export default {
   data() {
     return {
       dialogVisible: false,
-      localVisibleColumns: []
+      localColumns: []
     };
   },
   computed: {
     ...mapGetters('kri', ['getTableColumnPreferences', 'getVisibleColumnsForTable']),
-    
-    availableColumns() {
-      return TableColumnManager.getAvailableColumns(this.tableType);
-    },
     
     currentPreferences() {
       return this.getTableColumnPreferences(this.tableType);
@@ -117,18 +142,22 @@ export default {
     ...mapActions('kri', ['updateTableColumnPreferences', 'resetTableColumnPreferences']),
     
     initializeLocalState() {
-      // Use current visible columns or defaults
-      if (this.currentVisibleColumns.length > 0) {
-        this.localVisibleColumns = [...this.currentVisibleColumns];
-      } else {
-        this.localVisibleColumns = TableColumnManager.getDefaultVisible(this.tableType);
-      }
+      // Get current preferences
+      const preferences = this.currentPreferences;
+      const currentOrder = preferences?.columnOrder;
+      const currentVisible = preferences?.visibleColumns || this.currentVisibleColumns;
+      
+      // Initialize local columns with current state
+      this.localColumns = TableColumnManager.getColumnsForConfiguration(
+        this.tableType,
+        currentOrder,
+        currentVisible
+      );
     },
     
     handleSave() {
-      const preferences = {
-        visibleColumns: this.localVisibleColumns
-      };
+      // Create preferences from local column configuration
+      const preferences = TableColumnManager.createPreferencesFromConfiguration(this.localColumns);
       
       // Update Vuex store
       this.updateTableColumnPreferences({
@@ -149,22 +178,29 @@ export default {
     },
     
     handleReset() {
-      // Reset to default visible columns
-      this.localVisibleColumns = TableColumnManager.getDefaultVisible(this.tableType);
+      // Reset to default configuration
+      const defaultVisible = TableColumnManager.getDefaultVisible(this.tableType);
+      const defaultOrder = TableColumnManager.getDefaultOrder(this.tableType);
+      
+      this.localColumns = TableColumnManager.getColumnsForConfiguration(
+        this.tableType,
+        defaultOrder,
+        defaultVisible
+      );
       
       // Clear from storage and store
       clearTablePreferencesFromStorage(this.tableType);
       this.resetTableColumnPreferences(this.tableType);
       
       // Emit change event
-      this.$emit('preferences-changed', { visibleColumns: [] });
+      this.$emit('preferences-changed', { visibleColumns: [], columnOrder: [] });
       
       this.$message.success('Column preferences reset to default');
     },
     
     loadPreferencesFromStorage() {
       const stored = loadTablePreferencesFromStorage(this.tableType);
-      if (stored && stored.visibleColumns) {
+      if (stored && (stored.visibleColumns || stored.columnOrder)) {
         // Update Vuex store with loaded preferences
         this.updateTableColumnPreferences({
           tableType: this.tableType,
@@ -187,7 +223,7 @@ export default {
 }
 
 .config-content {
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
 }
 
@@ -208,32 +244,92 @@ export default {
   font-size: 12px;
 }
 
-.column-checkboxes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.column-list {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background: #fafafa;
+  padding: 8px;
+  min-height: 200px;
 }
 
 .column-item {
   display: flex;
   align-items: center;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.column-checkbox {
-  width: 100%;
-  margin-right: 0;
+.column-item:hover {
+  border-color: #c0c4cc;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.column-checkbox >>> .el-checkbox__label {
+.column-item:last-child {
+  margin-bottom: 0;
+}
+
+.disabled-column {
+  opacity: 0.6;
+  background: #f5f7fa;
+}
+
+.drag-handle {
+  color: #c0c4cc;
+  margin-right: 12px;
+  cursor: grab;
+  font-size: 16px;
+  min-width: 16px;
+}
+
+.drag-handle:hover {
+  color: #909399;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.column-info {
+  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding-left: 8px;
+  gap: 8px;
+}
+
+.column-label {
+  font-size: 14px;
+  color: #303133;
+  font-weight: 500;
 }
 
 .required-tag {
-  margin-left: auto;
+  margin-left: 8px;
+}
+
+.column-toggle {
+  margin-left: 12px;
+}
+
+/* Dragging states */
+.ghost-item {
+  opacity: 0.5;
+  background: #f0f9ff;
+  border: 2px dashed #409eff;
+}
+
+.chosen-item {
+  transform: rotate(5deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.drag-item {
+  transform: rotate(5deg);
+  z-index: 2000;
 }
 
 .dialog-footer {
@@ -258,7 +354,15 @@ export default {
   }
   
   .config-content {
-    max-height: 300px;
+    max-height: 400px;
+  }
+  
+  .column-item {
+    padding: 8px;
+  }
+  
+  .column-label {
+    font-size: 13px;
   }
 }
 </style>
