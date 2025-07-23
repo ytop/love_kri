@@ -84,12 +84,6 @@
 
       <!-- KRI Table -->
       <el-card class="table-card">
-        <div slot="header" class="table-header">
-          <span>KRI Items</span>
-          <el-tooltip content="Click any row to view detailed information" placement="top">
-            <i class="el-icon-info table-info-icon"></i>
-          </el-tooltip>
-        </div>
         <div v-if="error" class="error-message">
           <el-alert
             title="Error loading data"
@@ -118,205 +112,144 @@
 
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
-import { getLastDayOfPreviousMonth, mapStatus as getStatusLabel, getUserDisplayName } from '@/utils/helpers';
-import { validationMixin, errorHandlingMixin } from '@/mixins/validationMixin';
-import KRIFilters from '../components/KRIFilters.vue'; // Changed from SimpleFilters
-import KRITable from '../components/KRITable.vue';
-import KRIChartView from '../components/KRIChartView.vue';
+import KRIFilters from '@/components/KRIFilters.vue';
+import KRITable from '@/components/KRITable.vue';
+import KRIChartView from '@/components/KRIChartView.vue';
+import { getLastDayOfPreviousMonth, getUserDisplayName } from '@/utils/helpers';
 
 export default {
   name: 'Dashboard',
-  mixins: [validationMixin, errorHandlingMixin],
   components: {
-    KRIFilters, // Changed from SimpleFilters
+    KRIFilters,
     KRITable,
     KRIChartView
   },
   data() {
     return {
-      showAdvancedFilters: false,
       showChartView: false,
+      showAdvancedFilters: false,
       selectedKRIs: []
     };
   },
   computed: {
-    ...mapState('kri', ['loading', 'error']),
+    ...mapState('kri', ['loading', 'error', 'filters']),
     ...mapGetters('kri', [
-      'filteredKRIItems',
-      'availableDepartments'
-    ]),
-    ...mapState('kri', ['kriItems']),
-    currentUser() {
-      return this.$store.state.kri.currentUser;
-    },
-    isAuthenticated() {
-      return !!this.currentUser.uuid;
-    },
-    filters() {
-      return this.$store.state.kri.filters;
-    },
-    // Calculate total pending KRIs count based on user permissions
-    totalPendingKRIsCount() {
-      const userPermissions = this.currentUser.permissions;
-      
-      if (!userPermissions) {
-        return 0;
-      }
-      
-      return this.kriItems.filter(item => {
-        const key = `${item.id}_${item.reportingDate}`;
-        
-        // Check if user has any permission for this KRI
-        const hasEditPermission = userPermissions[key]?.includes('edit') || false;
-        const hasReviewPermission = userPermissions[key]?.includes('review') || false;
-        const hasAcknowledgePermission = userPermissions[key]?.includes('acknowledge') || false;
-        
-        // Show KRIs that the user can act on based on status and permissions
-        if (hasEditPermission && (
-          item.collectionStatus === 'Pending Input' || 
-          item.collectionStatus === 'Under Rework' ||
-          item.collectionStatus === 'Saved'
-        )) {
-          return true;
-        }
-        
-        if (hasReviewPermission && item.collectionStatus === 'Submitted to Data Provider Approver') {
-          return true;
-        }
-        
-        if (hasAcknowledgePermission && item.collectionStatus === 'Submitted to KRI Owner Approver') {
-          return true;
-        }
-        
-        return false;
-      }).length;
-    },
-    
-    // Show pending button if user has any permissions
-    showPendingButton() {
-      const userPermissions = this.currentUser.permissions;
-      if (!userPermissions) return false;
-      
-      // Check if user has any permission for any KRI
-      return Object.values(userPermissions).some(permissions => 
-        permissions.includes('edit') || permissions.includes('review') || permissions.includes('acknowledge')
-      );
-    }
-  },
-  async created() {
-    // Set default reporting date
-    const defaultDate = getLastDayOfPreviousMonth();
-    this.updateFilters({ reportingDate: defaultDate });
-    
-    // Fetch initial data and departments
-    try {
-      await Promise.all([
-        this.refetchUserPermissions().catch(err => console.warn('Failed to refetch permissions on load:', err)),
-        this.fetchKRIItems(defaultDate),
-      ]);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
+      'filteredKRIItems', 
+      'currentUser', 
+      'isAuthenticated',
+      'availableDepartments',
+      'totalPendingKRIsCount',
+      'showPendingButton'
+    ])
   },
   methods: {
     ...mapActions('kri', [
       'fetchKRIItems', 
       'updateFilters', 
-      'resetFilters',
-      'logoutUser',
-      'refetchUserPermissions'
+      'resetFilters', 
+      'restoreUserFromStorage',
+      'initPermission',
+      'fetchAtomicDataForCalculatedKRIs'
     ]),
     
-    // Helper method to access status mapping in template
-    mapStatus(status) {
-      return getStatusLabel(status);
+    handleKRIClick(row) {
+      this.$router.push({
+        name: 'KRIDetail',
+        params: {
+          id: row.kriId,
+          date: row.reportingDate
+        }
+      });
     },
     
-    handleFilterChange(changedFilter) {
-      this.updateFilters(changedFilter);
-      
-      // Refetch data if reporting date changed
-      if (changedFilter.reportingDate) {
-        this.fetchKRIItems(changedFilter.reportingDate);
+    navigateToStatusPage() {
+      this.$router.push({
+        name: 'KRIListByStatus',
+        params: { status: 'pending' }
+      });
+    },
+    
+    handleLogin() {
+      this.$router.push({ name: 'Login' });
+    },
+    
+    async handleLogout() {
+      try {
+        this.$store.commit('kri/LOGOUT_USER');
+        this.$message.success('Logged out successfully');
+      } catch (error) {
+        this.$message.error('Error during logout');
+        console.error('Logout error:', error);
       }
+    },
+    
+    handleFilterChange(newFilters) {
+      this.updateFilters(newFilters);
+      this.refreshData();
     },
     
     handleResetFilters() {
       this.resetFilters();
-      const defaultDate = getLastDayOfPreviousMonth();
-      this.updateFilters({ reportingDate: defaultDate });
-      this.fetchKRIItems(defaultDate);
+      this.refreshData();
     },
     
     handleToggleAdvancedFilters() {
       this.showAdvancedFilters = !this.showAdvancedFilters;
     },
     
-    handleSelectAll(checked) {
-      if (checked) {
-        this.selectedKRIs = this.filteredKRIItems.map(kri => `${kri.id}-${kri.reportingDate}`);
-      } else {
-        this.selectedKRIs = [];
+    async handleRefresh() {
+      await this.refreshData();
+      this.$message.success('Data refreshed');
+    },
+    
+    async refreshData() {
+      try {
+        const reportingDate = this.filters.reportingDate || getLastDayOfPreviousMonth();
+        
+        // Primary load: Fetch main KRI data first for fast rendering
+        await this.fetchKRIItems(reportingDate);
+        
+        // Background load: Fetch atomic data for calculated KRIs (non-blocking)
+        this.$nextTick(() => {
+          this.fetchAtomicDataForCalculatedKRIs().catch(error => {
+            console.warn('Background atomic data loading failed:', error);
+            // Don't show error to user - this is background loading
+          });
+        });
+        
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+        this.$message.error('Failed to refresh data');
       }
     },
     
-    handleRowSelect(kriId, reportingDate, checked) {
-      const compositeId = `${kriId}-${reportingDate}`;
-      if (checked) {
-        this.selectedKRIs.push(compositeId);
-      } else {
-        const index = this.selectedKRIs.indexOf(compositeId);
-        if (index > -1) {
-          this.selectedKRIs.splice(index, 1);
-        }
-      }
-    },
-    
-    handleKRIClick(kriId, reportingDate) {
-      console.log(kriId, reportingDate);
-      this.$router.push({ 
-        name: 'KRIDetail', 
-        params: { id: kriId, date: reportingDate }
-      });
-    },
-    navigateToStatusPage() {
-      this.$router.push({ name: 'PendingKRIs' });
-    },
-    
-    // Helper method to get user display name
     getUserDisplayName(user) {
       return getUserDisplayName(user);
-    },
+    }
+  },
+  async created() {
+    // Restore user session if available
+    await this.restoreUserFromStorage();
     
-    // Handle login button click
-    handleLogin() {
-      this.$router.push({ name: 'Login' });
-    },
-    
-    
-    // Handle logout
-    async handleLogout() {
+    // Initialize permissions if user is authenticated
+    if (this.isAuthenticated) {
       try {
-        await this.logoutUser();
-        this.$message.success('Logged out successfully');
-        this.$router.push({ name: 'Login' });
+        await this.initPermission();
       } catch (error) {
-        this.$message.error('Logout failed');
+        console.error('Error initializing permissions:', error);
       }
-    },
+    }
     
-    // Handle refresh button click
-    async handleRefresh() {
+    // Load initial data
+    await this.refreshData();
+  },
+  async mounted() {
+    // Additional initialization if needed when component is mounted
+    if (this.isAuthenticated && (!this.currentUser.permissions || this.currentUser.permissions.length === 0)) {
       try {
-        // Refetch user permissions first
-        await this.refetchUserPermissions();
-        
-        const currentReportingDate = this.filters.reportingDate || getLastDayOfPreviousMonth();
-        await this.fetchKRIItems(currentReportingDate);
-        this.$message.success('Data refreshed successfully');
+        await this.initPermission();
       } catch (error) {
-        this.$message.error('Failed to refresh data');
-        console.error('Refresh error:', error);
+        console.error('Error initializing permissions on mount:', error);
       }
     }
   }

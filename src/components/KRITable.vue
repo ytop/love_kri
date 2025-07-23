@@ -1,350 +1,284 @@
 <template>
   <div class="kri-table">
+    <!-- Table header with config -->
+    <div class="table-header">
+      <span class="table-title">KRI Items</span>
+      <div class="header-actions">
+        <el-tooltip content="Click any row to view detailed information" placement="top">
+          <i class="el-icon-info table-info-icon"></i>
+        </el-tooltip>
+        <table-column-config 
+          :table-type="tableType"
+          @preferences-changed="handlePreferencesChanged"
+        />
+      </div>
+    </div>
+
     <el-table
       ref="table"
-      :data="expandedTableData"
+      :data="displayTableData"
       v-loading="loading"
       style="width: 100%"
+      fit
       @row-click="handleRowClick"
       @selection-change="handleSelectionChange"
       :row-class-name="getRowClassName"
     >
-      <el-table-column
-        type="selection"
-        width="55"
-        :selectable="isSelectable"
-      />
-      
-      <el-table-column
-        prop="id"
-        label="KRI ID"
-        width="80"
-        sortable
-      />
-      
-      <el-table-column
-        prop="name"
-        label="KRI Name"
-        min-width="200"
-        sortable
-        show-overflow-tooltip
-      >
-        <template slot-scope="scope">
-          <div class="kri-name-container">
-            <!-- Expand/Collapse button for calculated KRIs -->
-            <el-button
-              v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow"
-              type="text"
-              @click.stop="toggleRowExpansion(scope.row)"
-              class="expand-button"
-              :icon="isRowExpanded(scope.row) ? 'el-icon-caret-bottom' : 'el-icon-caret-right'"
-            >
-            </el-button>
-            
-            <!-- KRI Name button -->
-            <el-button
-              v-if="!scope.row.isAtomicRow"
-              type="text"
-              @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
-              class="kri-name-link"
-              :class="{ 'with-expand-button': isCalculatedKRI(scope.row) }"
-            >
-              {{ scope.row.name }}
-            </el-button>
-            
-            <!-- Atomic element name for sub-rows -->
-            <div v-if="scope.row.isAtomicRow" class="atomic-name-display">
-              <i class="el-icon-right atomic-indent"></i>
-              <span class="atomic-element-name">{{ scope.row.name }}</span>
-              <el-tag size="mini" type="info" class="atomic-tag">Atomic</el-tag>
+      <!-- Dynamic column rendering -->
+      <template v-for="column in visibleColumns">
+        <!-- Selection column -->
+        <el-table-column
+          v-if="column.key === 'selection'"
+          :key="column.key"
+          type="selection"
+          :width="column.width"
+          :selectable="isSelectable"
+        />
+        
+        <!-- KRI Name column with special handling -->
+        <el-table-column
+          v-else-if="column.key === 'name'"
+          :key="column.key"
+          prop="name"
+          :label="column.label"
+          :min-width="column.minWidth"
+          :width="column.width"
+          :fixed="column.fixed"
+          sortable
+          show-overflow-tooltip
+        >
+          <template slot-scope="scope">
+            <div class="kri-name-container">
+              <!-- Expand/Collapse button for calculated KRIs -->
+              <el-button
+                v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow"
+                type="text"
+                @click.stop="toggleRowExpansion(scope.row)"
+                class="expand-button"
+                :icon="isRowExpanded(scope.row) ? 'el-icon-caret-bottom' : 'el-icon-caret-right'"
+              >
+              </el-button>
+              
+              <!-- KRI Name button -->
+              <el-button
+                v-if="!scope.row.isAtomicRow"
+                type="text"
+                @click="handleKRIClick(scope.row.id, scope.row.reportingDate)"
+                class="kri-name-link"
+                :class="{ 'with-expand-button': isCalculatedKRI(scope.row) }"
+              >
+                {{ scope.row.name }}
+              </el-button>
+              
+              <!-- Atomic element name for sub-rows -->
+              <div v-if="scope.row.isAtomicRow" class="atomic-name-display">
+                <i class="el-icon-right atomic-indent"></i>
+                <span class="atomic-element-name">{{ scope.row.name }}</span>
+                <el-tag size="mini" type="info" class="atomic-tag">Atomic</el-tag>
+              </div>
             </div>
-          </div>
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        prop="owner"
-        label="Owner"
-        width="80"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
-        prop="dataProvider"
-        label="Data Provider"
-        width="120"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
-        prop="collectionStatus"
-        label="Status"
-        width="120"
-        sortable
-      >
-        <template slot-scope="scope">
-          <el-tag
-            :type="getStatusTagType(scope.row.collectionStatus)"
-            size="small"
-            class="status-tag"
-          >
-            {{ scope.row.collectionStatus }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        prop="l1RiskType"
-        label="L1 Risk Type"
-        width="150"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
-        prop="l2RiskType"
-        label="L2 Risk Type"
-        width="150"
-        sortable
-        show-overflow-tooltip
-      />
-      
-      <el-table-column
-        prop="breachType"
-        label="Breach Type"
-        width="120"
-        sortable
-      >
-        <template slot-scope="scope">
-          <el-tooltip :content="getBreachDescription(scope.row.breachType)" placement="top">
+          </template>
+        </el-table-column>
+        
+        <!-- Status column with special handling -->
+        <el-table-column
+          v-else-if="column.key === 'collectionStatus'"
+          :key="column.key"
+          prop="collectionStatus"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          sortable
+        >
+          <template slot-scope="scope">
             <el-tag
-              :type="getBreachTagType(scope.row.breachType)"
+              :type="getStatusTagType(scope.row.collectionStatus)"
               size="small"
               class="status-tag"
             >
-              {{ getBreachDisplayText(scope.row.breachType) }}
+              {{ scope.row.collectionStatus }}
             </el-tag>
-          </el-tooltip>
-        </template>
-      </el-table-column>
-      
-      <el-table-column
-        prop="kriValue"
-        label="KRI Value"
-        width="120"
-        sortable
-      />
-      
-      <el-table-column
-        prop="reportingCycle"
-        label="Reporting Cycle"
-        width="130"
-        sortable
-      />
+          </template>
+        </el-table-column>
+        
+        <!-- Breach type column with special handling -->
+        <el-table-column
+          v-else-if="column.key === 'breachType'"
+          :key="column.key"
+          prop="breachType"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          sortable
+        >
+          <template slot-scope="scope">
+            <el-tooltip :content="getBreachDescription(scope.row.breachType)" placement="top">
+              <el-tag
+                :type="getBreachTagType(scope.row.breachType)"
+                size="small"
+                class="status-tag"
+              >
+                {{ getBreachDisplayText(scope.row.breachType) }}
+              </el-tag>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        
+        <!-- Standard columns -->
+        <el-table-column
+          v-else
+          :key="column.key"
+          :prop="column.key"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          sortable
+          show-overflow-tooltip
+        />
+      </template>
     </el-table>
   </div>
 </template>
 
 <script>
-import { formatDateFromInt } from '@/utils/helpers';
-import { getStatusTagType, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/types';
+import { mapGetters } from 'vuex';
+import StatusManager from '@/utils/types';
+import { 
+  getBreachTagType, 
+  getBreachDisplayText, 
+  getBreachDescription, 
+  calculateAtomicBreach,
+  getKRIStatusLabel
+} from '@/utils/helpers';
+import expandableTableMixin from '@/mixins/expandableTableMixin';
+import TableColumnConfig from '@/components/TableColumnConfig.vue';
+import TableColumnManager, { TABLE_TYPES } from '@/utils/tableColumnConfig';
+
 export default {
   name: 'KRITable',
+  components: {
+    TableColumnConfig
+  },
+  mixins: [expandableTableMixin],
   props: {
     data: {
       type: Array,
-      required: true
+      default: () => []
     },
     loading: {
       type: Boolean,
       default: false
-    },
-    selectedKris: {
-      type: Array,
-      default: () => []
     }
   },
   data() {
     return {
-      expandedRows: {}, // Track expansion state for calculated KRIs
-      atomicDataCache: {} // Cache atomic data to avoid repeated API calls
+      tableType: TABLE_TYPES.KRI_TABLE
     };
   },
   computed: {
-    // Create expanded table data with atomic sub-rows
-    expandedTableData() {
-      const result = [];
-      
-      this.data.forEach(row => {
-        // Add main KRI row
-        result.push(row);
-        
-        // Add atomic sub-rows if this KRI is expanded
-        if (this.isCalculatedKRI(row) && this.isRowExpanded(row)) {
-          const atomicData = this.atomicDataCache[this.getRowKey(row)];
-          if (atomicData && atomicData.length > 0) {
-            atomicData.forEach(atomicItem => {
-              result.push({
-                ...atomicItem,
-                isAtomicRow: true,
-                parentKriId: row.id,
-                parentReportingDate: row.reportingDate,
-                // Map atomic properties to table column structure
-                id: `${row.id}_atomic_${atomicItem.atomic_id}`,
-                name: atomicItem.atomic_metadata || `Element ${atomicItem.atomic_id}`,
-                kriValue: atomicItem.atomic_value,
-                collectionStatus: this.mapAtomicStatus(atomicItem.atomic_status),
-                owner: row.owner,
-                dataProvider: row.dataProvider,
-                reportingDate: row.reportingDate,
-                reportingCycle: row.reportingCycle,
-                l1RiskType: '',
-                l2RiskType: '',
-                breachType: '',
-                rawData: {
-                  ...atomicItem,
-                  kri_status: atomicItem.atomic_status
-                }
-              });
-            });
-          }
+    ...mapGetters('kri', ['getVisibleColumnsForTable']),
+
+    visibleColumns() {
+      const visibleColumnKeys = this.getVisibleColumnsForTable(this.tableType);
+      return TableColumnManager.getVisibleColumns(this.tableType, visibleColumnKeys);
+    },
+
+    displayTableData() {
+      return this.expandedTableData.map(row => {
+        if (row.isAtomicRow) {
+          // Calculate breach status for atomic rows
+          const parentKRI = this.data.find(kri => 
+            (kri.kriId || kri.id) === row.kriId && kri.reportingDate === row.reportingDate
+          );
+          return {
+            ...row,
+            breachType: parentKRI ? calculateAtomicBreach(row, parentKRI) : 'No Breach',
+            collectionStatus: getKRIStatusLabel(row.collectionStatus)
+          };
+        } else {
+          // Transform main KRI rows
+          return {
+            ...row,
+            collectionStatus: getKRIStatusLabel(row.collectionStatus)
+          };
         }
       });
-      
-      return result;
     }
   },
   methods: {
-    handleRowClick(row, _column, _event) {
-      // Don't handle row click for atomic sub-rows or when clicking expand button
-      if (row.isAtomicRow || (_event && _event.target && _event.target.closest('.expand-button'))) {
-        return;
+    // Event handlers
+    handleRowClick(row) {
+      if (!row.isAtomicRow) {
+        this.$emit('row-click', row);
       }
-      
-      // Emit event to parent component with KRI ID and reporting date
-      this.$emit('row-click', row.id, this.formatReportingDate(row.reportingDate));
-    },
-    handleSelectionChange(selection) {
-      // Filter out atomic sub-rows from selection
-      const mainKriSelection = selection.filter(row => !row.isAtomicRow);
-      
-      this.$emit('select-all', mainKriSelection.length === this.data.length);
-      mainKriSelection.forEach(row => {
-        this.$emit('row-select', row.id, row.reportingDate, true);
-      });
     },
     
     handleKRIClick(kriId, reportingDate) {
-      this.$emit('kri-click', kriId, reportingDate);
+      this.$emit('row-click', { kriId, reportingDate });
     },
     
-    isSelectable(row) {
-      // Only main KRI rows should be selectable, not atomic sub-rows
-      return !row.isAtomicRow;
-    },
-    
+    // UI helper methods using extracted utilities
     getStatusTagType(status) {
-      return getStatusTagType(status);
+      return StatusManager.getStatusTagType(status);
     },
     
-    getBreachTagType,
-    getBreachDisplayText,
-    getBreachDescription,
-    
-    formatReportingDate(dateInt) {
-      return formatDateFromInt(dateInt);
+    getBreachTagType(breachType) {
+      return getBreachTagType(breachType);
     },
     
-    // Calculated KRI detection
-    isCalculatedKRI(row) {
-      // Check if this KRI has the calculated flag
-      return row.rawData?.is_calculated_kri === true || 
-             row.rawData?.is_calculated_kri === 1 ||
-             row.isCalculated === true;
+    getBreachDisplayText(breachType) {
+      return getBreachDisplayText(breachType);
     },
     
-    // Expansion state management
-    getRowKey(row) {
-      return `${row.id}_${row.reportingDate}`;
+    getBreachDescription(breachType) {
+      return getBreachDescription(breachType);
     },
-    
-    isRowExpanded(row) {
-      return this.expandedRows[this.getRowKey(row)] || false;
-    },
-    
-    async toggleRowExpansion(row) {
-      const key = this.getRowKey(row);
-      const isExpanded = this.isRowExpanded(row);
-      
-      if (isExpanded) {
-        // Collapse the row
-        this.$set(this.expandedRows, key, false);
-      } else {
-        // Expand the row - fetch atomic data if not cached
-        if (!this.atomicDataCache[key]) {
-          await this.loadAtomicData(row);
-        }
-        this.$set(this.expandedRows, key, true);
-      }
-    },
-    
-    async loadAtomicData(row) {
-      const key = this.getRowKey(row);
-      
-      try {
-        // Use the store to fetch atomic data
-        const result = await this.$store.dispatch('kri/fetchAtomicData', {
-          kriId: row.id,
-          reportingDate: row.reportingDate
-        });
-        
-        if (result.success) {
-          this.$set(this.atomicDataCache, key, result.data || []);
-        } else {
-          console.error('Failed to load atomic data:', result.error);
-          this.$set(this.atomicDataCache, key, []);
-        }
-      } catch (error) {
-        console.error('Error loading atomic data:', error);
-        this.$set(this.atomicDataCache, key, []);
-      }
-    },
-    
-    // Status mapping for atomic elements
-    mapAtomicStatus(status) {
-      const statusMap = {
-        10: 'Pending Input',
-        20: 'Under Rework', 
-        30: 'Saved',
-        40: 'Submitted to Data Provider Approver',
-        50: 'Submitted to KRI Owner Approver',
-        60: 'Finalized'
-      };
-      return statusMap[status] || 'Unknown';
-    },
-    
-    // Row class name for styling
-    getRowClassName({ row }) {
-      const classes = [];
-      
-      if (row.isAtomicRow) {
-        classes.push('atomic-sub-row');
-      } else if (this.isCalculatedKRI(row)) {
-        classes.push('calculated-kri-row');
-        if (this.isRowExpanded(row)) {
-          classes.push('expanded');
-        }
-      }
-      
-      return classes.join(' ');
+
+    handlePreferencesChanged() {
+      // Force reactivity update when preferences change
+      this.$forceUpdate();
     }
   }
 };
 </script>
 
 <style scoped>
+/* Table header styling */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 0;
+}
+
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.table-info-icon {
+  color: #909399;
+  cursor: help;
+}
+
+.table-info-icon:hover {
+  color: #409EFF;
+}
+
+/* Minimal table overrides - let Element UI handle most styling */
 .kri-table >>> .el-table th {
   background-color: #f8fafc;
   color: #374151;
@@ -352,27 +286,7 @@ export default {
 }
 
 .kri-table >>> .el-table td {
-  padding: 12px 0;
-}
-
-/* Fix caret-wrapper alignment to prevent line breaks */
-.kri-table >>> .el-table th .cell {
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.kri-table >>> .el-table th .caret-wrapper {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  margin-left: 5px;
-  vertical-align: middle;
-}
-
-.kri-table >>> .el-table th .sort-caret {
-  display: block;
+  padding: 8px 0;
 }
 
 .kri-name-link {

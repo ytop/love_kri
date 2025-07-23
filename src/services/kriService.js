@@ -31,9 +31,10 @@ class BaseKRIService {
  * @returns {number|Array} KRI ID as integer or array of integers
  */
   parseKRIId(kriId) {
+    if (!kriId) throw new Error('KRI ID is required');
+    if (Array.isArray(kriId)) return kriId.map(id => this.parseKRIId(id));
     if (typeof kriId === 'number') return [kriId];
     if (typeof kriId === 'string') return [parseInt(kriId, 10)];
-    if (Array.isArray(kriId)) return kriId.map(id => this.parseKRIId(id));
     throw new Error('Invalid KRI ID format: ' + kriId);
   }
 
@@ -55,20 +56,23 @@ class BaseKRIService {
       throw new Error('primaryKey and primaryValues must have the same length');
     }
 
+    let query = supabase.from(table).select(select);
+
+    // Build filters for .match, but skip any key where value is '*'
     const filters = {};
     for (let i = 0; i < primaryKey.length; i++) {
-      filters[primaryKey[i]] = primaryValues[i];
+      if (primaryValues[i] !== '*') {
+        filters[primaryKey[i]] = primaryValues[i];
+      }
     }
-
-    let query = supabase
-      .from(table)
-      .select(select)
-      .match(filters);
+    // Only apply .match if there is at least one filter
+    if (Object.keys(filters).length > 0) {
+      query = query.match(filters);
+    }
 
     if (orderBy) {
       query = query.order(orderBy.column, { ascending: orderBy.ascending });
     }
-
     return query;
   }
 
@@ -84,9 +88,8 @@ class BaseKRIService {
  */
   async fetchKRI(kriId, reportingDate, select = '*', orderBy = null) {
     // parse kriId and reportingDate, support array or single value
-    const kriIdInts = this.parseKRIId(kriId);
-    const reportingDateInts = this.parseReportingDate(reportingDate);
-    if (kriIdInts.length !== reportingDateInts.length) throw new Error('kriId and reportingDate must have the same length');
+    const kriIdInts = kriId === '*' ? '*' : this.parseKRIId(kriId);
+    const reportingDateInts = reportingDate === '*' ? '*' : this.parseReportingDate(reportingDate);
     
     return this.generalFetch('kri_item', ['kri_id', 'reporting_date'], [kriIdInts, reportingDateInts], select, orderBy); 
   }
@@ -146,15 +149,14 @@ class BaseKRIService {
  * @returns {Promise<object>} Query result (may be single or multiple records)
  */
   async fetchAtomicKRI(kriId, atomicId, reportingDate, select = '*') {
-    const kriIdInts = this.parseKRIId(kriId);
-    const atomicIdInts = this.parseAtomicId(atomicId);
-    const reportingDateInts = this.parseReportingDate(reportingDate);
-    if (
-      kriIdInts.length !== atomicIdInts.length ||
-    kriIdInts.length !== reportingDateInts.length
-    ) {
-      throw new Error('kriId, atomicId, and reportingDate must have the same length');
+    if (reportingDate === '*' || reportingDate === undefined) {
+      throw new Error('reportingDate must be provided and cannot be "*"');
     }
+
+    const kriIdInts = kriId === '*' ? '*' : this.parseKRIId(kriId);
+    const atomicIdInts = atomicId === '*' ? '*' : this.parseKRIId(atomicId);
+    const reportingDateInts = this.parseReportingDate(reportingDate);
+
 
     return this.generalFetch('kri_atomic', ['kri_id', 'atomic_id', 'reporting_date'], [kriIdInts, atomicIdInts, reportingDateInts], select);
   }
@@ -213,10 +215,6 @@ class BaseKRIService {
     // Ensure both are arrays for .length check and .in query
     const kriIdArr = Array.isArray(kriIdInts) ? kriIdInts : [kriIdInts];
     const reportingDateArr = Array.isArray(reportingDateInts) ? reportingDateInts : [reportingDateInts];
-
-    if (kriIdArr.length !== reportingDateArr.length) {
-      throw new Error('kriId and reportingDate must have the same length');
-    }
 
     return this.generalFetch('kri_evidence', ['kri_id', 'reporting_date'], [kriIdArr, reportingDateArr], select);
   }

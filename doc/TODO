@@ -13,6 +13,7 @@ Working:
   - test if it works with supabase
   - test local storage
   Current: Implemented service, need to test with frontend
+16. Sorting Order is in String Order, not in Int Order
 
 Pending:
 4. add Object Storage preview for evidence

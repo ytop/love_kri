@@ -45,15 +45,6 @@
 </template>
 
 <script>
-export default {
-  name: 'KRIGeneralInfo',
-  props: {
-    kriData: {
-      type: Object,
-      required: true
-    }
-  }
-};
 </script>
 
 <style scoped>

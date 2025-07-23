@@ -189,7 +189,8 @@
 </template>
 
 <script>
-import { STATUS_VALUES } from '@/utils/types';
+import StatusManager from '@/utils/types';
+import { formatDateFromInt } from '@/utils/helpers';
 
 export default {
   name: 'KRIFilters',
@@ -209,58 +210,76 @@ export default {
   },
   data() {
     return {
-      localFilters: { ...this.filters },
-      STATUS_VALUES: STATUS_VALUES
+      localFilters: {},
+      reportingDateValue: null
     };
   },
   computed: {
-    reportingDateValue: {
-      get() {
-        return this.localFilters.reportingDate;
-      },
-      set(value) {
-        this.localFilters.reportingDate = value;
+    STATUS_VALUES() {
+      return Object.entries(StatusManager.STATUS_CONFIG).map(([value, config]) => ({
+        value: parseInt(value, 10),
+        label: config.label
+      }));
+    },
+    
+    hasActiveFilters() {
+      const defaultFilters = ['reportingDate'];
+      return Object.keys(this.localFilters).some(key => {
+        if (defaultFilters.includes(key)) return false;
+        const value = this.localFilters[key];
+        return value && value !== '' && value !== null && value !== undefined;
+      });
+    }
+  },
+  methods: {
+    onFilterChange() {
+      this.$emit('filter-change', { ...this.localFilters });
+    },
+    
+    onReportingDateChange(dateValue) {
+      if (dateValue) {
+        this.localFilters.reportingDate = dateValue;
+        this.onFilterChange();
       }
     },
-    hasActiveFilters() {
-      // Check if any filter has a non-empty value (excluding reportingDate which is always set)
-      return this.localFilters.department ||
-             this.localFilters.collectionStatus ||
-             this.localFilters.l1RiskType ||
-             this.localFilters.kriId ||
-             this.localFilters.reportingCycle ||
-             this.localFilters.l2RiskType ||
-             this.localFilters.kriName ||
-             this.localFilters.kriType ||
-             this.localFilters.breachType ||
-             this.localFilters.dataProvider ||
-             this.localFilters.kriOwner;
+    
+    resetFilters() {
+      this.$emit('reset-filters');
+    },
+    
+    toggleAdvanced() {
+      this.$emit('toggle-advanced');
+    }
+  },
+  created() {
+    // Initialize local filters from props
+    this.localFilters = { ...this.filters };
+    
+    // Convert reporting date from integer to string for date picker
+    if (this.filters.reportingDate) {
+      if (typeof this.filters.reportingDate === 'number') {
+        this.reportingDateValue = formatDateFromInt(this.filters.reportingDate);
+      } else {
+        this.reportingDateValue = this.filters.reportingDate;
+      }
     }
   },
   watch: {
     filters: {
       handler(newFilters) {
         this.localFilters = { ...newFilters };
+        
+        // Update date picker value when filters change
+        if (newFilters.reportingDate) {
+          if (typeof newFilters.reportingDate === 'number') {
+            this.reportingDateValue = formatDateFromInt(newFilters.reportingDate);
+          } else {
+            this.reportingDateValue = newFilters.reportingDate;
+          }
+        }
       },
-      deep: true
-    }
-  },
-  methods: {
-    onFilterChange() {
-      this.$emit('filter-change', this.localFilters);
-    },
-    
-    onReportingDateChange(value) {
-      this.localFilters.reportingDate = value;
-      this.onFilterChange();
-    },
-    
-    toggleAdvanced() {
-      this.$emit('toggle-advanced');
-    },
-    
-    resetFilters() {
-      this.$emit('reset-filters');
+      deep: true,
+      immediate: false
     }
   }
 };

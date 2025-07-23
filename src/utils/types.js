@@ -131,6 +131,15 @@ class StatusManager {
       return acc;
     }, {});
 
+  /**
+   * Convert status label to numeric value
+   * @param {string} label - Status label
+   * @returns {number} Status numeric value
+   */
+  static getLabelToNumber(label) {
+    return StatusManager.STATUS_LABEL_TO_NUMBER[label] || null;
+  }
+
   // ---------------------------------- status mapping getters ----------------------------------
   /**
    * Map status number to readable string
@@ -288,17 +297,22 @@ export function transformKRIData(data, mapStatus) {
   if (!Array.isArray(data)) return [];
   return data.map(kri => ({
     id: String(kri.kri_id),
+    kriId: kri.kri_id, // Keep numeric ID for internal operations
     name: kri.kri_name || '',
     owner: kri.kri_owner || '',
     dataProvider: kri.data_provider || '',
     collectionStatus: mapStatus ? mapStatus(kri.kri_status) : kri.kri_status,
+    kriStatus: kri.kri_status, // Keep numeric status for internal operations
     kriType: kri.ras_metric || 'N/A',
     l1RiskType: kri.l1_risk_type || '',
     l2RiskType: kri.l2_risk_type || '',
     breachType: kri.breach_type || 'No Breach',
     kriValue: kri.kri_value || 'N/A',
+    warningLineValue: kri.warning_line_value,
+    limitValue: kri.limit_value,
     reportingCycle: kri.reporting_frequency || '',
-    reportingDate: String(kri.reporting_date),
+    reportingDate: kri.reporting_date, // Keep as integer for internal operations
+    isCalculatedKri: kri.is_calculated_kri || false, // Map calculated KRI flag
     rawData: kri
   }));
 }
