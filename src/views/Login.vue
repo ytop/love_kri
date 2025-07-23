@@ -203,12 +203,6 @@ export default {
   font-weight: 500;
 }
 
-.role-permissions {
-  font-size: 0.75rem;
-  color: #909399;
-  margin-left: 10px;
-}
-
 .login-footer {
   text-align: center;
   margin-top: 20px;
