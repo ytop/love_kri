@@ -298,6 +298,14 @@ export const generateKRIDetailActions = (kriDetail, canPerformFn) => {
   return actions;
 };
 
+// ---------------------------------- Evidence Utilities ----------------------------------
+
+// Get the latest evidence file from an array of evidence data
+export const getLatestEvidence = (evidenceData) => {
+  if (!evidenceData || evidenceData.length === 0) return null;
+  return [...evidenceData].sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at))[0];
+};
+
 // ---------------------------------- Filter Utilities ----------------------------------
 
 /**

@@ -199,7 +199,7 @@
               <span class="file-name">{{ latestEvidence.file_name }}</span>
               <span class="file-meta">
                 Uploaded by {{ latestEvidence.uploaded_by || 'Unknown' }} 
-                on {{ formatDate(latestEvidence.uploaded_at) }}
+                on {{ formatReportingDate(latestEvidence.uploaded_at) }}
               </span>
               <p v-if="latestEvidence.description" class="file-description">
                 {{ latestEvidence.description }}
@@ -221,6 +221,284 @@
 </template>
 
 <script>
+import { mapState, mapGetters, mapActions } from 'vuex';
+import { mapStatus, getStatusTagType, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/types';
+import { formatReportingDate, calculateBreachStatus, getLatestEvidence } from '@/utils/helpers';
+import Permission from '@/utils/permission';
+
+export default {
+  name: 'KRIOverview',
+  props: {
+    kriData: {
+      type: Object,
+      required: true
+    },
+    atomicData: {
+      type: Array,
+      default: () => []
+    },
+    evidenceData: {
+      type: Array,
+      default: () => []
+    }
+  },
+  data() {
+    return {
+      inputForm: {
+        kriValue: null,
+        comment: ''
+      },
+      inputLoading: false,
+      calculatingKRI: false,
+      submittingAtomic: false
+    };
+  },
+  computed: {
+    ...mapState('kri', ['currentUser']),
+    ...mapGetters('kri', ['availableKRIDetailActions']),
+    
+    // Check if this is a calculated KRI
+    isCalculatedKRI() {
+      return this.kriData?.is_calculated_kri || false;
+    },
+    
+    // Check if user can edit this KRI
+    canEditKRI() {
+      if (!this.kriData) return false;
+      const status = this.kriData.kri_status;
+      const allowedStatuses = [10, 20, 30]; // PENDING_INPUT, UNDER_REWORK, SAVED
+      const userPermissions = this.currentUser?.permissions || [];
+      return allowedStatuses.includes(status) && Permission.canEdit(this.kriData.kri_id, null, userPermissions);
+    },
+    
+    // Calculate atomic data progress for calculated KRIs
+    atomicDataProgress() {
+      if (!this.atomicData || this.atomicData.length === 0) {
+        return { percentage: 0, color: '#ddd', text: '0/0' };
+      }
+      
+      const totalAtomics = this.atomicData.length;
+      const approvedAtomics = this.atomicData.filter(atomic => atomic.atomic_status === 60).length;
+      const percentage = Math.round((approvedAtomics / totalAtomics) * 100);
+      
+      let color = '#f56c6c'; // Red for low completion
+      if (percentage >= 80) color = '#67c23a'; // Green for high completion
+      else if (percentage >= 50) color = '#e6a23c'; // Yellow for medium completion
+      
+      return {
+        percentage,
+        color,
+        text: `${approvedAtomics}/${totalAtomics}`
+      };
+    },
+    
+    // Get last calculation time
+    lastCalculationTime() {
+      // Look for calculation-related audit trail entries
+      if (!this.kriData?.updated_at) return null;
+      return formatReportingDate(this.kriData.updated_at);
+    },
+    
+    // Check if there's a calculation mismatch
+    hasCalculationMismatch() {
+      if (!this.isCalculatedKRI || !this.atomicData || this.atomicData.length === 0) return false;
+      
+      // For now, return false - would need actual calculation logic
+      // In real implementation, this would compare stored value with calculated value
+      return false;
+    },
+    
+    // Calculate dynamic breach status based on current input
+    dynamicBreachStatus() {
+      const currentValue = this.inputForm.kriValue || this.kriData?.kri_value;
+      if (!currentValue) return 'No Breach';
+      
+      return calculateBreachStatus(
+        currentValue,
+        this.kriData?.warning_line_value,
+        this.kriData?.limit_value
+      );
+    },
+    
+    // Get latest evidence file
+    latestEvidence() {
+      return getLatestEvidence(this.evidenceData);
+    },
+    
+    // Count total evidence files
+    totalEvidenceCount() {
+      return this.evidenceData ? this.evidenceData.length : 0;
+    },
+    
+    // Validate input form
+    isValidInput() {
+      return this.inputForm.kriValue !== null && this.inputForm.kriValue !== '';
+    },
+    
+    // Check if user can recalculate KRI
+    canRecalculate() {
+      return this.isCalculatedKRI && this.atomicDataProgress.percentage === 100;
+    },
+    
+    // Check if user can submit atomic data
+    canSubmitAtomic() {
+      return this.isCalculatedKRI && this.atomicDataProgress.percentage > 0 && this.atomicDataProgress.percentage < 100;
+    }
+  },
+  watch: {
+    // Watch kriData changes to update input form
+    'kriData.kri_value': {
+      handler(newValue) {
+        if (newValue !== null && newValue !== '') {
+          this.inputForm.kriValue = parseFloat(newValue);
+        }
+      },
+      immediate: true
+    }
+  },
+  methods: {
+    ...mapActions('kri', ['updateKRIStatus', 'calculateKRI', 'submitAtomicData']),
+    
+    // Utility functions
+    mapStatus,
+    getStatusTagType,
+    getBreachTagType,
+    getBreachDisplayText, 
+    getBreachDescription,
+    
+    // Helper method to determine next status for submission
+    getNextSubmitStatus() {
+      return this.kriData.kri_owner === this.kriData.data_provider ? 50 : 40;
+    },
+    
+    // Data input handlers
+    async handleSave() {
+      if (!this.isValidInput) return;
+      
+      this.inputLoading = true;
+      try {
+        await this.updateKRIStatus({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          updateData: { 
+            kri_value: this.inputForm.kriValue,
+            kri_status: 30 // SAVED
+          },
+          action: 'save',
+          comment: this.inputForm.comment || 'Data saved'
+        });
+        this.$message.success('KRI data saved successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        this.$message.error('Failed to save KRI data');
+        console.error('Save error:', error);
+      } finally {
+        this.inputLoading = false;
+      }
+    },
+    
+    async handleSubmit() {
+      this.inputLoading = true;
+      try {
+        // Determine next status based on KRI owner/data provider relationship
+        const nextStatus = this.getNextSubmitStatus();
+        await this.updateKRIStatus({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          updateData: { kri_status: nextStatus },
+          action: 'submit',
+          comment: this.inputForm.comment || 'Data submitted for approval'
+        });
+        this.$message.success('KRI submitted successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        this.$message.error('Failed to submit KRI');
+        console.error('Submit error:', error);
+      } finally {
+        this.inputLoading = false;
+      }
+    },
+    
+    async handleSaveAndSubmit() {
+      if (!this.isValidInput) return;
+      
+      this.inputLoading = true;
+      try {
+        // First save the data, then submit
+        const nextStatus = this.getNextSubmitStatus();
+        await this.updateKRIStatus({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          updateData: { 
+            kri_value: this.inputForm.kriValue,
+            kri_status: nextStatus 
+          },
+          action: 'save_and_submit',
+          comment: this.inputForm.comment || 'Data saved and submitted for approval'
+        });
+        this.$message.success('KRI saved and submitted successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        this.$message.error('Failed to save and submit KRI');
+        console.error('Save and submit error:', error);
+      } finally {
+        this.inputLoading = false;
+      }
+    },
+    
+    // Calculated KRI handlers
+    async handleRecalculate() {
+      if (!this.canRecalculate) return;
+      
+      this.calculatingKRI = true;
+      try {
+        await this.calculateKRI({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date
+        });
+        this.$message.success('KRI recalculated successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        this.$message.error('Failed to recalculate KRI');
+        console.error('Recalculation error:', error);
+      } finally {
+        this.calculatingKRI = false;
+      }
+    },
+    
+    async handleSubmitAtomic() {
+      this.submittingAtomic = true;
+      try {
+        await this.submitAtomicData({
+          kriId: this.kriData.kri_id,
+          reportingDate: this.kriData.reporting_date,
+          atomicData: this.atomicData
+        });
+        this.$message.success('Atomic data submitted successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        this.$message.error('Failed to submit atomic data');
+        console.error('Atomic submit error:', error);
+      } finally {
+        this.submittingAtomic = false;
+      }
+    },
+    
+    // Evidence download handler
+    downloadEvidence(evidence) {
+      if (!evidence || !evidence.file_url) return;
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = evidence.file_url;
+      link.download = evidence.file_name;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+};
 </script>
 
 <style scoped>

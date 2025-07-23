@@ -16,7 +16,7 @@
             <el-button @click="goBack" icon="el-icon-arrow-left" circle></el-button>
             <div class="header-info">
               <h1>{{ kriDetail.kri_name || 'KRI Detail' }}</h1>
-              <p>KRI ID: {{ kriDetail.kri_id }} | {{ formatReportingDate(kriDetail.reporting_date) }}</p>
+              <p>KRI ID: {{ kriDetail.kri_id || id }} | {{ formatReportingDate(kriDetail.reporting_date || parseInt(date)) }}</p>
             </div>
           </div>
           <div class="header-actions">
@@ -47,20 +47,17 @@
               :kri-data="kriDetail" 
               :atomic-data="atomicData"
               :evidence-data="evidenceData"
-              @data-updated="refreshKRIData" />
+              @data-updated="refreshKRIDetail" />
           </el-card>
           
           <!-- Data Elements -->
           <el-card class="info-card" v-if="atomicData && atomicData.length > 0">
-            <!-- <div slot="header" class="card-header">
-              <span>Data Elements</span> -->
-            <!-- </div> -->
             <k-r-i-data-elements 
               :atomic-data="atomicData"
               :kri-detail="kriDetail"
               :evidence-data="evidenceData"
-              @data-updated="refreshKRIData"
-              @evidence-uploaded="refreshKRIData"
+              @data-updated="refreshKRIDetail"
+              @evidence-uploaded="refreshKRIDetail"
             />
           </el-card>
           
@@ -72,7 +69,7 @@
             <div class="simple-actions-content">
               <!-- Unified action system -->
               <el-button
-                v-for="action in availableActions"
+                v-for="action in availableKRIDetailActions"
                 :key="action.key"
                 :icon="action.icon"
                 @click="handleActionClick(action)"
@@ -86,10 +83,6 @@
           </el-card>
 
           <!-- Evidence and Audit -->
-          <!-- <el-card class="info-card"> -->
-            <!-- <div slot="header" class="card-header">
-              <span>Evidence & Audit Trail</span> # kind of redundant
-            </div> -->
             <k-r-i-evidence-audit 
               :evidence-data="evidenceData"
               :audit-data="auditTrailData"
@@ -97,9 +90,8 @@
               :reporting-date="kriDetail.reporting_date"
               :current-status="kriDetail.kri_status"
               :kri-item="kriDetail"
-              @evidence-uploaded="refreshKRIData"
+              @evidence-uploaded="refreshKRIDetail"
             />
-          <!-- </el-card> -->
         </div>
         
         <!-- Sidebar -->
@@ -107,7 +99,7 @@
           <k-r-i-sidebar 
             :kri-data="kriDetail"
             :atomic-data="atomicData"
-            @data-updated="forceRefreshKRIData"
+            @data-updated="forceRefreshKRIDetail"
           />
         </div>
       </div>
@@ -116,7 +108,7 @@
 </template>
 
 <script>
-import { mapState, mapGetters, mapActions } from 'vuex';
+import { mapState, mapActions } from 'vuex';
 import NotFound from './NotFound.vue';
 import KRIGeneralInfo from '@/components/detail/KRIGeneralInfo.vue';
 import KRIOverview from '@/components/detail/KRIOverview.vue';
@@ -147,17 +139,10 @@ export default {
     }
   },
   computed: {
-    // Reuse existing Vuex state
-    ...mapState('kri', ['kriDetail', 'atomicData', 'evidenceData', 'auditTrailData', 'loading', 'error']),
-    ...mapGetters('kri', ['availableKRIDetailActions']),
-    
-    // Available actions for template (reuses store getter)
-    availableActions() {
-      return this.availableKRIDetailActions;
-    }
+    ...mapState('kri', ['kriDetail']),
+    ...mapState('kri', ['availableKRIDetailActions']),
   },
   watch: {
-    // Watch route parameters to refresh data when navigating between KRIs
     '$route.params': {
       handler() {
         this.fetchData();
@@ -166,10 +151,8 @@ export default {
     }
   },
   methods: {
-    // Reuse existing store actions
-    ...mapActions('kri', ['fetchKRIDetail', 'refreshKRIDetail', 'forceRefreshKRIDetail', 'updateKRIStatus']),
+    ...mapActions('kri', ['fetchKRIDetail', 'refreshKRIDetail', 'forceRefreshKRIDetail']),
     
-    // Reuse utility functions
     formatReportingDate,
     mapStatus,
     getStatusTagType,
@@ -191,89 +174,6 @@ export default {
         console.error('Error fetching KRI detail:', error);
       }
     },
-    
-    // Refresh methods that delegate to store actions
-    async refreshKRIData() {
-      await this.refreshKRIDetail();
-    },
-    
-    async forceRefreshKRIData() {
-      await this.forceRefreshKRIDetail();
-    },
-    
-    // Action handlers using existing store action
-    async handleSave() {
-      try {
-        await this.updateKRIStatus({
-          kriId: parseInt(this.id, 10),
-          reportingDate: parseInt(this.date, 10),
-          updateData: { /* will be populated by child components */ },
-          action: 'save',
-          comment: 'Data saved'
-        });
-      } catch (error) {
-        this.$message.error('Failed to save KRI data');
-      }
-    },
-    
-    async handleSubmit() {
-      try {
-        // Determine next status based on KRI owner/data provider relationship
-        const nextStatus = this.kriDetail.kri_owner === this.kriDetail.data_provider ? 50 : 40;
-        await this.updateKRIStatus({
-          kriId: parseInt(this.id, 10),
-          reportingDate: parseInt(this.date, 10),
-          updateData: { kri_status: nextStatus },
-          action: 'submit',
-          comment: 'Data submitted for approval'
-        });
-        this.$message.success('KRI submitted successfully');
-      } catch (error) {
-        this.$message.error('Failed to submit KRI');
-      }
-    },
-    
-    async handleApprove() {
-      try {
-        const currentStatus = this.kriDetail.kri_status;
-        const nextStatus = currentStatus === 40 ? 50 : 60;
-        await this.updateKRIStatus({
-          kriId: parseInt(this.id, 10),
-          reportingDate: parseInt(this.date, 10),
-          updateData: { kri_status: nextStatus },
-          action: 'approve',
-          comment: 'Approved by user'
-        });
-        this.$message.success('KRI approved successfully');
-      } catch (error) {
-        this.$message.error('Failed to approve KRI');
-      }
-    },
-    
-    async handleReject() {
-      try {
-        await this.updateKRIStatus({
-          kriId: parseInt(this.id, 10),
-          reportingDate: parseInt(this.date, 10),
-          updateData: { kri_status: 20 }, // UNDER_REWORK
-          action: 'reject',
-          comment: 'Rejected - requires rework'
-        });
-        this.$message.success('KRI rejected and sent back for rework');
-      } catch (error) {
-        this.$message.error('Failed to reject KRI');
-      }
-    },
-    
-    // Route action clicks to appropriate handlers
-    handleActionClick(action) {
-      const handler = this[action.handler];
-      if (typeof handler === 'function') {
-        handler.call(this);
-      } else {
-        console.warn(`Action handler ${action.handler} not found`);
-      }
-    }
   }
 };
 </script>
@@ -298,25 +198,6 @@ export default {
   padding: 1.5rem;
 }
 
-.error-content {
-  text-align: center;
-  padding: 2rem;
-}
-
-.error-content h2 {
-  color: #374151;
-  margin: 1rem 0;
-}
-
-.error-content p {
-  color: #6b7280;
-  margin-bottom: 1.5rem;
-}
-
-.error-message {
-  color: #ef4444;
-  font-size: 0.875rem;
-}
 
 .detail-layout {
   display: flex;

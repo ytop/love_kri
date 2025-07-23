@@ -493,7 +493,7 @@ const getters = {
   isKRIDetailLoaded: (state) => {
     return !!(state.kriDetail && !state.loading);
   },
-  
+
 };
 
 export default {

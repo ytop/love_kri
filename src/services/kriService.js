@@ -388,7 +388,7 @@ export const kriService = {
 
   async fetchKRIDetail(kriId, reportingDate) {
     const { data } = await baseKRIService.fetchKRI(kriId, reportingDate);
-    return data;
+    return data?.[0] || {};
   },
 
   async fetchKRIAtomic(kriId, reportingDate) {
