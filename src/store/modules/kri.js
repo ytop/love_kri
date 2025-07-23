@@ -286,6 +286,44 @@ const actions = {
       throw error;
     }
   },
+
+  // KRI Detail specific actions
+  async refreshKRIDetail({ dispatch, state }) {
+    if (!state.kriDetail) return;
+    
+    // Reuse existing fetchKRIDetail action
+    await dispatch('fetchKRIDetail', {
+      kriId: state.kriDetail.kri_id,
+      reportingDate: state.kriDetail.reporting_date
+    });
+  },
+
+  async forceRefreshKRIDetail({ commit, dispatch }) {
+    commit('SET_LOADING', true);
+    try {
+      await dispatch('refreshKRIDetail');
+    } finally {
+      commit('SET_LOADING', false);
+    }
+  },
+
+  // Generic KRI update action that wraps existing service methods
+  async updateKRIStatus({ dispatch, getters }, { kriId, reportingDate, updateData, action, comment }) {
+    const currentUser = getters.currentUser;
+    
+    // Use existing kriService.updateKRI method
+    await kriService.updateKRI(
+      kriId, 
+      reportingDate, 
+      updateData, 
+      currentUser.name || currentUser.User_ID, 
+      action, 
+      comment
+    );
+    
+    // Refresh data after update
+    await dispatch('refreshKRIDetail');
+  },
 };
 
 const getters = {
@@ -438,6 +476,22 @@ const getters = {
   getColumnOrderForTable: (state) => (tableType) => {
     const preferences = state.tableColumnPreferences[tableType];
     return preferences ? preferences.columnOrder : [];
+  },
+
+  // KRI Detail specific getters
+  availableKRIDetailActions: (state, getters) => {
+    if (!state.kriDetail) return [];
+    
+    // Import here to avoid circular dependency
+    const { generateKRIDetailActions } = require('@/utils/helpers');
+    
+    // Reuse existing canPerform getter
+    return generateKRIDetailActions(state.kriDetail, getters.canPerform);
+  },
+
+  // Check if KRI detail data is fully loaded
+  isKRIDetailLoaded: (state) => {
+    return !!(state.kriDetail && !state.loading);
   },
   
 };

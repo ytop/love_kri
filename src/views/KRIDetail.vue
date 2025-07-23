@@ -75,7 +75,7 @@
                 v-for="action in availableActions"
                 :key="action.key"
                 :icon="action.icon"
-                @click="action.handler"
+                @click="handleActionClick(action)"
                 :loading="action.loading"
                 :type="action.type"
                 :title="action.title"
@@ -116,12 +116,164 @@
 </template>
 
 <script>
+import { mapState, mapGetters, mapActions } from 'vuex';
 import NotFound from './NotFound.vue';
+import KRIGeneralInfo from '@/components/detail/KRIGeneralInfo.vue';
+import KRIOverview from '@/components/detail/KRIOverview.vue';
+import KRIDataElements from '@/components/detail/KRIDataElements.vue';
+import KRIEvidenceAudit from '@/components/detail/KRIEvidenceAudit.vue';
+import KRISidebar from '@/components/detail/KRISidebar.vue';
+import { formatReportingDate, createGoBackHandler } from '@/utils/helpers';
+import { mapStatus, getStatusTagType } from '@/utils/types';
 
 export default {
   name: 'KRIDetail',
   components: {
-    NotFound
+    NotFound,
+    KRIGeneralInfo,
+    KRIOverview,
+    KRIDataElements,
+    KRIEvidenceAudit,
+    KRISidebar
+  },
+  props: {
+    id: {
+      type: String,
+      required: true
+    },
+    date: {
+      type: String,
+      required: true
+    }
+  },
+  computed: {
+    // Reuse existing Vuex state
+    ...mapState('kri', ['kriDetail', 'atomicData', 'evidenceData', 'auditTrailData', 'loading', 'error']),
+    ...mapGetters('kri', ['availableKRIDetailActions']),
+    
+    // Available actions for template (reuses store getter)
+    availableActions() {
+      return this.availableKRIDetailActions;
+    }
+  },
+  watch: {
+    // Watch route parameters to refresh data when navigating between KRIs
+    '$route.params': {
+      handler() {
+        this.fetchData();
+      },
+      immediate: true
+    }
+  },
+  methods: {
+    // Reuse existing store actions
+    ...mapActions('kri', ['fetchKRIDetail', 'refreshKRIDetail', 'forceRefreshKRIDetail', 'updateKRIStatus']),
+    
+    // Reuse utility functions
+    formatReportingDate,
+    mapStatus,
+    getStatusTagType,
+    
+    // Navigation method
+    goBack() {
+      const handler = createGoBackHandler(this.$router);
+      handler();
+    },
+    
+    // Data fetching using existing store action
+    async fetchData() {
+      try {
+        await this.fetchKRIDetail({
+          kriId: parseInt(this.id, 10),
+          reportingDate: parseInt(this.date, 10)
+        });
+      } catch (error) {
+        console.error('Error fetching KRI detail:', error);
+      }
+    },
+    
+    // Refresh methods that delegate to store actions
+    async refreshKRIData() {
+      await this.refreshKRIDetail();
+    },
+    
+    async forceRefreshKRIData() {
+      await this.forceRefreshKRIDetail();
+    },
+    
+    // Action handlers using existing store action
+    async handleSave() {
+      try {
+        await this.updateKRIStatus({
+          kriId: parseInt(this.id, 10),
+          reportingDate: parseInt(this.date, 10),
+          updateData: { /* will be populated by child components */ },
+          action: 'save',
+          comment: 'Data saved'
+        });
+      } catch (error) {
+        this.$message.error('Failed to save KRI data');
+      }
+    },
+    
+    async handleSubmit() {
+      try {
+        // Determine next status based on KRI owner/data provider relationship
+        const nextStatus = this.kriDetail.kri_owner === this.kriDetail.data_provider ? 50 : 40;
+        await this.updateKRIStatus({
+          kriId: parseInt(this.id, 10),
+          reportingDate: parseInt(this.date, 10),
+          updateData: { kri_status: nextStatus },
+          action: 'submit',
+          comment: 'Data submitted for approval'
+        });
+        this.$message.success('KRI submitted successfully');
+      } catch (error) {
+        this.$message.error('Failed to submit KRI');
+      }
+    },
+    
+    async handleApprove() {
+      try {
+        const currentStatus = this.kriDetail.kri_status;
+        const nextStatus = currentStatus === 40 ? 50 : 60;
+        await this.updateKRIStatus({
+          kriId: parseInt(this.id, 10),
+          reportingDate: parseInt(this.date, 10),
+          updateData: { kri_status: nextStatus },
+          action: 'approve',
+          comment: 'Approved by user'
+        });
+        this.$message.success('KRI approved successfully');
+      } catch (error) {
+        this.$message.error('Failed to approve KRI');
+      }
+    },
+    
+    async handleReject() {
+      try {
+        await this.updateKRIStatus({
+          kriId: parseInt(this.id, 10),
+          reportingDate: parseInt(this.date, 10),
+          updateData: { kri_status: 20 }, // UNDER_REWORK
+          action: 'reject',
+          comment: 'Rejected - requires rework'
+        });
+        this.$message.success('KRI rejected and sent back for rework');
+      } catch (error) {
+        this.$message.error('Failed to reject KRI');
+      }
+    },
+    
+    // Route action clicks to appropriate handlers
+    handleActionClick(action) {
+      const handler = this[action.handler];
+      if (typeof handler === 'function') {
+        handler.call(this);
+      } else {
+        console.warn(`Action handler ${action.handler} not found`);
+      }
+    }
   }
 };
 </script>

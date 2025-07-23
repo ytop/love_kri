@@ -272,7 +272,6 @@ class Permission {
     case 60: // FINALIZED
       // No action needed for finalized status
       return false;
-        
     default:
       // Hidden Achievement: why are we here?
       console.warn(`Permission.needsUserAction: Unknown status ${statusNum}`);

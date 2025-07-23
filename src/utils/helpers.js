@@ -188,6 +188,116 @@ export const sortNumeric = (a, b) => {
   return aId - bId;
 };
 
+// ---------------------------------- KRI Detail Utilities ----------------------------------
+
+// Date formatting for KRI detail display (extends existing formatDateFromInt)
+export const formatReportingDate = (dateInt) => {
+  if (!dateInt) return 'N/A';
+  return formatDateFromInt(dateInt);
+};
+
+// Navigation helper for KRI detail back button
+export const createGoBackHandler = (router, fallbackRoute = 'Dashboard') => {
+  return function() {
+    if (window.history.length > 1) {
+      router.go(-1);
+    } else {
+      router.push({ name: fallbackRoute });
+    }
+  };
+};
+
+// Generate available actions for KRI detail based on status and permissions
+export const generateKRIDetailActions = (kriDetail, canPerformFn) => {
+  if (!kriDetail || !canPerformFn) return [];
+  
+  const actions = [];
+  const status = kriDetail.kri_status || kriDetail.kriStatus;
+  const kriId = kriDetail.kri_id || kriDetail.kriId;
+  
+  switch (status) {
+  case 10: // PENDING_INPUT
+  case 20: // UNDER_REWORK
+  case 30: // SAVED
+    if (canPerformFn(kriId, null, 'edit')) {
+      actions.push({
+        key: 'save',
+        label: 'Save',
+        icon: 'el-icon-document',
+        type: 'primary',
+        handler: 'handleSave',
+        loading: false,
+        disabled: false,
+        title: 'Save current changes'
+      });
+      actions.push({
+        key: 'submit',
+        label: 'Submit',
+        icon: 'el-icon-upload',
+        type: 'success',
+        handler: 'handleSubmit',
+        loading: false,
+        disabled: false,
+        title: 'Submit for approval'
+      });
+    }
+    break;
+  case 40: // SUBMITTED_TO_DATA_PROVIDER_APPROVER
+    if (canPerformFn(kriId, null, 'review')) {
+      actions.push({
+        key: 'approve',
+        label: 'Approve',
+        icon: 'el-icon-check',
+        type: 'success',
+        handler: 'handleApprove',
+        loading: false,
+        disabled: false,
+        title: 'Approve as Data Provider'
+      });
+      actions.push({
+        key: 'reject',
+        label: 'Reject',
+        icon: 'el-icon-close',
+        type: 'danger',
+        handler: 'handleReject',
+        loading: false,
+        disabled: false,
+        title: 'Reject and send back for rework'
+      });
+    }
+    break;
+  case 50: // SUBMITTED_TO_KRI_OWNER_APPROVER
+    if (canPerformFn(kriId, null, 'acknowledge')) {
+      actions.push({
+        key: 'approve',
+        label: 'Approve',
+        icon: 'el-icon-check',
+        type: 'success',
+        handler: 'handleApprove',
+        loading: false,
+        disabled: false,
+        title: 'Approve as KRI Owner'
+      });
+      actions.push({
+        key: 'reject',
+        label: 'Reject',
+        icon: 'el-icon-close',
+        type: 'danger',
+        handler: 'handleReject',
+        loading: false,
+        disabled: false,
+        title: 'Reject and send back for rework'
+      });
+    }
+    break;
+  case 60: // FINALIZED
+    // View-only mode, no actions available
+    break;
+  }
+  
+  return actions;
+};
+
 // ---------------------------------- Filter Utilities ----------------------------------
 
 /**

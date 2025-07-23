@@ -2,6 +2,7 @@ import Vue from 'vue';
 import Router from 'vue-router';
 import Dashboard from '../views/Dashboard.vue';
 import KRIPending from '../views/KRIPending.vue';
+import KRIDetail from '../views/KRIDetail.vue';
 import Login from '../views/Login.vue';
 import AdminManagement from '../views/AdminManagement.vue';
 import NotFound from '../views/NotFound.vue';
@@ -28,17 +29,12 @@ const router = new Router({
       component: Dashboard,
       meta: { requiresAuth: false }
     },
-    // {
-    //   path: '/kri/:id/:date',
-    //   name: 'KRIDetail',
-    //   component: () => import('../views/KRIDetail.vue'),
-    //   props: true,
-    //   meta: { requiresAuth: false }
-    // },
     {
       path: '/kri/:id/:date',
       name: 'KRIDetail',
-      redirect: '/under-construction'
+      component: KRIDetail,
+      props: true,
+      meta: { requiresAuth: false }
     },
     {
       path: '/kri/pending',
