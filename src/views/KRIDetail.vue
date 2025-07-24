@@ -114,6 +114,11 @@ export default {
     KRIEvidenceAudit,
     KRISidebar
   },
+  data() {
+    return {
+      rejectionPopupShown: false // Flag to prevent showing popup multiple times
+    };
+  },
   props: {
     id: {
       type: String,
@@ -134,14 +139,60 @@ export default {
     },
     auditTrailData() {
       return this.$store.state.kri.auditTrailData;
+    },
+    
+    // Find the latest rejection information from audit trail
+    latestRejectionInfo() {
+      if (!this.auditTrailData || this.auditTrailData.length === 0) {
+        return null;
+      }
+      
+      // Look for rejection actions that led to current status
+      const rejectionEntries = this.auditTrailData
+        .filter(audit => 
+          audit.action && 
+          audit.action.toLowerCase().includes('reject') &&
+          audit.comment // Ensure there's a rejection reason
+        )
+        .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at)); // Most recent first
+      
+      if (rejectionEntries.length === 0) {
+        return null;
+      }
+      
+      const latestRejection = rejectionEntries[0];
+      return {
+        reason: latestRejection.comment || 'No reason provided',
+        rejectedBy: latestRejection.changed_by || 'Unknown',
+        rejectedAt: latestRejection.changed_at,
+        action: latestRejection.action
+      };
     }
   },
   watch: {
     '$route.params': {
       handler() {
         this.fetchData();
+        // Reset popup flag when route changes
+        this.rejectionPopupShown = false;
       },
       immediate: true
+    },
+    
+    // Watch for KRI detail changes to show rejection popup
+    kriDetail: {
+      handler(newKriDetail) {
+        if (newKriDetail && 
+            newKriDetail.kri_status === 20 && // Status 20: Under Rework
+            this.latestRejectionInfo && 
+            !this.rejectionPopupShown) {
+          // Small delay to ensure UI is rendered
+          this.$nextTick(() => {
+            this.showRejectionPopup();
+          });
+        }
+      },
+      immediate: false
     }
   },
   methods: {
@@ -199,6 +250,58 @@ export default {
       } else {
         this.$message.success('KRI status updated to "Saved"');
       }
+    },
+    
+    // Show rejection popup with reason from audit trail
+    showRejectionPopup() {
+      if (!this.latestRejectionInfo) {
+        return;
+      }
+      
+      const rejectionInfo = this.latestRejectionInfo;
+      const formattedDate = this.formatReportingDate(rejectionInfo.rejectedAt);
+      
+      const messageContent = `
+        <div style="text-align: left; line-height: 1.6;">
+          <p style="margin-bottom: 16px; font-weight: 600; color: #e53e3e;">
+            <i class="el-icon-warning" style="margin-right: 8px;"></i>
+            This KRI was rejected and needs to be reworked
+          </p>
+          
+          <div style="background-color: #fef5e7; border-left: 4px solid #f6ad55; padding: 12px; margin-bottom: 16px; border-radius: 4px;">
+            <p style="margin: 0; font-weight: 500; color: #975a16;">Rejection Reason:</p>
+            <p style="margin: 8px 0 0 0; color: #744210;">${rejectionInfo.reason}</p>
+          </div>
+          
+          <div style="font-size: 13px; color: #666;">
+            <p style="margin: 4px 0;">
+              <strong>Rejected by:</strong> ${rejectionInfo.rejectedBy}
+            </p>
+            <p style="margin: 4px 0;">
+              <strong>Date:</strong> ${formattedDate}
+            </p>
+            <p style="margin: 4px 0;">
+              <strong>Action:</strong> ${rejectionInfo.action}
+            </p>
+          </div>
+        </div>
+      `;
+      
+      this.$alert(messageContent, 'KRI Rejection Notice', {
+        dangerouslyUseHTMLString: true,
+        type: 'warning',
+        confirmButtonText: 'Understood',
+        confirmButtonClass: 'el-button--warning',
+        showClose: true,
+        customClass: 'rejection-popup-dialog',
+        callback: () => {
+          // Mark popup as shown to prevent showing again
+          this.rejectionPopupShown = true;
+        }
+      });
+      
+      // Also mark as shown immediately to prevent duplicate calls
+      this.rejectionPopupShown = true;
     },
   }
 };
@@ -344,6 +447,29 @@ export default {
     gap: 1rem;
   }
   
+}
+
+/* Rejection popup styling */
+.rejection-popup-dialog .el-message-box {
+  max-width: 500px;
+}
+
+.rejection-popup-dialog .el-message-box__message {
+  color: #333;
+}
+
+.rejection-popup-dialog .el-message-box__content {
+  padding-bottom: 20px;
+}
+
+.rejection-popup-dialog .el-button--warning {
+  background-color: #f6ad55;
+  border-color: #f6ad55;
+}
+
+.rejection-popup-dialog .el-button--warning:hover {
+  background-color: #ed8936;
+  border-color: #ed8936;
 }
 
 

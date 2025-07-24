@@ -282,7 +282,7 @@
     <!-- Evidence Upload Modal -->
     <evidence-upload-modal
       :visible.sync="uploadModalVisible"
-      :kri-id="kriDetail.kri_id"
+      :kri-id="String(kriDetail.kri_id)"
       :reporting-date="kriDetail.reporting_date"
       @upload-success="handleUploadSuccess"
     />
