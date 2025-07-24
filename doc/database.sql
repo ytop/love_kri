@@ -99,7 +99,7 @@ CREATE TABLE public.kri_user_permission (
 -- It takes the KRI ID, reporting date, update data (as JSON), user info, action, and comment.
 -- For each field updated, it logs the old and new value in the audit trail.
 
-CREATE OR REPLACE FUNCTION public.updateKRI(
+CREATE OR REPLACE FUNCTION public.updatekri(
   p_kri_id bigint,
   p_reporting_date integer,
   p_update_data jsonb,
@@ -131,30 +131,30 @@ RETURNS TABLE (
 DECLARE
   old_row kri_item%ROWTYPE;
   new_row kri_item%ROWTYPE;
-  key text;
-  new_val text;
-  old_val text;
+  field_key text;
+  field_val text;
+  old_field_val text;
   update_stmt text;
   set_clauses text = '';
   first boolean = true;
 BEGIN
-  -- Lock and fetch the old row
-  SELECT * INTO old_row FROM kri_item WHERE kri_id = p_kri_id AND reporting_date = p_reporting_date FOR UPDATE;
+  -- Lock and fetch the old row (use table alias to avoid ambiguity)
+  SELECT * INTO old_row FROM kri_item ki WHERE ki.kri_id = p_kri_id AND ki.reporting_date = p_reporting_date FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'KRI record not found for update (kri_id=%, reporting_date=%)', p_kri_id, p_reporting_date;
   END IF;
 
   -- Build dynamic SET clause for update
-  FOR key, new_val IN SELECT key, value FROM jsonb_each_text(p_update_data) LOOP
+  FOR field_key, field_val IN SELECT key, value FROM jsonb_each_text(p_update_data) LOOP
     IF NOT first THEN
       set_clauses := set_clauses || ', ';
     END IF;
-    set_clauses := set_clauses || format('%I = %L', key, new_val);
+    set_clauses := set_clauses || format('%I = %L', field_key, field_val);
     first := false;
   END LOOP;
 
   update_stmt := format(
-    'UPDATE kri_item SET %s WHERE kri_id = $1 AND reporting_date = $2 RETURNING *',
+    'UPDATE kri_item SET %s WHERE kri_item.kri_id = $1 AND kri_item.reporting_date = $2 RETURNING *',
     set_clauses
   );
 
@@ -162,8 +162,8 @@ BEGIN
   EXECUTE update_stmt INTO new_row USING p_kri_id, p_reporting_date;
 
   -- For each updated field, insert audit trail entry
-  FOR key, new_val IN SELECT key, value FROM jsonb_each_text(p_update_data) LOOP
-    EXECUTE format('SELECT ($1).%I::text', key) INTO old_val USING old_row;
+  FOR field_key, field_val IN SELECT key, value FROM jsonb_each_text(p_update_data) LOOP
+    EXECUTE format('SELECT ($1).%I::text', field_key) INTO old_field_val USING old_row;
     INSERT INTO kri_audit_trail (
       kri_id, reporting_date, changed_at, changed_by, action, field_name, old_value, new_value, comment
     ) VALUES (
@@ -172,9 +172,9 @@ BEGIN
       NOW(),
       p_changed_by,
       p_action,
-      key,
-      old_val,
-      new_val,
+      field_key,
+      old_field_val,
+      field_val,
       p_comment
     );
   END LOOP;

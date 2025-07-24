@@ -244,6 +244,7 @@ export default {
   gap: 1.5rem;
   min-width: 0; /* Allow content to shrink */
   overflow: hidden; /* Prevent content from overflowing */
+  contain: layout; /* Isolate layout calculations to prevent ResizeObserver loops */
 }
 
 .info-card {
@@ -267,6 +268,8 @@ export default {
   position: sticky;
   top: 1.5rem;
   height: fit-content;
+  contain: layout; /* Isolate layout calculations for chart containers */
+  width: 320px; /* Fixed width to prevent resize loops */
 }
 
 @media (max-width: 1024px) {
@@ -277,6 +280,7 @@ export default {
   
   .sidebar {
     position: static;
+    width: auto; /* Allow responsive width on mobile */
   }
   
   .header-content {

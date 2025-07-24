@@ -159,15 +159,16 @@ class BaseKRIService {
 
     // Only allow single kriId and reportingDate
     const kriIdInts = this.parseKRIId(kriId);
-    const reportingDateInts = this.parseReportingDate(reportingDate);
-    if (kriIdInts.length !== 1 || reportingDateInts.length !== 1) {
-      throw new Error('Only one kriId and reportingDate can be updated at a time');
+    const reportingDateInt = this.parseReportingDate(reportingDate);
+    
+    if (kriIdInts.length !== 1) {
+      throw new Error('Only one kriId can be updated at a time');
     }
-
+    
     // Call the Postgres function via Supabase RPC
-    const { data, error } = await supabase.rpc('updateKRI', {
+    const { data, error } = await supabase.rpc('updatekri', {
       p_kri_id: kriIdInts[0],
-      p_reporting_date: reportingDateInts[0],
+      p_reporting_date: reportingDateInt,
       p_update_data: updateData,
       p_changed_by: changedBy,
       p_action: action,

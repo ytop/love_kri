@@ -3,7 +3,9 @@
     <div v-if="bothDataEmpty" class="no-data-prominent">
       <p>No evidence or audit trail information is available for this KRI.</p>
     </div>
-    <el-tabs v-else v-model="activeTab" type="border-card">
+    <div v-else class="tabs-container">
+      <el-tabs v-model="activeTab" type="border-card">
+      
       <el-tab-pane label="Evidence" name="evidence">
         <div class="evidence-header">
           <el-button
@@ -15,6 +17,7 @@
           >
             Upload Evidence
           </el-button>
+          <div></div>
         </div>
         
         <div v-if="evidenceData?.length === 0" class="no-data">
@@ -80,18 +83,32 @@
       </el-tab-pane>
       
       <el-tab-pane label="Audit Trail" name="audit">
+        <div class="evidence-header">
+          <div></div>
+          <el-button
+            v-if="auditData?.length > 0"
+            type="primary"
+            size="small"
+            icon="el-icon-download"
+            @click="exportAuditCSV"
+          >
+            Export CSV
+          </el-button>
+        </div>
+        
         <div v-if="auditData?.length === 0" class="no-data">
           <p>No audit trail records available</p>
         </div>
         
         <div v-else>
-          <el-timeline>
-            <el-timeline-item
-              v-for="audit in auditData"
-              :key="audit.audit_id"
-              :timestamp="formatDate(audit.changed_at)"
-              placement="top"
-            >
+          <div class="audit-timeline-container" :class="{ 'scrollable': auditData.length > 5 }">
+            <el-timeline>
+              <el-timeline-item
+                v-for="audit in auditData.slice().reverse()"
+                :key="audit.audit_id"
+                :timestamp="formatDate(audit.changed_at)"
+                placement="top"
+              >
               <el-card>
                 <div class="audit-item">
                   <div class="audit-header">
@@ -118,9 +135,11 @@
               </el-card>
             </el-timeline-item>
           </el-timeline>
+          </div>
         </div>
       </el-tab-pane>
     </el-tabs>
+    </div>
 
     <!-- Evidence Upload Modal -->
     <evidence-upload-modal
@@ -257,6 +276,43 @@ export default {
     
     handleModalClose() {
       this.uploadModalVisible = false;
+    },
+    
+    exportAuditCSV() {
+      if (!this.auditData || this.auditData.length === 0) {
+        this.$message.warning('No audit data to export');
+        return;
+      }
+      
+      const headers = ['Date/Time', 'Action', 'Changed By', 'Field', 'Old Value', 'New Value', 'Comment'];
+      const csvContent = [headers.join(',')];
+      
+      this.auditData.forEach(audit => {
+        const row = [
+          `"${this.formatDate(audit.changed_at)}"`,
+          `"${audit.action || ''}"`,
+          `"${audit.changed_by || ''}"`,
+          `"${audit.field_name || ''}"`,
+          `"${audit.old_value || ''}"`,
+          `"${audit.new_value || ''}"`,
+          `"${audit.comment || ''}"`
+        ];
+        csvContent.push(row.join(','));
+      });
+      
+      const csvString = csvContent.join('\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `audit_trail_${this.kriId}_${this.reportingDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      this.$message.success('Audit trail exported successfully');
     }
   },
   components: {
@@ -271,6 +327,15 @@ export default {
 <style scoped>
 .evidence-audit {
   padding: 0.5rem 0;
+}
+
+/* Ensure consistent tab content sizing */
+.evidence-audit >>> .el-tabs__content {
+  min-height: 300px; /* Set minimum height to prevent jumping */
+}
+
+.evidence-audit >>> .el-tab-pane {
+  width: 100%; /* Ensure full width for both tabs */
 }
 
 .evidence-header {
@@ -336,5 +401,50 @@ export default {
 .audit-details strong,
 .audit-comment strong {
   color: #374151;
+}
+
+/* Audit trail scroll functionality */
+.audit-timeline-container {
+  width: 100%;
+  min-height: 200px; /* Ensure consistent minimum height */
+}
+
+.audit-timeline-container.scrollable {
+  max-height: 500px; /* Limit height when more than 5 records */
+  overflow-y: auto; /* Enable vertical scrolling */
+  border: 1px solid #e5e7eb; /* Add subtle border */
+  border-radius: 6px; /* Rounded corners */
+  padding: 1rem; /* Add padding inside scroll container */
+  background-color: #fafafa; /* Light background */
+}
+
+/* Custom scrollbar styling */
+.audit-timeline-container.scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.audit-timeline-container.scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.audit-timeline-container.scrollable::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.audit-timeline-container.scrollable::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+
+.tabs-container {
+  min-height: 500px;
+  min-width: 10cm;
+  width: min(100%, 1800px);
+}
+
+.tabs-container >>> .el-tabs__content {
+  min-height: 450px;
 }
 </style>
