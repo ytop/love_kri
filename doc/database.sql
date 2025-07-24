@@ -11,10 +11,10 @@ CREATE TABLE public.kri_atomic (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   source text DEFAULT ''::text,
   CONSTRAINT kri_atomic_pkey PRIMARY KEY (kri_id, atomic_id, reporting_date),
+  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
   CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
   CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
-  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
-  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id)
+  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date)
 );
 CREATE TABLE public.kri_audit_trail (
   audit_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -44,10 +44,10 @@ CREATE TABLE public.kri_evidence (
   uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
   md5 text,
   CONSTRAINT kri_evidence_pkey PRIMARY KEY (evidence_id),
-  CONSTRAINT fk_kri_item_evidence FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
   CONSTRAINT fk_kri_item_evidence FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
   CONSTRAINT fk_kri_item_evidence FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
-  CONSTRAINT fk_kri_item_evidence FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id)
+  CONSTRAINT fk_kri_item_evidence FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
+  CONSTRAINT fk_kri_item_evidence FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id)
 );
 CREATE TABLE public.kri_item (
   kri_id bigint NOT NULL,
@@ -69,7 +69,9 @@ CREATE TABLE public.kri_item (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   is_calculated_kri boolean NOT NULL DEFAULT false,
   source text DEFAULT ''::text,
-  CONSTRAINT kri_item_pkey PRIMARY KEY (kri_id, reporting_date)
+  evidence_id bigint,
+  CONSTRAINT kri_item_pkey PRIMARY KEY (kri_id, reporting_date),
+  CONSTRAINT kri_item_evidence_id_fkey FOREIGN KEY (evidence_id) REFERENCES public.kri_evidence(evidence_id)
 );
 CREATE TABLE public.kri_user (
   UUID uuid NOT NULL DEFAULT gen_random_uuid(),

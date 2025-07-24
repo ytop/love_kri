@@ -195,14 +195,14 @@
       </el-col>
     </el-row>
 
-    <!-- Latest Evidence Section -->
-    <el-row v-if="latestEvidence" :gutter="24" style="margin-top: 1rem;">
+    <!-- Selected Evidence Section -->
+    <el-row v-if="selectedEvidence" :gutter="24" style="margin-top: 1rem;">
       <el-col :span="24">
         <div class="evidence-section">
           <div class="evidence-header">
             <label>
               <i class="el-icon-paperclip"></i>
-              Latest Evidence
+              {{ evidenceHeaderText }}
             </label>
             <div class="evidence-controls">
               <el-tag type="info" size="mini">{{ totalEvidenceCount }} files total</el-tag>
@@ -219,20 +219,36 @@
           </div>
           <div class="evidence-item">
             <div class="evidence-info">
-              <span class="file-name">{{ latestEvidence.file_name }}</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="file-name">{{ selectedEvidence.file_name }}</span>
+                <el-tag 
+                  v-if="isEvidenceSelected" 
+                  type="success" 
+                  size="mini"
+                >
+                  Submitted
+                </el-tag>
+                <el-tag 
+                  v-else 
+                  type="warning" 
+                  size="mini"
+                >
+                  Latest (Default)
+                </el-tag>
+              </div>
               <span class="file-meta">
-                Uploaded by {{ latestEvidence.uploaded_by || 'Unknown' }} 
-                on {{ formatReportingDate(latestEvidence.uploaded_at) }}
+                Uploaded by {{ selectedEvidence.uploaded_by || 'Unknown' }} 
+                on {{ formatReportingDate(selectedEvidence.uploaded_at) }}
               </span>
-              <p v-if="latestEvidence.description" class="file-description">
-                {{ latestEvidence.description }}
+              <p v-if="selectedEvidence.description" class="file-description">
+                {{ selectedEvidence.description }}
               </p>
             </div>
             <el-button
               type="text"
               size="small"
               icon="el-icon-download"
-              @click="downloadEvidence(latestEvidence)"
+              @click="downloadEvidence(selectedEvidence)"
             >
               Download
             </el-button>
@@ -259,7 +275,8 @@ import { mapStatus, getStatusTagType, getBreachTagType, getBreachDisplayText, ge
 import { 
   formatReportingDate, 
   calculateBreachStatus, 
-  getLatestEvidence,
+  getSelectedEvidence,
+  isEvidenceSelected,
   allowsManualInput,
   canSaveKRIValue,
   canSubmitKRIValue,
@@ -371,9 +388,19 @@ export default {
       );
     },
     
-    // Get latest evidence file
-    latestEvidence() {
-      return getLatestEvidence(this.evidenceData);
+    // Get selected evidence file (or fall back to latest)
+    selectedEvidence() {
+      return getSelectedEvidence(this.kriData, this.evidenceData);
+    },
+    
+    // Check if evidence is actually selected (not just falling back to latest)
+    isEvidenceSelected() {
+      return isEvidenceSelected(this.kriData, this.evidenceData);
+    },
+    
+    // Dynamic header text based on evidence selection status
+    evidenceHeaderText() {
+      return this.isEvidenceSelected ? 'Selected Evidence' : 'Latest Evidence (No Selection)';
     },
     
     // Count total evidence files
@@ -383,12 +410,16 @@ export default {
     
     // Check if user can save KRI value (for save button)
     canSaveValue() {
-      return canSaveKRIValue(this.kriData, this.evidenceData, this.inputForm.kriValue);
+      // Use selected evidence instead of all evidence data for validation
+      const selectedEvidenceArray = this.selectedEvidence ? [this.selectedEvidence] : [];
+      return canSaveKRIValue(this.kriData, selectedEvidenceArray, this.inputForm.kriValue);
     },
     
     // Check if user can submit KRI value (for submit button)
     canSubmitValue() {
-      return canSubmitKRIValue(this.kriData, this.evidenceData, this.inputForm.kriValue);
+      // Use selected evidence instead of all evidence data for validation
+      const selectedEvidenceArray = this.selectedEvidence ? [this.selectedEvidence] : [];
+      return canSubmitKRIValue(this.kriData, selectedEvidenceArray, this.inputForm.kriValue);
     },
     
     // Validate input form (legacy compatibility)
@@ -400,12 +431,15 @@ export default {
     validationMessage() {
       if (!this.kriData) return null;
       
+      // Use selected evidence instead of all evidence data for validation messages
+      const selectedEvidenceArray = this.selectedEvidence ? [this.selectedEvidence] : [];
+      
       if (!this.canSaveValue) {
-        return getSaveValidationMessage(this.kriData, this.evidenceData, this.inputForm.kriValue);
+        return getSaveValidationMessage(this.kriData, selectedEvidenceArray, this.inputForm.kriValue);
       }
       
       if (!this.canSubmitValue) {
-        return getSubmitValidationMessage(this.kriData, this.evidenceData, this.inputForm.kriValue);
+        return getSubmitValidationMessage(this.kriData, selectedEvidenceArray, this.inputForm.kriValue);
       }
       
       return null;

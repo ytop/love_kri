@@ -337,7 +337,7 @@ export const requiresEvidence = (source) => {
 };
 
 // Check if user can save (input value only, no submit requirement)
-export const canSaveKRIValue = (kriDetail, evidenceData = [], currentValue = null) => {
+export const canSaveKRIValue = (kriDetail, _evidenceData = [], currentValue = null) => {
   if (!kriDetail || !allowsManualInput(kriDetail.source)) return false;
   
   // For save, only check if value is provided
@@ -364,7 +364,7 @@ export const canSubmitKRIValue = (kriDetail, evidenceData = [], currentValue = n
 };
 
 // Get validation message for save action
-export const getSaveValidationMessage = (kriDetail, evidenceData = [], currentValue = null) => {
+export const getSaveValidationMessage = (kriDetail, _evidenceData = [], currentValue = null) => {
   if (!kriDetail) return 'Invalid KRI data';
   
   const source = kriDetail.source;
@@ -412,6 +412,31 @@ export const getSubmitValidationMessage = (kriDetail, evidenceData = [], current
 export const getLatestEvidence = (evidenceData) => {
   if (!evidenceData || evidenceData.length === 0) return null;
   return [...evidenceData].sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at))[0];
+};
+
+// Get the selected evidence file for a KRI (or fall back to latest)
+export const getSelectedEvidence = (kriItem, evidenceData) => {
+  if (!kriItem || !evidenceData || evidenceData.length === 0) {
+    return null;
+  }
+
+  // If KRI has a selected evidence_id, find that evidence
+  if (kriItem.evidence_id) {
+    const selectedEvidence = evidenceData.find(evidence => evidence.evidence_id === kriItem.evidence_id);
+    if (selectedEvidence) {
+      return selectedEvidence;
+    }
+    // If selected evidence not found in current data, log warning but continue
+    console.warn(`Selected evidence ID ${kriItem.evidence_id} not found in evidence data for KRI ${kriItem.kri_id}`);
+  }
+
+  // Fall back to latest evidence if no selection or selected not found
+  return getLatestEvidence(evidenceData);
+};
+
+// Check if evidence is actually selected (not just falling back to latest)
+export const isEvidenceSelected = (kriItem, evidenceData) => {
+  return kriItem?.evidence_id && evidenceData?.some(e => e.evidence_id === kriItem.evidence_id);
 };
 
 // ---------------------------------- Filter Utilities ----------------------------------

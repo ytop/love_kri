@@ -50,7 +50,9 @@
               :kri-data="kriDetail" 
               :atomic-data="atomicData"
               :evidence-data="evidenceData"
-              @data-updated="refreshKRIDetail" />
+              @data-updated="refreshKRIDetail"
+              @evidence-selected="handleEvidenceSelected"
+              @evidence-unselected="handleEvidenceUnselected" />
           </el-card>
           
           <!-- Data Elements -->
@@ -76,6 +78,8 @@
               @evidence-uploaded="refreshKRIDetail"
               @excel-parsed="handleExcelParsed"
               @status-updated="handleStatusUpdated"
+              @evidence-selected="handleEvidenceSelected"
+              @evidence-unselected="handleEvidenceUnselected"
             />
         </div>
         
@@ -249,6 +253,32 @@ export default {
         );
       } else {
         this.$message.success('KRI status updated to "Saved"');
+      }
+    },
+    
+    // Handle evidence selection events
+    handleEvidenceSelected(evidenceData) {
+      console.log('Evidence selected:', evidenceData);
+      
+      // Refresh data to ensure UI reflects the selection state
+      this.refreshKRIDetail();
+      
+      // Optional: Show feedback to user about selection
+      if (evidenceData && evidenceData.filename) {
+        this.$message.info(`Evidence selected: ${evidenceData.filename}`);
+      }
+    },
+    
+    // Handle evidence unselection events
+    handleEvidenceUnselected(evidenceData) {
+      console.log('Evidence unselected:', evidenceData);
+      
+      // Refresh data to ensure UI reflects the unselection state
+      this.refreshKRIDetail();
+      
+      // Optional: Show feedback to user about unselection
+      if (evidenceData && evidenceData.filename) {
+        this.$message.info(`Evidence unselected: ${evidenceData.filename}`);
       }
     },
     

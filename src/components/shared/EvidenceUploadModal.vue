@@ -134,7 +134,9 @@ export default {
       duplicateWarnings: [],
       // Auto parser support
       autoParseEnabled: false,
-      parseResults: new Map()
+      parseResults: new Map(),
+      // Evidence selection tracking
+      uploadedEvidenceIds: []
     };
   },
   computed: {
@@ -440,13 +442,16 @@ export default {
             const md5Hash = fileInfo ? fileInfo.hash : null;
 
             // Save evidence record to database
-            await this.saveEvidenceToDatabase({
+            const evidenceRecord = await this.saveEvidenceToDatabase({
               file_name: file.name,
               file_url: uploadResult.fileInfo.url,
               description: this.uploadForm.description,
               uploaded_by: getUserDisplayName(this.currentUser),
               md5: md5Hash
             });
+
+            // Track uploaded evidence for potential selection
+            this.uploadedEvidenceIds.push(evidenceRecord.evidence_id);
 
             successCount++;
           } catch (error) {
@@ -470,6 +475,11 @@ export default {
             console.error('Status transition failed:', error);
             this.$message.warning('Files uploaded successfully, but status update failed');
           }
+        }
+
+        // Offer evidence selection for uploaded files (if more than one file uploaded)
+        if (successCount > 0 && this.uploadedEvidenceIds.length > 0) {
+          await this.offerEvidenceSelection();
         }
 
         // Show results
@@ -559,7 +569,7 @@ export default {
         md5: evidenceData.md5 || null
       };
 
-      await kriService.insertEvidence(
+      const result = await kriService.insertEvidence(
         this.kriId,
         this.reportingDate,
         insertData,
@@ -567,6 +577,8 @@ export default {
         'upload_evidence',
         `Uploaded evidence file: ${evidenceData.file_name}`
       );
+
+      return result; // Return the inserted evidence record
     },
 
     // Progress and UI Methods
@@ -619,6 +631,7 @@ export default {
       this.fileHashes.clear();
       this.duplicateWarnings = [];
       this.parseResults.clear();
+      this.uploadedEvidenceIds = [];
       
       // Clear upload component
       if (this.$refs.upload) {
@@ -658,6 +671,88 @@ export default {
       const extension = this.getFileExtension(originalName);
       const nameWithoutExt = originalName.replace(extension, '');
       return `${nameWithoutExt}_${timestamp}${extension}`;
+    },
+
+    // Offer user choice to select uploaded evidence as submitted evidence
+    async offerEvidenceSelection() {
+      if (this.uploadedEvidenceIds.length === 0) return;
+      
+      // If only one file uploaded, offer to select it automatically
+      if (this.uploadedEvidenceIds.length === 1) {
+        try {
+          await this.$confirm(
+            'Would you like to set this uploaded file as the submitted evidence for this KRI?',
+            'Select Evidence',
+            {
+              confirmButtonText: 'Yes, Select',
+              cancelButtonText: 'No, Thanks',
+              type: 'info'
+            }
+          );
+          
+          // User chose to select the evidence
+          await kriService.linkEvidenceToKRI(
+            this.kriId,
+            this.reportingDate,
+            this.uploadedEvidenceIds[0],
+            getUserDisplayName(this.currentUser),
+            'Evidence automatically selected after upload'
+          );
+          
+          this.$message.success('Evidence has been selected as submitted evidence');
+          this.$emit('evidence-selected', this.uploadedEvidenceIds[0]);
+          
+        } catch (error) {
+          // User declined or error occurred
+          if (error.message) {
+            console.error('Error selecting evidence:', error);
+            this.$message.error('Failed to select evidence: ' + error.message);
+          }
+          // User clicking "No, Thanks" will also reach this catch block, which is fine
+        }
+      } else {
+        // Multiple files uploaded - show selection dialog
+        try {
+          const { value: selectedEvidenceId } = await this.$prompt(
+            `${this.uploadedEvidenceIds.length} files were uploaded successfully. Enter the evidence ID to select as submitted evidence (or leave empty to skip):`,
+            'Select Evidence',
+            {
+              confirmButtonText: 'Select',
+              cancelButtonText: 'Skip',
+              inputType: 'number',
+              inputValidator: (value) => {
+                if (!value) return true; // Allow empty (skip)
+                const id = parseInt(value);
+                if (!this.uploadedEvidenceIds.includes(id)) {
+                  return 'Please enter a valid evidence ID from the uploaded files';
+                }
+                return true;
+              }
+            }
+          );
+          
+          if (selectedEvidenceId) {
+            const evidenceId = parseInt(selectedEvidenceId);
+            await kriService.linkEvidenceToKRI(
+              this.kriId,
+              this.reportingDate,
+              evidenceId,
+              getUserDisplayName(this.currentUser),
+              'Evidence selected after multiple file upload'
+            );
+            
+            this.$message.success('Evidence has been selected as submitted evidence');
+            this.$emit('evidence-selected', evidenceId);
+          }
+          
+        } catch (error) {
+          // User cancelled or error occurred
+          if (error.message) {
+            console.error('Error selecting evidence:', error);
+            this.$message.error('Failed to select evidence: ' + error.message);
+          }
+        }
+      }
     }
   }
 };

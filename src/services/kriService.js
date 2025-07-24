@@ -105,7 +105,7 @@ class BaseKRIService {
     if (kriId === '*') {
       throw new Error('kriId cannot be "*"');
     }
-    const kriIdInts = this.parseKRIId(kriId)
+    const kriIdInts = this.parseKRIId(kriId);
     let kriIdInt;
     if (kriIdInts.length == 1) {
       kriIdInt = kriIdInts[0];
@@ -561,6 +561,67 @@ export const kriService = {
     }
     
     return data && data.length > 0 ? data : null;
+  },
+
+  async linkEvidenceToKRI(kriId, reportingDate, evidenceId, changedBy, comment = 'Evidence selected as submitted evidence') {
+    if (!kriId || !reportingDate || !evidenceId || !changedBy) {
+      throw new Error('kriId, reportingDate, evidenceId, and changedBy are required');
+    }
+
+    const updateData = { evidence_id: evidenceId };
+    
+    const result = await baseKRIService.updateKRI(
+      kriId,
+      reportingDate,
+      updateData,
+      changedBy,
+      'select_evidence',
+      comment
+    );
+    
+    return result;
+  },
+
+  async unlinkEvidenceFromKRI(kriId, reportingDate, changedBy, comment = 'Evidence selection removed') {
+    if (!kriId || !reportingDate || !changedBy) {
+      throw new Error('kriId, reportingDate, and changedBy are required');
+    }
+
+    const updateData = { evidence_id: null };
+    
+    const result = await baseKRIService.updateKRI(
+      kriId,
+      reportingDate,
+      updateData,
+      changedBy,
+      'unselect_evidence',
+      comment
+    );
+    
+    return result;
+  },
+
+  async getSelectedEvidence(kriItem, evidenceData) {
+    if (!kriItem || !evidenceData || evidenceData.length === 0) {
+      return null;
+    }
+
+    // If KRI has a selected evidence_id, find that evidence
+    if (kriItem.evidence_id) {
+      const selectedEvidence = evidenceData.find(evidence => evidence.evidence_id === kriItem.evidence_id);
+      if (selectedEvidence) {
+        return selectedEvidence;
+      }
+      // If selected evidence not found in current data, log warning but continue
+      console.warn(`Selected evidence ID ${kriItem.evidence_id} not found in evidence data for KRI ${kriItem.kri_id}`);
+    }
+
+    // Fall back to latest evidence if no selection or selected not found
+    if (evidenceData && evidenceData.length > 0) {
+      return [...evidenceData].sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at))[0];
+    }
+
+    return null;
   },
 
   async updateAuditTrail(kriId, reportingDate, updateData, changedBy, action, comment = '') {

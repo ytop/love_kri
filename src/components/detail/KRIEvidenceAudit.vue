@@ -27,16 +27,46 @@
         <div v-else>
           <el-table :data="evidenceData" style="width: 100%">
             <el-table-column
+              label="Selected"
+              width="80"
+              align="center"
+            >
+              <template slot-scope="scope">
+                <el-radio 
+                  :value="selectedEvidenceId" 
+                  :label="scope.row.evidence_id"
+                  @change="selectEvidence(scope.row.evidence_id)"
+                >
+                  <span></span>
+                </el-radio>
+              </template>
+            </el-table-column>
+            
+            <el-table-column
               prop="file_name"
               label="File Name"
               min-width="200"
               show-overflow-tooltip
-            />
+            >
+              <template slot-scope="scope">
+                <div style="display: flex; align-items: center;">
+                  <span>{{ scope.row.file_name }}</span>
+                  <el-tag 
+                    v-if="scope.row.evidence_id === selectedEvidenceId" 
+                    type="success" 
+                    size="mini" 
+                    style="margin-left: 8px;"
+                  >
+                    Submitted
+                  </el-tag>
+                </div>
+              </template>
+            </el-table-column>
             
             <el-table-column
               prop="description"
               label="Description"
-              min-width="250"
+              min-width="200"
               show-overflow-tooltip
             >
               <template slot-scope="scope">
@@ -47,7 +77,7 @@
             <el-table-column
               prop="uploaded_by"
               label="Uploaded By"
-              width="150"
+              width="120"
             >
               <template slot-scope="scope">
                 <span>{{ scope.row.uploaded_by || 'Unknown' }}</span>
@@ -57,7 +87,7 @@
             <el-table-column
               prop="uploaded_at"
               label="Upload Date"
-              width="160"
+              width="140"
             >
               <template slot-scope="scope">
                 <span>{{ formatDate(scope.row.uploaded_at) }}</span>
@@ -66,7 +96,7 @@
             
             <el-table-column
               label="Actions"
-              width="100"
+              width="160"
             >
               <template slot-scope="scope">
                 <el-button
@@ -75,6 +105,22 @@
                   @click="downloadFile(scope.row.file_url, scope.row.file_name)"
                 >
                   Download
+                </el-button>
+                <el-button
+                  v-if="canSelectEvidence && scope.row.evidence_id !== selectedEvidenceId"
+                  type="text"
+                  size="small"
+                  @click="selectEvidence(scope.row.evidence_id)"
+                >
+                  Select
+                </el-button>
+                <el-button
+                  v-if="canSelectEvidence && scope.row.evidence_id === selectedEvidenceId"
+                  type="text"
+                  size="small"
+                  @click="unselectEvidence()"
+                >
+                  Unselect
                 </el-button>
               </template>
             </el-table-column>
@@ -155,7 +201,8 @@
 
 <script>
 import { mapState, mapGetters } from 'vuex';
-import { formatDateFromInt, requiresEvidence } from '@/utils/helpers';
+import { formatDateFromInt, requiresEvidence, getUserDisplayName } from '@/utils/helpers';
+import { kriService } from '@/services/kriService';
 
 export default {
   name: 'KRIEvidenceAudit',
@@ -188,7 +235,8 @@ export default {
   data() {
     return {
       activeTab: 'evidence',
-      uploadModalVisible: false
+      uploadModalVisible: false,
+      isUpdatingSelection: false
     };
   },
   computed: {
@@ -215,6 +263,22 @@ export default {
       const hasValidStatus = allowedStatuses.includes(this.currentStatus);
       
       return hasValidStatus && this.canPerform(kriIdNum, null, 'edit');
+    },
+    
+    canSelectEvidence() {
+      if (!this.currentUser || !this.currentUser.permissions) {
+        return false;
+      }
+      
+      const kriIdNum = parseInt(this.kriId, 10);
+      const allowedStatuses = [10, 20, 30, 40, 50]; // Allow selection in more statuses
+      const hasValidStatus = allowedStatuses.includes(this.currentStatus);
+      
+      return hasValidStatus && this.canPerform(kriIdNum, null, 'edit');
+    },
+    
+    selectedEvidenceId() {
+      return this.kriItem?.evidence_id || null;
     }
   },
   methods: {
@@ -269,6 +333,55 @@ export default {
       } catch (error) {
         console.error('Error downloading file:', error);
         this.$message.error('Failed to download file');
+      }
+    },
+    
+    async selectEvidence(evidenceId) {
+      if (this.isUpdatingSelection) return;
+      
+      try {
+        this.isUpdatingSelection = true;
+        
+        await kriService.linkEvidenceToKRI(
+          this.kriId,
+          this.reportingDate,
+          evidenceId,
+          getUserDisplayName(this.currentUser),
+          'Evidence selected as submitted evidence'
+        );
+        
+        this.$message.success('Evidence selected successfully');
+        this.$emit('evidence-selected', evidenceId);
+        
+      } catch (error) {
+        console.error('Error selecting evidence:', error);
+        this.$message.error('Failed to select evidence: ' + error.message);
+      } finally {
+        this.isUpdatingSelection = false;
+      }
+    },
+    
+    async unselectEvidence() {
+      if (this.isUpdatingSelection) return;
+      
+      try {
+        this.isUpdatingSelection = true;
+        
+        await kriService.unlinkEvidenceFromKRI(
+          this.kriId,
+          this.reportingDate,
+          getUserDisplayName(this.currentUser),
+          'Evidence selection removed'
+        );
+        
+        this.$message.success('Evidence unselected successfully');
+        this.$emit('evidence-unselected');
+        
+      } catch (error) {
+        console.error('Error unselecting evidence:', error);
+        this.$message.error('Failed to unselect evidence: ' + error.message);
+      } finally {
+        this.isUpdatingSelection = false;
       }
     },
     
