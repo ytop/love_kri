@@ -180,22 +180,36 @@ const actions = {
     commit('SET_ERROR', null);
     
     try {
-      const [kriDetail, atomicData, evidenceData, auditTrailData] = await Promise.all([
+      const [kriDetail, atomicData, evidenceData, auditTrailData, historicalData] = await Promise.all([
         kriService.fetchKRIDetail(kriId, reportingDate),
         kriService.fetchKRIAtomic(kriId, reportingDate),
         kriService.fetchKRIEvidence(kriId, reportingDate),
-        kriService.fetchKRIAuditTrail(kriId, reportingDate)
+        kriService.fetchKRIAuditTrail(kriId, reportingDate),
+        kriService.fetchKRIHistorical(kriId, 12)
       ]);
       
       commit('SET_KRI_DETAIL', kriDetail);
       commit('SET_ATOMIC_DATA', atomicData);
       commit('SET_EVIDENCE_DATA', evidenceData);
       commit('SET_AUDIT_TRAIL_DATA', auditTrailData);
+      commit('SET_HISTORICAL_DATA', historicalData || []);
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;
     } finally {
       commit('SET_LOADING', false);
+    }
+  },
+
+  async fetchKRIHistorical({ commit }, { kriId, months = 12 }) {
+    try {
+      const historicalData = await kriService.fetchKRIHistorical(kriId, months);
+      commit('SET_HISTORICAL_DATA', historicalData);
+      return historicalData;
+    } catch (error) {
+      console.error('Error fetching KRI historical data:', error);
+      commit('SET_HISTORICAL_DATA', []); // Set empty array on error
+      return [];
     }
   },
 

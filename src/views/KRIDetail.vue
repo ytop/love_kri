@@ -80,8 +80,9 @@
         <!-- Sidebar -->
         <div class="sidebar">
           <k-r-i-sidebar 
+            :kri-id="String(id)"
+            :reporting-date="parseInt(date)"
             :kri-data="kriDetail"
-            :atomic-data="atomicData"
             @data-updated="forceRefreshKRIDetail"
           />
         </div>

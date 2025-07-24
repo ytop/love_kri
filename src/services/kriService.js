@@ -95,6 +95,46 @@ class BaseKRIService {
   }
 
   /**
+ * Fetch historical KRI data for trend analysis
+ * Gets the last N months of KRI data for a specific KRI ID
+ * @param {string|number} kriId - KRI ID
+ * @param {number} months - Number of months to fetch (default: 12)
+ * @returns {Promise<object>} Query result with historical data ordered by reporting_date
+ */
+  async fetchKRIHistorical(kriId, months = 12) {
+    const kriIdInt = this.parseKRIId(kriId)[0]; // Single KRI ID only
+    
+    // Calculate date range for the last N months
+    const today = new Date();
+    const endDate = new Date(today.getFullYear(), today.getMonth(), 0); // Last day of previous month
+    const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - months + 1, 1); // First day of N months ago
+    
+    // Convert to YYYYMMDD format
+    const endDateInt = parseInt(
+      endDate.getFullYear().toString() + 
+      (endDate.getMonth() + 1).toString().padStart(2, '0') + 
+      endDate.getDate().toString().padStart(2, '0')
+    );
+    const startDateInt = parseInt(
+      startDate.getFullYear().toString() + 
+      (startDate.getMonth() + 1).toString().padStart(2, '0') + 
+      startDate.getDate().toString().padStart(2, '0')
+    );
+
+    // Query historical data within date range
+    const { data, error } = await supabase
+      .from('kri_item')
+      .select('kri_id, reporting_date, kri_value, kri_status, warning_line_value, limit_value')
+      .eq('kri_id', kriIdInt)
+      .gte('reporting_date', startDateInt)
+      .lte('reporting_date', endDateInt)
+      .order('reporting_date', { ascending: true });
+
+    if (error) throw error;
+    return { data, error: null };
+  }
+
+  /**
  * Server-side function: updateKRI
  * This function updates a single KRI record in the kri_item table and logs the change in kri_audit_trail.
  * It takes the KRI ID, reporting date, update data (as JSON), user info, action, and comment.
@@ -405,6 +445,11 @@ export const kriService = {
 
   async fetchKRIAuditTrail(kriId, reportingDate) {
     const { data } = await baseKRIService.fetchAuditTrail(kriId, reportingDate);
+    return data;
+  },
+
+  async fetchKRIHistorical(kriId, months = 12) {
+    const { data } = await baseKRIService.fetchKRIHistorical(kriId, months);
     return data;
   },
 

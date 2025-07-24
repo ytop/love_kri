@@ -6,145 +6,72 @@
         <span>Quick Actions</span>
       </div>
       <div class="actions">
-        <div v-if="isCalculatedKRI" class="calculated-kri-actions">
+        <!-- Use existing permission logic but with simplified button layout -->
+        <template v-if="showReviewActions || showAcknowledgeActions">
+          <el-button 
+            type="primary" 
+            @click="handleApproveKRI"
+            :loading="actionLoading"
+            style="width: 100%;">
+            <i class="el-icon-check"></i>
+            Approve KRI
+          </el-button>
+          <el-button
+            type="danger"
+            icon="el-icon-close"
+            @click="handleRejectKRI"
+            :loading="actionLoading"
+            style="width: 100%;">
+            Reject KRI
+          </el-button>
+        </template>
+        
+        <!-- Data Input Actions (simplified) -->
+        <template v-else-if="showDataInputActions">
+          <el-button
+            type="primary"
+            icon="el-icon-edit"
+            @click="handleSave"
+            :loading="actionLoading"
+            :disabled="!isValidInput"
+            style="width: 100%;">
+            Save KRI
+          </el-button>
+          <el-button
+            v-if="kriData.kri_status === 30"
+            type="success"
+            icon="el-icon-upload"
+            @click="handleSubmit"
+            :loading="actionLoading"
+            style="width: 100%;">
+            Submit KRI
+          </el-button>
+        </template>
+        
+        <!-- Calculated KRI Actions -->
+        <template v-else-if="isCalculatedKRI && calculatedKRIActions.length > 0">
+          <el-button
+            v-for="action in calculatedKRIActions"
+            :key="action.key"
+            :type="action.type"
+            :icon="action.icon"
+            @click="action.handler"
+            :loading="action.loading"
+            :disabled="action.disabled"
+            style="width: 100%; margin-bottom: 8px;">
+            {{ action.label }}
+          </el-button>
+        </template>
+        
+        <!-- No Actions Available -->
+        <template v-else>
           <el-alert
-            title="Calculated KRI"
-            description="This KRI value is automatically calculated from atomic data elements."
+            title="No Actions Available"
+            description="You don't have permission to perform actions on this KRI, or it's in a status that doesn't allow actions."
             type="info"
             :closable="false"
             show-icon>
           </el-alert>
-          
-          <!-- Unified Quick Actions for Calculated KRI -->
-          <div v-if="calculatedKRIActions.length > 0" class="unified-actions">
-            <div class="actions-title">Available Actions</div>
-            <div class="actions-buttons">
-              <el-button
-                v-for="action in calculatedKRIActions"
-                :key="action.key"
-                :type="action.type"
-                :icon="action.icon"
-                @click="action.handler"
-                :loading="action.loading"
-                :disabled="action.disabled"
-                :title="action.title"
-                size="small"
-                style="width: 100%; margin-bottom: 8px;">
-                {{ action.label }}
-              </el-button>
-            </div>
-          </div>
-          
-          <!-- Calculated KRI Summary -->
-          <div class="atomic-summary">
-            <div class="summary-item">
-              <label>Total Elements:</label>
-              <span>{{ atomicData.length }}</span>
-            </div>
-            <div class="summary-item">
-              <label>Approved:</label>
-              <span class="approved-count">{{ approvedAtomicCount }}</span>
-            </div>
-            <div class="summary-item">
-              <label>Pending:</label>
-              <span class="pending-count">{{ pendingAtomicCount }}</span>
-            </div>
-            <div class="summary-item">
-              <label>Completeness:</label>
-              <span>{{ completenessPercentage }}%</span>
-            </div>
-          </div>
-        </div>
-        <template v-else>
-          <!-- Data Input Actions for Pending Input/Under Rework status -->
-          <template v-if="showDataInputActions">
-            <div class="data-input-actions">
-              <el-form :model="inputForm" size="small">
-                <el-form-item label="KRI Value">
-                  <el-input-number
-                    v-model="inputForm.kriValue"
-                    placeholder="Enter value"
-                    :precision="2"
-                    style="width: 100%"
-                    :disabled="actionLoading">
-                  </el-input-number>
-                </el-form-item>
-                <div class="action-buttons">
-                  <el-button
-                    type="primary"
-                    icon="el-icon-check"
-                    @click="handleSave"
-                    :loading="actionLoading"
-                    :disabled="!isValidInput"
-                    size="small"
-                    style="width: 100%;">
-                    Save
-                  </el-button>
-                  <el-button
-                    v-if="kriData.kri_status === 30"
-                    type="success"
-                    icon="el-icon-upload"
-                    @click="handleSubmit"
-                    :loading="actionLoading"
-                    size="small"
-                    style="width: 100%;">
-                    Submit
-                  </el-button>
-                </div>
-              </el-form>
-            </div>
-          </template>
-          
-          <!-- Review Actions for Data Provider Approver -->
-          <template v-if="showReviewActions">
-            <el-button
-              type="primary"
-              icon="el-icon-check"
-              @click="handleApproveKRI"
-              :loading="actionLoading"
-              style="width: 100%;">
-              Approve
-            </el-button>
-            <el-button
-              type="danger"
-              icon="el-icon-close"
-              @click="handleRejectKRI"
-              :loading="actionLoading"
-              style="width: 100%;">
-              Reject
-            </el-button>
-          </template>
-          
-          <!-- Acknowledge Actions for KRI Owner Approver -->
-          <template v-if="showAcknowledgeActions">
-            <el-button
-              type="primary"
-              icon="el-icon-check"
-              @click="handleAcknowledgeKRI"
-              :loading="actionLoading"
-              style="width: 100%;">
-              Acknowledge
-            </el-button>
-            <el-button
-              type="danger"
-              icon="el-icon-close"
-              @click="handleRejectKRI"
-              :loading="actionLoading"
-              style="width: 100%;">
-              Reject
-            </el-button>
-          </template>
-          
-          <!-- No Actions Available -->
-          <div v-if="!showDataInputActions && !showReviewActions && !showAcknowledgeActions" class="no-actions">
-            <el-alert
-              title="No Actions Available"
-              description="You don't have permission to perform actions on this KRI, or it's in a status that doesn't allow actions."
-              type="info"
-              :closable="false"
-              show-icon>
-            </el-alert>
-          </div>
         </template>
       </div>
     </el-card>
@@ -154,8 +81,8 @@
       <div slot="header" class="card-header">
         <span>Breach Status</span>
       </div>
-      <div>
-        <v-chart class="chart" :option="gaugeOption" style="height: 200px;" autoresize />
+      <div class="chart-container">
+        <v-chart class="chart" :option="gaugeOption" autoresize />
       </div>
     </el-card>
 
@@ -164,8 +91,8 @@
       <div slot="header" class="card-header">
         <span>12-Month Trend</span>
       </div>
-      <div>
-        <v-chart class="chart" :option="lineOption" style="height: 200px;" autoresize />
+      <div class="chart-container">
+        <v-chart class="chart" :option="lineOption" autoresize />
       </div>
     </el-card>
 
@@ -189,6 +116,533 @@
 </template>
 
 <script>
+import { mapState, mapGetters, mapActions } from 'vuex';
+import { 
+  isCalculatedKRI, 
+  calculateBreachStatus, 
+  getBreachTagType, 
+  getBreachDisplayText,
+  generateKRIDetailActions,
+  formatDateFromInt 
+} from '@/utils/helpers';
+import { use } from 'echarts/core';
+import { CanvasRenderer } from 'echarts/renderers';
+import { GaugeChart, LineChart } from 'echarts/charts';
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+} from 'echarts/components';
+import VChart, { THEME_KEY } from 'vue-echarts';
+
+use([
+  CanvasRenderer,
+  GaugeChart,
+  LineChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+]);
+
+export default {
+  components: {
+    VChart
+  },
+  provide: {
+    [THEME_KEY]: 'light'
+  },
+  name: 'KRISidebar',
+  props: {
+    kriId: {
+      type: String,
+      required: true
+    },
+    reportingDate: {
+      type: Number,
+      required: true
+    },
+    kriData: {
+      type: Object,
+      default: () => ({})
+    }
+  },
+  data() {
+    return {
+      inputForm: {
+        kriValue: null
+      },
+      actionLoading: false
+    };
+  },
+  computed: {
+    ...mapState('kri', ['kriDetail', 'atomicData', 'currentUser', 'historicalData', 'loading']),
+    ...mapGetters('kri', ['canPerform']),
+
+    // KRI Classification
+    isCalculatedKRI() {
+      return isCalculatedKRI(this.kriData);
+    },
+
+    // Breach Status Calculations
+    currentBreachStatus() {
+      const value = this.kriData.kri_value || this.kriData.kriValue;
+      const warning = this.kriData.warning_line_value || this.kriData.warningLineValue;
+      const limit = this.kriData.limit_value || this.kriData.limitValue;
+      return calculateBreachStatus(value, warning, limit);
+    },
+
+    breachTagType() {
+      return getBreachTagType(this.currentBreachStatus);
+    },
+
+    breachDisplayText() {
+      return getBreachDisplayText(this.currentBreachStatus);
+    },
+
+    // Atomic Data Summary for Calculated KRIs
+    relevantAtomicData() {
+      if (!this.isCalculatedKRI || !this.atomicData) return [];
+      const kriIdNum = parseInt(this.kriId, 10);
+      return this.atomicData.filter(atomic => 
+        (atomic.kri_id || atomic.kriId) === kriIdNum && 
+        (atomic.reporting_date || atomic.reportingDate) === this.reportingDate
+      );
+    },
+
+    approvedAtomicCount() {
+      return this.relevantAtomicData.filter(atomic => 
+        (atomic.atomic_status || atomic.atomicStatus) === 60
+      ).length;
+    },
+
+    pendingAtomicCount() {
+      return this.relevantAtomicData.filter(atomic => 
+        (atomic.atomic_status || atomic.atomicStatus) < 60
+      ).length;
+    },
+
+    completenessPercentage() {
+      const total = this.relevantAtomicData.length;
+      if (total === 0) return 0;
+      return Math.floor((this.approvedAtomicCount / total) * 100);
+    },
+
+    // Action Generation
+    calculatedKRIActions() {
+      if (!this.isCalculatedKRI) return [];
+      return generateKRIDetailActions(this.kriData, this.canPerform);
+    },
+
+    // Permission-Based Action Display
+    showDataInputActions() {
+      const kriIdNum = parseInt(this.kriId, 10);
+      const status = this.kriData.kri_status || this.kriData.kriStatus;
+      const allowedStatuses = [10, 20, 30];
+      return !this.isCalculatedKRI && 
+             allowedStatuses.includes(status) && 
+             this.canPerform(kriIdNum, null, 'edit');
+    },
+
+    showReviewActions() {
+      const kriIdNum = parseInt(this.kriId, 10);
+      const status = this.kriData.kri_status || this.kriData.kriStatus;
+      return !this.isCalculatedKRI && 
+             status === 40 && 
+             this.canPerform(kriIdNum, null, 'review');
+    },
+
+    showAcknowledgeActions() {
+      const kriIdNum = parseInt(this.kriId, 10);
+      const status = this.kriData.kri_status || this.kriData.kriStatus;
+      return !this.isCalculatedKRI && 
+             status === 50 && 
+             this.canPerform(kriIdNum, null, 'acknowledge');
+    },
+
+    isValidInput() {
+      return this.inputForm.kriValue !== null && 
+             this.inputForm.kriValue !== undefined && 
+             !isNaN(parseFloat(this.inputForm.kriValue));
+    },
+
+    // Chart Options - Using previous design template
+    gaugeOption() {
+      const value = this.kriData.kri_value || this.kriData.kriValue || 67; // Use actual value or fallback
+      const warning = this.kriData.warning_line_value || this.kriData.warningLineValue || 70;
+      const limit = this.kriData.limit_value || this.kriData.limitValue || 100;
+
+      return {
+        series: [
+          {
+            type: 'gauge',
+            center: ['50%', '60%'],
+            startAngle: 200,
+            endAngle: -20,
+            min: 0,
+            max: 100,
+            splitNumber: 10, // More granularity for segments
+            axisLine: {
+              lineStyle: {
+                width: 18,
+                color: [ // Segment colors
+                  [0.3, '#67C23A'], // Green for 0-30%
+                  [0.7, '#E6A23C'], // Yellow for 30-70%
+                  [1, '#F56C6C']    // Red for 70-100%
+                ]
+              }
+            },
+            progress: {
+              show: true,
+              width: 18,
+              itemStyle: { // Ensure progress color matches the current segment
+                color: 'auto'
+              }
+            },
+            pointer: { // Make pointer visible
+              show: true,
+              width: 5,
+              length: '60%',
+              itemStyle: {
+                color: 'auto'
+              }
+            },
+            axisTick: {
+              distance: -25,
+              splitNumber: 5,
+              lineStyle: {
+                width: 1,
+                color: '#999'
+              }
+            },
+            splitLine: { // Keep split lines for visual cues
+              distance: -25, // Adjusted distance
+              length: 8,    // Adjusted length
+              lineStyle: {
+                width: 1,
+                color: '#bbb' // Slightly darker color
+              }
+            },
+            axisLabel: { // Show labels for thresholds
+              distance: -10, // Adjusted distance
+              color: 'auto', // Use segment colors or a default
+              fontSize: 9
+            },
+            anchor: {
+              show: false
+            },
+            title: { // Title for context if needed, e.g. "Breach Level"
+              show: true,
+              offsetCenter: [0, '20%'],
+              fontSize: 12,
+              color: '#666'
+            },
+            detail: { // Prominent value display
+              valueAnimation: true,
+              width: '60%',
+              lineHeight: 30, // Adjusted line height
+              borderRadius: 6,  // Adjusted border radius
+              offsetCenter: [0, '-10%'], // Adjusted position
+              fontSize: 20, // Larger font size
+              fontWeight: 'bold', // Bolder font
+              formatter: '{value}%',
+              color: 'auto' // Color based on segment
+            },
+            data: [
+              {
+                value: Math.round(value), // Use actual KRI value
+                name: 'Status' // Optional name for title
+              }
+            ]
+          }
+        ]
+      };
+    },
+
+    lineOption() {
+      const historicalData = this.historicalData || [];
+      const dates = historicalData.map(item => item.reporting_date || item.date);
+      const values = historicalData.map(item => item.kri_value || item.value);
+
+      // Generate mock data if no historical data (matching previous template)
+      const mockData = dates.length === 0 ? {
+        dates: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        values: [10, 22, 15, 28, 20, 30, 25, 35, 30, 40, 38, 45]
+      } : null;
+      
+      const displayDates = mockData ? mockData.dates : dates;
+      const displayValues = mockData ? mockData.values : values;
+
+      return {
+        tooltip: {
+          trigger: 'axis',
+          formatter: '{b}: {c}' // Simple tooltip
+        },
+        xAxis: {
+          type: 'category',
+          data: displayDates,
+          boundaryGap: false, // Line starts from the edge
+          axisTick: { show: false }, // Hide ticks
+          axisLine: { show: false } // Hide x-axis line
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: { show: false }, // Hide y-axis grid lines
+          axisLabel: { show: false }, // Hide y-axis labels
+          axisLine: { show: false } // Hide y-axis line
+        },
+        series: [
+          {
+            data: displayValues,
+            type: 'line',
+            smooth: true,
+            symbol: 'circle', // Show data points as circles
+            symbolSize: 6,
+            itemStyle: {
+              color: '#3b82f6' // Primary blue color for line and points
+            },
+            lineStyle: {
+              color: '#3b82f6',
+              width: 2
+            },
+            areaStyle: { // Optional: add a subtle gradient area below the line
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                    offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
+                }, {
+                    offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
+                }]
+              }
+            }
+          }
+        ],
+        grid: { // Adjust grid to make chart cleaner
+          left: '0%',
+          right: '2%',
+          top: '5%', // Add some top margin
+          bottom: '0%',
+          containLabel: false // Set to false if axes are hidden
+        }
+      };
+    },
+
+    generateMockTrendData() {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentMonth = new Date().getMonth();
+      const dates = [];
+      const values = [];
+      
+      for (let i = 11; i >= 0; i--) {
+        const monthIndex = (currentMonth - i + 12) % 12;
+        dates.push(months[monthIndex]);
+        // Generate realistic trend data with some variation
+        const baseValue = 60 + Math.sin((monthIndex / 12) * Math.PI * 2) * 20 + Math.random() * 15;
+        values.push(Math.round(baseValue));
+      }
+      
+      return { dates, values };
+    },
+
+    mockTrendData() {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentMonth = new Date().getMonth();
+      const dates = [];
+      const values = [];
+      
+      for (let i = 11; i >= 0; i--) {
+        const monthIndex = (currentMonth - i + 12) % 12;
+        dates.push(months[monthIndex]);
+        // Generate realistic trend data with some variation
+        const baseValue = 60 + Math.sin((monthIndex / 12) * Math.PI * 2) * 20 + Math.random() * 15;
+        values.push(Math.round(baseValue));
+      }
+      
+      return { dates, values };
+    }
+  },
+  watch: {
+    kriData: {
+      handler(newData) {
+        if (newData && (newData.kri_value || newData.kriValue)) {
+          this.inputForm.kriValue = newData.kri_value || newData.kriValue;
+        }
+      },
+      immediate: true
+    }
+  },
+  methods: {
+    ...mapActions('kri', ['updateKRIStatus', 'refreshKRIDetail']),
+    
+    formatReportingDate(dateInt) {
+      return formatDateFromInt(dateInt);
+    },
+    
+    getStatusTagType(status) {
+      switch (status) {
+      case 'Pending':
+        return 'warning';
+      case 'Submitted':
+        return 'info';
+      case 'Finalized':
+        return 'success';
+      default:
+        return '';
+      }
+    },
+    
+    getProgressColor(percentage) {
+      if (percentage >= 80) return '#67c23a';
+      if (percentage >= 60) return '#e6a23c';
+      return '#f56c6c';
+    },
+
+    getGaugeColor(value, warning, limit) {
+      if (value >= limit) return '#F56C6C';
+      if (value >= warning) return '#E6A23C';
+      return '#67C23A';
+    },
+
+    async handleSave() {
+      if (!this.isValidInput) {
+        this.$message.warning('Please enter a valid KRI value');
+        return;
+      }
+
+      this.actionLoading = true;
+      try {
+        await this.updateKRIStatus({
+          kriId: this.kriId,
+          reportingDate: this.reportingDate,
+          updateData: { kri_value: this.inputForm.kriValue },
+          action: 'save',
+          comment: 'KRI value saved via sidebar'
+        });
+        this.$message.success('KRI value saved successfully');
+      } catch (error) {
+        console.error('Error saving KRI:', error);
+        this.$message.error('Failed to save KRI value');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async handleSubmit() {
+      if (!this.isValidInput) {
+        this.$message.warning('Please enter a valid KRI value');
+        return;
+      }
+
+      this.actionLoading = true;
+      try {
+        // Determine next status based on KRI owner/data provider logic
+        const kriOwner = this.kriData.kri_owner || this.kriData.owner;
+        const dataProvider = this.kriData.data_provider || this.kriData.dataProvider;
+        const nextStatus = (kriOwner === dataProvider) ? 50 : 40;
+
+        await this.updateKRIStatus({
+          kriId: this.kriId,
+          reportingDate: this.reportingDate,
+          updateData: { 
+            kri_value: this.inputForm.kriValue,
+            kri_status: nextStatus
+          },
+          action: 'submit',
+          comment: 'KRI submitted for approval via sidebar'
+        });
+        this.$message.success('KRI submitted successfully');
+      } catch (error) {
+        console.error('Error submitting KRI:', error);
+        this.$message.error('Failed to submit KRI');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async handleApproveKRI() {
+      this.actionLoading = true;
+      try {
+        const currentStatus = this.kriData.kri_status || this.kriData.kriStatus;
+        const nextStatus = currentStatus === 40 ? 50 : 60;
+
+        await this.updateKRIStatus({
+          kriId: this.kriId,
+          reportingDate: this.reportingDate,
+          updateData: { kri_status: nextStatus },
+          action: 'approve',
+          comment: 'KRI approved via sidebar'
+        });
+        this.$message.success('KRI approved successfully');
+      } catch (error) {
+        console.error('Error approving KRI:', error);
+        this.$message.error('Failed to approve KRI');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async handleAcknowledgeKRI() {
+      this.actionLoading = true;
+      try {
+        await this.updateKRIStatus({
+          kriId: this.kriId,
+          reportingDate: this.reportingDate,
+          updateData: { kri_status: 60 },
+          action: 'acknowledge',
+          comment: 'KRI acknowledged via sidebar'
+        });
+        this.$message.success('KRI acknowledged successfully');
+      } catch (error) {
+        console.error('Error acknowledging KRI:', error);
+        this.$message.error('Failed to acknowledge KRI');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async handleRejectKRI() {
+      try {
+        const { value: comment } = await this.$prompt(
+          'Please provide a reason for rejection:',
+          'Reject KRI',
+          {
+            confirmButtonText: 'Reject',
+            cancelButtonText: 'Cancel',
+            inputType: 'textarea',
+            inputValidator: (value) => {
+              if (!value || value.trim().length === 0) {
+                return 'Rejection reason is required';
+              }
+              return true;
+            }
+          }
+        );
+
+        this.actionLoading = true;
+        await this.updateKRIStatus({
+          kriId: this.kriId,
+          reportingDate: this.reportingDate,
+          updateData: { kri_status: 20 },
+          action: 'reject',
+          comment: comment
+        });
+        this.$message.success('KRI rejected successfully');
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Error rejecting KRI:', error);
+          this.$message.error('Failed to reject KRI');
+        }
+      } finally {
+        this.actionLoading = false;
+      }
+    }
+  }
+};
 </script>
 
 <style scoped>
@@ -380,5 +834,66 @@
 
 .atomic-summary {
   margin-top: 16px;
+}
+
+/* Chart fallback styling */
+.chart-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background-color: #f5f5f5;
+  border: 1px dashed #d9d9d9;
+  border-radius: 4px;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Minimalist chart container styling */
+.kri-sidebar >>> .el-card__body {
+  padding: 20px;
+}
+
+.kri-sidebar .sidebar-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.kri-sidebar .sidebar-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Chart container styling - fixes ResizeObserver issues */
+.chart-container {
+  width: 100%;
+  height: 200px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 4px;
+}
+
+/* Minimal card header */
+.kri-sidebar .card-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 12px;
+  margin-bottom: 0;
+}
+
+/* Clean header styling */
+.kri-sidebar >>> .el-card__header {
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 20px;
 }
 </style>

@@ -1,5 +1,7 @@
 import { kriService } from '@/services/kriService';
 
+// This class is for future refactor to a more secure authentication system
+
 /**
  * Validates user login credentials and returns user data
  * @param {string} username - The username to authenticate
