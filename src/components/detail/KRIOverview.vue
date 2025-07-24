@@ -204,7 +204,18 @@
               <i class="el-icon-paperclip"></i>
               Latest Evidence
             </label>
-            <el-tag type="info" size="mini">{{ totalEvidenceCount }} files total</el-tag>
+            <div class="evidence-controls">
+              <el-tag type="info" size="mini">{{ totalEvidenceCount }} files total</el-tag>
+              <el-button
+                v-if="canUploadEvidence"
+                type="primary"
+                size="mini"
+                icon="el-icon-upload2"
+                @click="showUploadModal"
+              >
+                Upload Evidence
+              </el-button>
+            </div>
           </div>
           <div class="evidence-item">
             <div class="evidence-info">
@@ -229,6 +240,16 @@
         </div>
       </el-col>
     </el-row>
+    
+    <!-- Evidence Upload Modal -->
+    <evidence-upload-modal
+      :visible.sync="uploadModalVisible"
+      :kri-id="kriData.kri_id"
+      :reporting-date="kriData.reporting_date"
+      :kri-item="kriData"
+      @upload-success="handleUploadSuccess"
+      @close="handleModalClose"
+    />
   </div>
 </template>
 
@@ -249,6 +270,12 @@ import Permission from '@/utils/permission';
 
 export default {
   name: 'KRIOverview',
+  components: {
+    EvidenceUploadModal: () => import('@/components/shared/EvidenceUploadModal.vue').catch(() => {
+      console.warn('EvidenceUploadModal component not found');
+      return { template: '<div></div>' };
+    })
+  },
   props: {
     kriData: {
       type: Object,
@@ -271,7 +298,8 @@ export default {
       },
       inputLoading: false,
       calculatingKRI: false,
-      submittingAtomic: false
+      submittingAtomic: false,
+      uploadModalVisible: false
     };
   },
   computed: {
@@ -391,6 +419,28 @@ export default {
     // Check if user can submit atomic data
     canSubmitAtomic() {
       return this.isCalculatedKRI && this.atomicDataProgress.percentage > 0 && this.atomicDataProgress.percentage < 100;
+    },
+    
+    // Check if user can upload evidence
+    canUploadEvidence() {
+      if (!this.currentUser || !this.currentUser.permissions) {
+        return false;
+      }
+      
+      // Check if evidence is required for this KRI based on source
+      const requiresEvidence = (source) => {
+        return source === 'autoParse' || !source || source === '';
+      };
+      
+      if (!requiresEvidence(this.kriData?.source)) {
+        return false;
+      }
+      
+      const allowedStatuses = [10, 20, 30];
+      const hasValidStatus = allowedStatuses.includes(this.kriData?.kri_status);
+      
+      const userPermissions = this.currentUser?.permissions || [];
+      return hasValidStatus && Permission.canEdit(this.kriData?.kri_id, null, userPermissions);
     }
   },
   watch: {
@@ -545,6 +595,21 @@ export default {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    },
+    
+    // Evidence upload modal handlers
+    showUploadModal() {
+      this.uploadModalVisible = true;
+    },
+    
+    handleUploadSuccess() {
+      this.uploadModalVisible = false;
+      this.$message.success('Evidence uploaded successfully');
+      this.$emit('data-updated');
+    },
+    
+    handleModalClose() {
+      this.uploadModalVisible = false;
     }
   }
 };
@@ -741,6 +806,12 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.evidence-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .evidence-header label {
