@@ -28,12 +28,23 @@
         
         <!-- Data Input Actions (simplified) -->
         <template v-else-if="showDataInputActions">
+          <!-- Show validation warning when save is disabled -->
+          <div v-if="validationMessage && !actionLoading" class="validation-warning">
+            <el-alert
+              :title="validationMessage"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="validation-alert">
+            </el-alert>
+          </div>
+          
           <el-button
             type="primary"
             icon="el-icon-edit"
             @click="handleSave"
             :loading="actionLoading"
-            :disabled="!isValidInput"
+            :disabled="!canSaveValue"
             style="width: 100%;">
             Save KRI
           </el-button>
@@ -43,6 +54,7 @@
             icon="el-icon-upload"
             @click="handleSubmit"
             :loading="actionLoading"
+            :disabled="!canSubmitValue"
             style="width: 100%;">
             Submit KRI
           </el-button>
@@ -123,8 +135,14 @@ import {
   getBreachTagType, 
   getBreachDisplayText,
   generateKRIDetailActions,
-  formatDateFromInt 
+  formatDateFromInt,
+  allowsManualInput,
+  canSaveKRIValue,
+  canSubmitKRIValue,
+  getSaveValidationMessage,
+  getSubmitValidationMessage
 } from '@/utils/helpers';
+import Permission from '@/utils/permission';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { GaugeChart, LineChart } from 'echarts/charts';
@@ -177,7 +195,7 @@ export default {
     };
   },
   computed: {
-    ...mapState('kri', ['kriDetail', 'atomicData', 'currentUser', 'historicalData', 'loading']),
+    ...mapState('kri', ['kriDetail', 'atomicData', 'currentUser', 'historicalData', 'evidenceData', 'loading']),
     ...mapGetters('kri', ['canPerform']),
 
     // KRI Classification
@@ -232,7 +250,7 @@ export default {
     // Action Generation
     calculatedKRIActions() {
       if (!this.isCalculatedKRI) return [];
-      return generateKRIDetailActions(this.kriData, this.canPerform);
+      return generateKRIDetailActions(this.kriData, this.canPerform, this.evidenceData, this.inputForm.kriValue);
     },
 
     // Permission-Based Action Display
@@ -242,7 +260,8 @@ export default {
       const allowedStatuses = [10, 20, 30];
       return !this.isCalculatedKRI && 
              allowedStatuses.includes(status) && 
-             this.canPerform(kriIdNum, null, 'edit');
+             this.canPerform(kriIdNum, null, 'edit') &&
+             allowsManualInput(this.kriData.source);
     },
 
     showReviewActions() {
@@ -261,17 +280,39 @@ export default {
              this.canPerform(kriIdNum, null, 'acknowledge');
     },
 
+    // Check if user can save KRI value
+    canSaveValue() {
+      return canSaveKRIValue(this.kriData, this.evidenceData, this.inputForm.kriValue);
+    },
+    
+    // Check if user can submit KRI value
+    canSubmitValue() {
+      return canSubmitKRIValue(this.kriData, this.evidenceData, this.inputForm.kriValue);
+    },
+    
+    // Legacy compatibility
     isValidInput() {
-      return this.inputForm.kriValue !== null && 
-             this.inputForm.kriValue !== undefined && 
-             !isNaN(parseFloat(this.inputForm.kriValue));
+      return this.canSaveValue;
+    },
+    
+    // Get validation message for user feedback
+    validationMessage() {
+      if (!this.kriData) return null;
+      
+      if (!this.canSaveValue) {
+        return getSaveValidationMessage(this.kriData, this.evidenceData, this.inputForm.kriValue);
+      }
+      
+      if (!this.canSubmitValue) {
+        return getSubmitValidationMessage(this.kriData, this.evidenceData, this.inputForm.kriValue);
+      }
+      
+      return null;
     },
 
     // Chart Options - Using previous design template
     gaugeOption() {
       const value = this.kriData.kri_value || this.kriData.kriValue || 67; // Use actual value or fallback
-      const warning = this.kriData.warning_line_value || this.kriData.warningLineValue || 70;
-      const limit = this.kriData.limit_value || this.kriData.limitValue || 100;
 
       return {
         series: [
@@ -414,9 +455,9 @@ export default {
                 x2: 0,
                 y2: 1,
                 colorStops: [{
-                    offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
+                  offset: 0, color: 'rgba(59, 130, 246, 0.3)' // Light blue tint
                 }, {
-                    offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
+                  offset: 1, color: 'rgba(59, 130, 246, 0)' // Transparent
                 }]
               }
             }
@@ -895,5 +936,19 @@ export default {
   background: #fafafa;
   border-bottom: 1px solid #e5e7eb;
   padding: 16px 20px;
+}
+
+/* Validation warning styles */
+.validation-warning {
+  margin-bottom: 12px;
+}
+
+.validation-alert {
+  font-size: 12px;
+}
+
+.validation-alert >>> .el-alert__title {
+  font-size: 12px;
+  line-height: 1.4;
 }
 </style>

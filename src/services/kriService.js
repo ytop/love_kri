@@ -282,9 +282,8 @@ class BaseKRIService {
     if (!kriId || !reportingDate) throw new Error('kriId and reportingDate are required');
 
     // Call the Postgres function via Supabase RPC
-    const { data, error } = await supabase.rpc('updateEvidence', {
-      p_kri_id: kriId,
-      p_reporting_date: reportingDate,
+    const { data, error } = await supabase.rpc('updateevidence', {
+      p_evidence_id: kriId,  // This should be evidence_id for existing evidence updates
       p_update_data: updateData,
       p_changed_by: changedBy,
       p_action: action,
@@ -293,6 +292,51 @@ class BaseKRIService {
 
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * Insert new evidence record into kri_evidence table
+   * @param {string} kriId - KRI ID
+   * @param {number} reportingDate - Reporting date (YYYYMMDD)
+   * @param {object} evidenceData - Evidence data to insert
+   * @param {string} changedBy - User making the change
+   * @param {string} action - Action performed (e.g. 'upload_evidence')
+   * @param {string} comment - Optional comment
+   * @returns {Promise<object>} Inserted kri_evidence row
+   */
+  async insertEvidence(kriId, reportingDate, evidenceData, changedBy, action, comment = '') {
+    if (!changedBy) throw new Error('changedBy is required');
+    if (!action) throw new Error('action is required');
+    if (!comment) throw new Error('comment is required');
+    if (!evidenceData) throw new Error('evidenceData is required');
+    if (!kriId || !reportingDate) throw new Error('kriId and reportingDate are required');
+
+    // Insert the evidence record
+    const { data: evidenceRecord, error: insertError } = await supabase
+      .from('kri_evidence')
+      .insert({
+        kri_id: kriId,
+        reporting_date: reportingDate,
+        ...evidenceData
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Add audit trail entry
+    await this.addAuditTrailEntry(
+      kriId,
+      reportingDate,
+      action,
+      { evidence_id: evidenceRecord.evidence_id },
+      '', // oldValue - empty for new record
+      evidenceRecord.evidence_id, // newValue - the new evidence ID
+      changedBy,
+      comment
+    );
+
+    return evidenceRecord;
   }
 
   // ----------------------------- User & Permission -----------------------------
@@ -392,8 +436,13 @@ class BaseKRIService {
     * @returns {Promise<object>} Audit trail record
     */
   async addAuditTrailEntry(kriId, reportingDate, action, updateData, oldValue, newValue, changedBy, comment = '') {
+    const kriIdInts = this.parseKRIId(kriId);
+    if (kriIdInts.length !== 1) {
+      throw new Error('Only one kriId can be used for audit trail entry');
+    }
+    
     const auditData = {
-      kri_id: this.parseKRIId(kriId),
+      kri_id: kriIdInts[0],
       reporting_date: this.parseReportingDate(reportingDate),
       changed_at: new Date().toISOString(),
       changed_by: changedBy,
@@ -404,16 +453,17 @@ class BaseKRIService {
       comment
     };
 
-    const operation = () => supabase
+    const { data, error } = await supabase
       .from('kri_audit_trail')
       .insert(auditData)
       .select()
       .single();
 
-    return this.executeWithErrorHandling(
-      operation,
-      'Failed to add audit trail entry'
-    );
+    if (error) {
+      throw new Error(`Failed to add audit trail entry: ${error.message}`);
+    }
+
+    return { data };
   }
 }
 
@@ -476,8 +526,13 @@ export const kriService = {
     return data;
   },
 
-  async updateEvidence(kriId, reportingDate, updateData, changedBy, action, comment = '') {
-    const { data } = await baseKRIService.updateEvidence(kriId, reportingDate, updateData, changedBy, action, comment);
+  async updateEvidence(evidenceId, updateData, changedBy, action, comment = '') {
+    const { data } = await baseKRIService.updateEvidence(evidenceId, null, updateData, changedBy, action, comment);
+    return data;
+  },
+
+  async insertEvidence(kriId, reportingDate, evidenceData, changedBy, action, comment = '') {
+    const { data } = await baseKRIService.insertEvidence(kriId, reportingDate, evidenceData, changedBy, action, comment);
     return data;
   },
 

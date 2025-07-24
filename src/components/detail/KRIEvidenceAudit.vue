@@ -155,7 +155,7 @@
 
 <script>
 import { mapState, mapGetters } from 'vuex';
-import { formatDateFromInt } from '@/utils/helpers';
+import { formatDateFromInt, requiresEvidence } from '@/utils/helpers';
 
 export default {
   name: 'KRIEvidenceAudit',
@@ -205,8 +205,13 @@ export default {
         return false;
       }
       
+      // Check if evidence is required for this KRI based on source
+      if (!requiresEvidence(this.kriItem?.source)) {
+        return false;
+      }
+      
       const kriIdNum = parseInt(this.kriId, 10);
-      const allowedStatuses = [10, 20, 30, 40, 50];
+      const allowedStatuses = [10, 20, 30];
       const hasValidStatus = allowedStatuses.includes(this.currentStatus);
       
       return hasValidStatus && this.canPerform(kriIdNum, null, 'edit');

@@ -278,6 +278,92 @@ class Permission {
       return false;
     }
   }
+
+  /**
+   * Check if KRI status requires evidence upload (Case 1 logic)
+   * Used for validating save operations
+   * 
+   * @param {number|string} kriStatus - KRI status code
+   * @returns {boolean} True if evidence is required for this status
+   * @static
+   */
+  static requiresEvidenceUpload(kriStatus) {
+    const status = typeof kriStatus === 'string' ? parseInt(kriStatus, 10) : kriStatus;
+    return status === 10 || status === 20; // Pending Input or Under Rework
+  }
+
+  /**
+   * Check if user can save KRI (includes evidence requirement validation)
+   * Combines permission checking with business logic validation
+   * 
+   * @param {number|string} kriId - KRI ID
+   * @param {Object} kriItem - KRI item with status and value
+   * @param {Array} evidenceData - Evidence files array
+   * @param {Array} userPermissions - User permissions array
+   * @param {*} inputValue - Optional input value to validate (null uses kriItem.kri_value)
+   * @returns {boolean} True if user can save the KRI
+   * @static
+   */
+  static canSaveKRI(kriId, kriItem, evidenceData, userPermissions, inputValue = null) {
+    if (!kriItem || !Permission.canEdit(kriId, null, userPermissions)) {
+      return false;
+    }
+
+    // Check if input value is valid (either from parameter or from KRI item)
+    const valueToCheck = inputValue !== null ? inputValue : kriItem.kri_value;
+    const hasValidValue = valueToCheck !== null && valueToCheck !== undefined && valueToCheck !== '';
+    
+    if (!hasValidValue) {
+      return false;
+    }
+
+    // For case 1 statuses (10, 20), evidence is required
+    if (Permission.requiresEvidenceUpload(kriItem.kri_status)) {
+      const hasEvidence = evidenceData && Array.isArray(evidenceData) && evidenceData.length > 0;
+      return hasEvidence;
+    }
+
+    // For other statuses, only value and permission validation is needed
+    return true;
+  }
+
+  /**
+   * Get validation message for save operations
+   * Provides user-friendly feedback about why save is disabled
+   * 
+   * @param {number|string} kriId - KRI ID
+   * @param {Object} kriItem - KRI item with status and value
+   * @param {Array} evidenceData - Evidence files array
+   * @param {Array} userPermissions - User permissions array
+   * @param {*} inputValue - Optional input value to validate
+   * @returns {string|null} Validation error message or null if valid
+   * @static
+   */
+  static getSaveValidationMessage(kriId, kriItem, evidenceData, userPermissions, inputValue = null) {
+    if (!kriItem) {
+      return 'Invalid KRI data';
+    }
+
+    if (!Permission.canEdit(kriId, null, userPermissions)) {
+      return 'You do not have permission to edit this KRI';
+    }
+
+    const valueToCheck = inputValue !== null ? inputValue : kriItem.kri_value;
+    const hasValidValue = valueToCheck !== null && valueToCheck !== undefined && valueToCheck !== '';
+    
+    if (!hasValidValue) {
+      return 'Please enter a KRI value';
+    }
+
+    if (Permission.requiresEvidenceUpload(kriItem.kri_status)) {
+      const hasEvidence = evidenceData && Array.isArray(evidenceData) && evidenceData.length > 0;
+      if (!hasEvidence) {
+        return 'Evidence upload is required before saving';
+      }
+    }
+
+    return null; // No validation error
+  }
 }
 
 export default Permission;

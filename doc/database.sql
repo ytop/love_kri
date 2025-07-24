@@ -9,11 +9,12 @@ CREATE TABLE public.kri_atomic (
   atomic_value text,
   atomic_status integer,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  source text DEFAULT ''::text,
   CONSTRAINT kri_atomic_pkey PRIMARY KEY (kri_id, atomic_id, reporting_date),
-  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
-  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
   CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
-  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date)
+  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT fk_kri_item_snapshot FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id)
 );
 CREATE TABLE public.kri_audit_trail (
   audit_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

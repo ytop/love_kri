@@ -208,28 +208,38 @@ export const createGoBackHandler = (router, fallbackRoute = 'Dashboard') => {
 };
 
 // Generate available actions for KRI detail based on status and permissions
-export const generateKRIDetailActions = (kriDetail, canPerformFn) => {
+export const generateKRIDetailActions = (kriDetail, canPerformFn, evidenceData = [], currentValue = null) => {
   if (!kriDetail || !canPerformFn) return [];
   
   const actions = [];
   const status = kriDetail.kri_status || kriDetail.kriStatus;
   const kriId = kriDetail.kri_id || kriDetail.kriId;
+  const source = kriDetail.source;
+  
+  // Check validation requirements
+  const canSave = canSaveKRIValue(kriDetail, evidenceData, currentValue);
+  const canSubmit = canSubmitKRIValue(kriDetail, evidenceData, currentValue);
   
   switch (status) {
   case 10: // PENDING_INPUT
   case 20: // UNDER_REWORK
   case 30: // SAVED
     if (canPerformFn(kriId, null, 'edit')) {
-      actions.push({
-        key: 'save',
-        label: 'Save',
-        icon: 'el-icon-document',
-        type: 'primary',
-        handler: 'handleSave',
-        loading: false,
-        disabled: false,
-        title: 'Save current changes'
-      });
+      // Save button - only for non-autoparse KRIs with manual input allowed
+      if (allowsManualInput(source)) {
+        actions.push({
+          key: 'save',
+          label: 'Save',
+          icon: 'el-icon-document',
+          type: 'primary',
+          handler: 'handleSave',
+          loading: false,
+          disabled: !canSave,
+          title: getSaveValidationMessage(kriDetail, evidenceData, currentValue)
+        });
+      }
+      
+      // Submit button - different requirements based on source
       actions.push({
         key: 'submit',
         label: 'Submit',
@@ -237,9 +247,23 @@ export const generateKRIDetailActions = (kriDetail, canPerformFn) => {
         type: 'success',
         handler: 'handleSubmit',
         loading: false,
-        disabled: false,
-        title: 'Submit for approval'
+        disabled: !canSubmit,
+        title: getSubmitValidationMessage(kriDetail, evidenceData, currentValue)
       });
+      
+      // Save and Submit combined button (for statuses 10 and 20 only)
+      if ((status === 10 || status === 20) && allowsManualInput(source)) {
+        actions.push({
+          key: 'save_and_submit',
+          label: 'Save and Submit',
+          icon: 'el-icon-upload',
+          type: 'success',
+          handler: 'handleSaveAndSubmit',
+          loading: false,
+          disabled: !canSubmit,
+          title: getSubmitValidationMessage(kriDetail, evidenceData, currentValue)
+        });
+      }
     }
     break;
   case 40: // SUBMITTED_TO_DATA_PROVIDER_APPROVER
@@ -296,6 +320,90 @@ export const generateKRIDetailActions = (kriDetail, canPerformFn) => {
   }
   
   return actions;
+};
+
+// ---------------------------------- KRI Upload Logic Utilities ----------------------------------
+
+// Check if this KRI allows manual input based on source
+export const allowsManualInput = (source) => {
+  // Allow manual input if source is empty/null (not auto-parse)
+  return !source || source === '' || source === null;
+};
+
+// Check if evidence is required for this KRI
+export const requiresEvidence = (source) => {
+  // Both empty/null source and autoparse require evidence
+  return !source || source === '' || source === null || source === 'autoparse';
+};
+
+// Check if user can save (input value only, no submit requirement)
+export const canSaveKRIValue = (kriDetail, evidenceData = [], currentValue = null) => {
+  if (!kriDetail || !allowsManualInput(kriDetail.source)) return false;
+  
+  // For save, only check if value is provided
+  return currentValue !== null && currentValue !== '';
+};
+
+// Check if user can submit (requires both value and evidence for source=empty/null)
+export const canSubmitKRIValue = (kriDetail, evidenceData = [], currentValue = null) => {
+  if (!kriDetail) return false;
+  
+  const hasEvidence = evidenceData && evidenceData.length > 0;
+  const hasValue = currentValue !== null && currentValue !== '';
+  const source = kriDetail.source;
+  
+  if (!source || source === '' || source === null) {
+    // For empty/null source: requires both value AND evidence
+    return hasValue && hasEvidence;
+  } else if (source === 'autoparse') {
+    // For autoparse: only requires evidence (value comes from parsing)
+    return hasEvidence;
+  }
+  
+  return false;
+};
+
+// Get validation message for save action
+export const getSaveValidationMessage = (kriDetail, evidenceData = [], currentValue = null) => {
+  if (!kriDetail) return 'Invalid KRI data';
+  
+  const source = kriDetail.source;
+  
+  if (!allowsManualInput(source)) {
+    return 'Manual input not allowed for auto-parse KRIs';
+  }
+  
+  if (!currentValue || currentValue === '') {
+    return 'Please enter a KRI value to save';
+  }
+  
+  return 'Save current changes';
+};
+
+// Get validation message for submit action
+export const getSubmitValidationMessage = (kriDetail, evidenceData = [], currentValue = null) => {
+  if (!kriDetail) return 'Invalid KRI data';
+  
+  const hasEvidence = evidenceData && evidenceData.length > 0;
+  const hasValue = currentValue !== null && currentValue !== '';
+  const source = kriDetail.source;
+  
+  if (!source || source === '' || source === null) {
+    if (!hasValue) {
+      return 'Please enter a KRI value';
+    }
+    if (!hasEvidence) {
+      return 'Evidence file is required for submission';
+    }
+    return 'Submit for approval';
+  } else if (source === 'autoparse') {
+    if (!hasEvidence) {
+      return 'Please upload an Excel file for auto-parsing';
+    }
+    return 'Submit for approval';
+  }
+  
+  return 'Submit for approval';
 };
 
 // ---------------------------------- Evidence Utilities ----------------------------------

@@ -5,6 +5,9 @@
     width="600px"
     :before-close="handleClose"
     @closed="resetForm"
+    :modal-append-to-body="false"
+    :append-to-body="true"
+    custom-class="evidence-upload-dialog"
   >
     <div class="upload-container">
       <el-upload
@@ -79,6 +82,7 @@ import { mapState, mapActions } from 'vuex';
 import { EvidenceStorageService } from '@/services/ObjectStorage';
 import { kriService } from '@/services/kriService';
 import { getUserDisplayName } from '@/utils/helpers';
+import { excelParserService } from '@/services/ExcelParserService';
 
 export default {
   name: 'EvidenceUploadModal',
@@ -111,7 +115,7 @@ export default {
       uploadProgress: {
         show: false,
         percentage: 0,
-        status: 'active',
+        status: undefined,
         text: 'Preparing upload...'
       },
       // Configuration
@@ -124,11 +128,32 @@ export default {
         description: [
           { max: 500, message: 'Description cannot exceed 500 characters', trigger: 'blur' }
         ]
-      }
+      },
+      // MD5 tracking for duplicate detection
+      fileHashes: new Map(),
+      duplicateWarnings: [],
+      // Auto parser support
+      autoParseEnabled: false,
+      parseResults: new Map()
     };
   },
   computed: {
-    ...mapState('kri', ['currentUser'])
+    ...mapState('kri', ['currentUser']),
+    
+    // Check if KRI is configured for auto-parsing
+    isAutoParseKRI() {
+      return this.kriItem && this.kriItem.source === 'autoParse';
+    },
+    
+    // Check if current KRI status allows case 1 operations (10: Pending Input, 20: Under Rework)
+    isCase1Status() {
+      return this.kriItem && (this.kriItem.kri_status === 10 || this.kriItem.kri_status === 20);
+    },
+    
+    // Check if we should show auto-parse related UI
+    showAutoParseFeatures() {
+      return this.isAutoParseKRI && this.isCase1Status;
+    }
   },
   watch: {
     visible: {
@@ -145,7 +170,7 @@ export default {
     ...mapActions('kri', ['refreshKRIDetail']),
 
     // File Management Methods
-    handleFileChange(file, fileList) {
+    async handleFileChange(file, fileList) {
       this.fileList = fileList;
       
       // Validate file immediately
@@ -157,20 +182,131 @@ export default {
         return false;
       }
       
+      // Generate file hash for duplicate detection
+      try {
+        const fileHash = await excelParserService.generateFileHash(file.raw || file);
+        
+        // Check for duplicates
+        if (this.fileHashes.has(fileHash)) {
+          const existingFile = this.fileHashes.get(fileHash);
+          this.$confirm(
+            `This file appears to be identical to "${existingFile.name}". Do you want to continue?`,
+            'Duplicate File Detected',
+            {
+              confirmButtonText: 'Continue',
+              cancelButtonText: 'Remove',
+              type: 'warning'
+            }
+          ).then(() => {
+            // User chose to continue with duplicate
+            this.fileHashes.set(fileHash, { name: file.name, uid: file.uid });
+            this.duplicateWarnings.push(file.name);
+          }).catch(() => {
+            // User chose to remove duplicate
+            this.handleFileRemove(file, fileList);
+          });
+        } else {
+          // New unique file
+          this.fileHashes.set(fileHash, { name: file.name, uid: file.uid });
+        }
+        
+        // Auto-parse Excel files for case 1 KRIs
+        if (this.showAutoParseFeatures && excelParserService.isSupportedExcelFile(file.raw || file)) {
+          await this.handleExcelAutoParse(file);
+        }
+        
+      } catch (error) {
+        console.warn('File hash generation failed:', error);
+        // Continue without hash-based duplicate detection
+      }
+      
       return true;
     },
 
     handleFileRemove(file, fileList) {
       this.fileList = fileList;
+      
+      // Clean up file hash tracking
+      for (const [hash, fileInfo] of this.fileHashes.entries()) {
+        if (fileInfo.uid === file.uid) {
+          this.fileHashes.delete(hash);
+          break;
+        }
+      }
+      
+      // Clean up parse results
+      this.parseResults.delete(file.uid);
+      
+      // Remove from duplicate warnings
+      const warningIndex = this.duplicateWarnings.findIndex(name => name === file.name);
+      if (warningIndex > -1) {
+        this.duplicateWarnings.splice(warningIndex, 1);
+      }
     },
 
     handleExceed(files, fileList) {
       this.$message.warning(`Maximum ${this.maxFiles} files allowed. ${files.length} files selected, ${fileList.length} files already in queue.`);
     },
 
-    beforeUpload(file) {
+    beforeUpload(_file) {
       // Prevent auto-upload since we handle manual upload
       return false;
+    },
+
+    // Excel Auto-Parse Handler
+    async handleExcelAutoParse(file) {
+      try {
+        this.updateProgress(0, `Parsing Excel file: ${file.name}...`);
+        this.uploadProgress.show = true;
+        
+        // Parse Excel file using the ExcelParserService
+        const parseResult = await excelParserService.parseExcelFile(
+          file.raw || file,
+          {
+            kriId: this.kriId,
+            expectedLabel: this.kriItem.kri_name,
+            minValue: this.kriItem.warning_line_value ? this.kriItem.warning_line_value * 0.1 : undefined,
+            maxValue: this.kriItem.limit_value ? this.kriItem.limit_value * 2 : undefined
+          }
+        );
+        
+        if (parseResult.success && parseResult.kriValue !== null) {
+          // Store successful parse result
+          this.parseResults.set(file.uid, parseResult);
+          
+          // Show success message with extracted value
+          this.$message.success(
+            `Successfully extracted KRI value: ${parseResult.kriValue} from ${file.name}`,
+            { duration: 4000 }
+          );
+          
+          // Emit event to parent component for potential auto-fill
+          this.$emit('excel-parsed', {
+            file: file.name,
+            kriValue: parseResult.kriValue,
+            confidence: parseResult.extractedData.confidence,
+            parseResult: parseResult
+          });
+        } else {
+          // Show warning for failed parsing
+          this.$message.warning(
+            `Could not extract KRI value from ${file.name}. You can still upload the file as evidence.`,
+            { duration: 4000 }
+          );
+          
+          if (parseResult.validationResults && parseResult.validationResults.errors) {
+            console.warn('Parse validation errors:', parseResult.validationResults.errors);
+          }
+        }
+        
+      } catch (error) {
+        console.error('Excel auto-parse error:', error);
+        this.$message.warning(
+          `Failed to parse ${file.name}. You can still upload the file as evidence.`
+        );
+      } finally {
+        this.uploadProgress.show = false;
+      }
     },
 
     // File Validation
@@ -219,7 +355,7 @@ export default {
       this.uploading = true;
       this.uploadProgress.show = true;
       this.uploadProgress.percentage = 0;
-      this.uploadProgress.status = 'active';
+      this.uploadProgress.status = undefined;
 
       const storageService = new EvidenceStorageService();
       const totalFiles = this.fileList.length;
@@ -232,7 +368,7 @@ export default {
           const file = this.fileList[i];
           const progress = Math.floor(((i + 1) / totalFiles) * 100);
           
-          this.updateProgress(progress, `Uploading ${file.name}...`, 'active');
+          this.updateProgress(progress, `Uploading ${file.name}...`);
 
           try {
             // Upload file to storage
@@ -247,11 +383,8 @@ export default {
             await this.saveEvidenceToDatabase({
               file_name: file.name,
               file_url: uploadResult.fileInfo.url,
-              file_path: uploadResult.fileInfo.path,
               description: this.uploadForm.description,
-              uploaded_by: getUserDisplayName(this.currentUser),
-              file_size: (file.raw || file).size,
-              file_type: (file.raw || file).type
+              uploaded_by: getUserDisplayName(this.currentUser)
             });
 
             successCount++;
@@ -268,10 +401,22 @@ export default {
         // Update final progress
         this.updateProgress(100, 'Upload completed', successCount === totalFiles ? 'success' : 'warning');
 
+        // Handle case 1 status transition if applicable
+        if (successCount > 0 && this.isCase1Status) {
+          try {
+            await this.handleCase1StatusTransition();
+          } catch (error) {
+            console.error('Status transition failed:', error);
+            this.$message.warning('Files uploaded successfully, but status update failed');
+          }
+        }
+
         // Show results
         if (successCount === totalFiles) {
           this.$message.success(`Successfully uploaded ${successCount} files`);
           this.$emit('upload-success');
+          // Reset uploading flag before closing to avoid confirmation dialog
+          this.uploading = false;
           this.handleClose();
         } else if (successCount > 0) {
           this.$message.warning(`Uploaded ${successCount} files successfully, ${failedCount} files failed`);
@@ -295,23 +440,67 @@ export default {
       }
     },
 
+    // Case 1 Status Transition Handler
+    async handleCase1StatusTransition() {
+      // According to case 1 logic: 10 "Pending Input" OR 20 "Under Rework" → 30 "Saved"  
+      if (this.kriItem.kri_status === 10 || this.kriItem.kri_status === 20) {
+        const updateData = { kri_status: 30 }; // Status 30: "Saved"
+        
+        // Check if we have auto-parsed values to include
+        const parsedValues = Array.from(this.parseResults.values())
+          .filter(result => result.success && result.kriValue !== null);
+        
+        if (parsedValues.length > 0 && this.isAutoParseKRI) {
+          // Use the highest confidence parsed value
+          const bestParse = parsedValues.reduce((best, current) => 
+            (current.extractedData.confidence > best.extractedData.confidence) ? current : best
+          );
+          
+          updateData.kri_value = bestParse.kriValue;
+          updateData.source = 'autoParse'; // Mark as auto-parsed
+        }
+        
+        await kriService.updateKRI(
+          this.kriId,
+          this.reportingDate,
+          updateData,
+          getUserDisplayName(this.currentUser),
+          'case1_evidence_upload',
+          `Status changed to Saved after evidence upload${
+            updateData.kri_value ? ` with auto-parsed value: ${updateData.kri_value}` : ''
+          }`
+        );
+        
+        // Emit event to notify parent components of status change
+        this.$emit('status-updated', {
+          oldStatus: this.kriItem.kri_status,
+          newStatus: 30,
+          kriValue: updateData.kri_value || null,
+          autoParseApplied: !!updateData.kri_value
+        });
+        
+        this.$message.success(
+          `KRI status updated to "Saved"${
+            updateData.kri_value ? ` with auto-parsed value: ${updateData.kri_value}` : ''
+          }`
+        );
+      }
+    },
+
     // Database Integration
     async saveEvidenceToDatabase(evidenceData) {
-      const updateData = {
+      const insertData = {
         file_name: evidenceData.file_name,
         file_url: evidenceData.file_url,
-        file_path: evidenceData.file_path,
         description: evidenceData.description,
         uploaded_by: evidenceData.uploaded_by,
-        uploaded_at: new Date().toISOString(),
-        file_size: evidenceData.file_size,
-        file_type: evidenceData.file_type
+        uploaded_at: new Date().toISOString()
       };
 
-      await kriService.updateEvidence(
+      await kriService.insertEvidence(
         this.kriId,
         this.reportingDate,
-        updateData,
+        insertData,
         getUserDisplayName(this.currentUser),
         'upload_evidence',
         `Uploaded evidence file: ${evidenceData.file_name}`
@@ -319,7 +508,7 @@ export default {
     },
 
     // Progress and UI Methods
-    updateProgress(percentage, text, status = 'active') {
+    updateProgress(percentage, text, status = undefined) {
       this.uploadProgress.percentage = percentage;
       this.uploadProgress.text = text;
       this.uploadProgress.status = status;
@@ -363,6 +552,11 @@ export default {
       this.uploadProgress.show = false;
       this.uploadProgress.percentage = 0;
       this.uploading = false;
+      
+      // Clear MD5 tracking and parse results
+      this.fileHashes.clear();
+      this.duplicateWarnings = [];
+      this.parseResults.clear();
       
       // Clear upload component
       if (this.$refs.upload) {
@@ -483,5 +677,33 @@ export default {
 
 .upload-container >>> .el-upload-list__item:hover {
   background-color: #f5f7fa;
+}
+
+/* Evidence Upload Dialog Positioning */
+.evidence-upload-dialog {
+  position: fixed !important;
+  top: 10vh !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 2050 !important;
+  margin: 0 !important;
+}
+
+/* Ensure modal doesn't overlap main content */
+.evidence-upload-dialog .el-dialog {
+  margin: 0 !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+}
+
+/* Ensure modal backdrop doesn't interfere with main content */
+.el-dialog__wrapper.evidence-upload-dialog {
+  z-index: 2050 !important;
+}
+
+/* Modal backdrop styling */
+.evidence-upload-dialog + .v-modal {
+  z-index: 2049 !important;
+  background-color: rgba(0, 0, 0, 0.3) !important;
 }
 </style>

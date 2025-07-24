@@ -74,6 +74,8 @@
               :current-status="kriDetail.kri_status"
               :kri-item="kriDetail"
               @evidence-uploaded="refreshKRIDetail"
+              @excel-parsed="handleExcelParsed"
+              @status-updated="handleStatusUpdated"
             />
         </div>
         
@@ -164,6 +166,38 @@ export default {
         });
       } catch (error) {
         console.error('Error fetching KRI detail:', error);
+      }
+    },
+    
+    // Handle Excel auto-parse results
+    handleExcelParsed(parseData) {
+      console.log('Excel parsed:', parseData);
+      
+      // Show notification about successful auto-parse
+      this.$message.success(
+        `Auto-parsed KRI value: ${parseData.kriValue} from ${parseData.file}`,
+        { duration: 5000 }
+      );
+      
+      // Optionally emit to parent or handle auto-fill logic here
+      // For now, the value will be applied when status transitions to "Saved"
+    },
+    
+    // Handle status updates from evidence upload
+    async handleStatusUpdated(statusData) {
+      console.log('Status updated:', statusData);
+      
+      // Refresh the KRI detail to reflect status changes
+      await this.refreshKRIDetail();
+      
+      // Show success message based on the status change
+      if (statusData.autoParseApplied) {
+        this.$message.success(
+          `KRI status updated and auto-parsed value (${statusData.kriValue}) applied!`,
+          { duration: 6000 }
+        );
+      } else {
+        this.$message.success('KRI status updated to "Saved"');
       }
     },
   }

@@ -128,13 +128,24 @@
               </el-input>
             </el-form-item>
             <el-form-item>
+              <!-- Show validation warning when save is disabled -->
+              <div v-if="validationMessage && !inputLoading" class="validation-warning">
+                <el-alert
+                  :title="validationMessage"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  class="validation-alert">
+                </el-alert>
+              </div>
+              
               <div class="action-buttons">
                 <el-button
                   type="primary"
                   icon="el-icon-check"
                   @click="handleSave"
                   :loading="inputLoading"
-                  :disabled="!isValidInput">
+                  :disabled="!canSaveValue">
                   Save
                 </el-button>
                 <el-button
@@ -142,7 +153,8 @@
                   type="success"
                   icon="el-icon-upload"
                   @click="handleSubmit"
-                  :loading="inputLoading">
+                  :loading="inputLoading"
+                  :disabled="!canSubmitValue">
                   Submit
                 </el-button>
                 <el-button
@@ -151,7 +163,7 @@
                   icon="el-icon-upload"
                   @click="handleSaveAndSubmit"
                   :loading="inputLoading"
-                  :disabled="!isValidInput">
+                  :disabled="!canSubmitValue">
                   Save and Submit
                 </el-button>
               </div>
@@ -223,7 +235,16 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import { mapStatus, getStatusTagType, getBreachTagType, getBreachDisplayText, getBreachDescription } from '@/utils/types';
-import { formatReportingDate, calculateBreachStatus, getLatestEvidence } from '@/utils/helpers';
+import { 
+  formatReportingDate, 
+  calculateBreachStatus, 
+  getLatestEvidence,
+  allowsManualInput,
+  canSaveKRIValue,
+  canSubmitKRIValue,
+  getSaveValidationMessage,
+  getSubmitValidationMessage
+} from '@/utils/helpers';
 import Permission from '@/utils/permission';
 
 export default {
@@ -268,7 +289,9 @@ export default {
       const status = this.kriData.kri_status;
       const allowedStatuses = [10, 20, 30]; // PENDING_INPUT, UNDER_REWORK, SAVED
       const userPermissions = this.currentUser?.permissions || [];
-      return allowedStatuses.includes(status) && Permission.canEdit(this.kriData.kri_id, null, userPermissions);
+      return allowedStatuses.includes(status) && 
+             Permission.canEdit(this.kriData.kri_id, null, userPermissions) &&
+             allowsManualInput(this.kriData.source);
     },
     
     // Calculate atomic data progress for calculated KRIs
@@ -330,9 +353,34 @@ export default {
       return this.evidenceData ? this.evidenceData.length : 0;
     },
     
-    // Validate input form
+    // Check if user can save KRI value (for save button)
+    canSaveValue() {
+      return canSaveKRIValue(this.kriData, this.evidenceData, this.inputForm.kriValue);
+    },
+    
+    // Check if user can submit KRI value (for submit button)
+    canSubmitValue() {
+      return canSubmitKRIValue(this.kriData, this.evidenceData, this.inputForm.kriValue);
+    },
+    
+    // Validate input form (legacy compatibility)
     isValidInput() {
-      return this.inputForm.kriValue !== null && this.inputForm.kriValue !== '';
+      return this.canSaveValue;
+    },
+    
+    // Get validation message for user feedback
+    validationMessage() {
+      if (!this.kriData) return null;
+      
+      if (!this.canSaveValue) {
+        return getSaveValidationMessage(this.kriData, this.evidenceData, this.inputForm.kriValue);
+      }
+      
+      if (!this.canSubmitValue) {
+        return getSubmitValidationMessage(this.kriData, this.evidenceData, this.inputForm.kriValue);
+      }
+      
+      return null;
     },
     
     // Check if user can recalculate KRI
@@ -365,6 +413,7 @@ export default {
     getBreachTagType,
     getBreachDisplayText, 
     getBreachDescription,
+    formatReportingDate,
     
     // Helper method to determine next status for submission
     getNextSubmitStatus() {
@@ -743,5 +792,19 @@ export default {
   color: #495057;
   margin: 4px 0 0 0;
   font-style: italic;
+}
+
+/* Validation warning styles */
+.validation-warning {
+  margin-bottom: 16px;
+}
+
+.validation-alert {
+  font-size: 13px;
+}
+
+.validation-alert >>> .el-alert__title {
+  font-size: 13px;
+  line-height: 1.4;
 }
 </style>

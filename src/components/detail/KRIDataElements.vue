@@ -290,7 +290,406 @@
 </template>
 
 <script>
+import { mapState, mapActions, mapGetters } from 'vuex';
+import { kriService } from '@/services/kriService';
+import { getUserDisplayName } from '@/utils/helpers';
+import { mapStatus } from '@/utils/types';
 
+export default {
+  name: 'KRIDataElements',
+  props: {
+    atomicData: {
+      type: Array,
+      default: () => []
+    },
+    kriDetail: {
+      type: Object,
+      required: true
+    },
+    evidenceData: {
+      type: Array,
+      default: () => []
+    }
+  },
+  data() {
+    return {
+      selectedItems: [],
+      selectAll: false,
+      editingAtomic: null,
+      editingValue: null,
+      savingAtomic: null,
+      submittingAtomicData: false
+    };
+  },
+  computed: {
+    ...mapState('kri', ['currentUser']),
+    ...mapGetters('kri', ['canPerform']),
+    
+    // Check if current KRI status allows case 1 operations
+    isCase1Status() {
+      return this.kriDetail && (this.kriDetail.kri_status === 10 || this.kriDetail.kri_status === 20);
+    },
+    
+    // Bulk operation computed properties
+    canSubmitAtomicData() {
+      return this.isCase1Status && this.atomicData.some(item => 
+        this.canEditAtomicElement(item) && this.hasAtomicValue(item)
+      );
+    },
+    
+    showApproveButton() {
+      return this.atomicData.some(item => this.canApproveAtomicElement(item));
+    },
+    
+    showRejectButton() {
+      return this.atomicData.some(item => this.canApproveAtomicElement(item));
+    },
+    
+    showAcknowledgeButton() {
+      return this.atomicData.some(item => this.canAcknowledgeAtomicElement(item));
+    },
+    
+    canApproveSelected() {
+      return this.selectedItems.length > 0 && this.selectedItems.every(id => {
+        const item = this.atomicData.find(a => a.atomic_id === id);
+        return item && this.canApproveAtomicElement(item);
+      });
+    },
+    
+    canRejectSelected() {
+      return this.selectedItems.length > 0;
+    },
+    
+    canAcknowledgeSelected() {
+      return this.selectedItems.length > 0 && this.selectedItems.every(id => {
+        const item = this.atomicData.find(a => a.atomic_id === id);
+        return item && this.canAcknowledgeAtomicElement(item);
+      });
+    },
+    
+    approvableCount() {
+      return this.selectedItems.filter(id => {
+        const item = this.atomicData.find(a => a.atomic_id === id);
+        return item && this.canApproveAtomicElement(item);
+      }).length;
+    },
+    
+    acknowledgableCount() {
+      return this.selectedItems.filter(id => {
+        const item = this.atomicData.find(a => a.atomic_id === id);
+        return item && this.canAcknowledgeAtomicElement(item);
+      }).length;
+    },
+    
+    canUploadEvidence() {
+      return this.isCase1Status && this.canPerform(this.kriDetail.kri_id, null, 'edit');
+    }
+  },
+  methods: {
+    ...mapActions('kri', ['refreshKRIDetail']),
+    
+    // Permission checking methods
+    canEditAtomicElement(item) {
+      return this.canPerform(this.kriDetail.kri_id, item.atomic_id, 'edit') && 
+             [10, 20, 30].includes(item.atomic_status);
+    },
+    
+    canApproveAtomicElement(item) {
+      return this.canPerform(this.kriDetail.kri_id, item.atomic_id, 'review') && 
+             item.atomic_status === 40;
+    },
+    
+    canAcknowledgeAtomicElement(item) {
+      return this.canPerform(this.kriDetail.kri_id, item.atomic_id, 'acknowledge') && 
+             item.atomic_status === 50;
+    },
+    
+    hasAtomicValue(item) {
+      return item.atomic_value !== null && item.atomic_value !== undefined && item.atomic_value !== '';
+    },
+    
+    // Selection handling
+    handleSelectAllChange() {
+      if (this.selectAll) {
+        this.selectedItems = this.atomicData.map(item => item.atomic_id);
+      } else {
+        this.selectedItems = [];
+      }
+    },
+    
+    // Editing methods
+    startEditAtomic(item) {
+      this.editingAtomic = item.atomic_id;
+      this.editingValue = item.atomic_value || 0;
+      this.$nextTick(() => {
+        const input = this.$refs.editInput;
+        if (input && input.focus) {
+          input.focus();
+        }
+      });
+    },
+    
+    cancelEdit() {
+      this.editingAtomic = null;
+      this.editingValue = null;
+    },
+    
+    async saveAtomicValue(item) {
+      if (this.savingAtomic === item.atomic_id) return;
+      
+      this.savingAtomic = item.atomic_id;
+      try {
+        await kriService.updateAtomicKRI(
+          this.kriDetail.kri_id,
+          item.atomic_id,
+          this.kriDetail.reporting_date,
+          { atomic_value: this.editingValue },
+          getUserDisplayName(this.currentUser),
+          'update_atomic_value',
+          `Updated atomic value to ${this.editingValue}`
+        );
+        
+        this.cancelEdit();
+        this.$message.success('Atomic value updated successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error updating atomic value:', error);
+        this.$message.error('Failed to update atomic value');
+      } finally {
+        this.savingAtomic = null;
+      }
+    },
+    
+    // Case 1 status transition methods
+    async saveAtomicElement(item) {
+      if (this.savingAtomic === item.atomic_id) return;
+      
+      this.savingAtomic = item.atomic_id;
+      try {
+        // For case 1: transition status 10/20 → 30 (Saved)
+        const updateData = {};
+        if (this.isCase1Status) {
+          updateData.atomic_status = 30; // Status 30: "Saved"
+        }
+        
+        await kriService.updateAtomicKRI(
+          this.kriDetail.kri_id,
+          item.atomic_id,
+          this.kriDetail.reporting_date,
+          updateData,
+          getUserDisplayName(this.currentUser),
+          'save_atomic_element',
+          'Atomic element saved'
+        );
+        
+        this.$message.success('Atomic element saved successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error saving atomic element:', error);
+        this.$message.error('Failed to save atomic element');
+      } finally {
+        this.savingAtomic = null;
+      }
+    },
+    
+    async submitAtomicElement(item) {
+      if (this.savingAtomic === item.atomic_id) return;
+      
+      this.savingAtomic = item.atomic_id;
+      try {
+        // Determine next status based on KRI owner/data provider logic
+        const nextStatus = this.getNextSubmitStatus();
+        
+        await kriService.updateAtomicKRI(
+          this.kriDetail.kri_id,
+          item.atomic_id,
+          this.kriDetail.reporting_date,
+          { atomic_status: nextStatus },
+          getUserDisplayName(this.currentUser),
+          'submit_atomic_element',
+          `Atomic element submitted for ${nextStatus === 40 ? 'data provider' : 'KRI owner'} approval`
+        );
+        
+        this.$message.success('Atomic element submitted successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error submitting atomic element:', error);
+        this.$message.error('Failed to submit atomic element');
+      } finally {
+        this.savingAtomic = null;
+      }
+    },
+    
+    async saveAndSubmitAtomicElement(item) {
+      if (this.savingAtomic === item.atomic_id) return;
+      
+      this.savingAtomic = item.atomic_id;
+      try {
+        // For case 1: direct transition from 10/20 to submit status
+        const nextStatus = this.getNextSubmitStatus();
+        
+        await kriService.updateAtomicKRI(
+          this.kriDetail.kri_id,
+          item.atomic_id,
+          this.kriDetail.reporting_date,
+          { atomic_status: nextStatus },
+          getUserDisplayName(this.currentUser),
+          'save_and_submit_atomic',
+          `Atomic element saved and submitted for ${nextStatus === 40 ? 'data provider' : 'KRI owner'} approval`
+        );
+        
+        this.$message.success('Atomic element saved and submitted successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error saving and submitting atomic element:', error);
+        this.$message.error('Failed to save and submit atomic element');
+      } finally {
+        this.savingAtomic = null;
+      }
+    },
+    
+    // Approval workflow methods
+    async approveAtomicElement(item) {
+      await this.updateAtomicStatus(item, 50, 'approve_atomic', 'Atomic element approved');
+    },
+    
+    async rejectAtomicElement(item) {
+      await this.updateAtomicStatus(item, 20, 'reject_atomic', 'Atomic element rejected');
+    },
+    
+    async acknowledgeAtomicElement(item) {
+      await this.updateAtomicStatus(item, 60, 'acknowledge_atomic', 'Atomic element acknowledged');
+    },
+    
+    async updateAtomicStatus(item, newStatus, action, message) {
+      try {
+        await kriService.updateAtomicKRI(
+          this.kriDetail.kri_id,
+          item.atomic_id,
+          this.kriDetail.reporting_date,
+          { atomic_status: newStatus },
+          getUserDisplayName(this.currentUser),
+          action,
+          message
+        );
+        
+        this.$message.success(message);
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error(`Error updating atomic status:`, error);
+        this.$message.error(`Failed to ${action.replace('_', ' ')}`);
+      }
+    },
+    
+    // Bulk operations
+    async handleSubmitAtomicData() {
+      this.submittingAtomicData = true;
+      try {
+        const nextStatus = this.getNextSubmitStatus();
+        const promises = this.atomicData
+          .filter(item => this.canEditAtomicElement(item) && this.hasAtomicValue(item))
+          .map(item => kriService.updateAtomicKRI(
+            this.kriDetail.kri_id,
+            item.atomic_id,
+            this.kriDetail.reporting_date,
+            { atomic_status: nextStatus },
+            getUserDisplayName(this.currentUser),
+            'bulk_submit_atomic',
+            'Bulk atomic data submission'
+          ));
+        
+        await Promise.all(promises);
+        this.$message.success('All atomic data submitted successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error submitting atomic data:', error);
+        this.$message.error('Failed to submit atomic data');
+      } finally {
+        this.submittingAtomicData = false;
+      }
+    },
+    
+    async approveSelectedRows() {
+      await this.bulkUpdateSelected(50, 'bulk_approve_atomic', 'Selected atomic elements approved');
+    },
+    
+    async rejectSelectedRows() {
+      await this.bulkUpdateSelected(20, 'bulk_reject_atomic', 'Selected atomic elements rejected');
+    },
+    
+    async acknowledgeSelectedRows() {
+      await this.bulkUpdateSelected(60, 'bulk_acknowledge_atomic', 'Selected atomic elements acknowledged');
+    },
+    
+    async bulkUpdateSelected(newStatus, action, successMessage) {
+      try {
+        const promises = this.selectedItems.map(atomicId => 
+          kriService.updateAtomicKRI(
+            this.kriDetail.kri_id,
+            atomicId,
+            this.kriDetail.reporting_date,
+            { atomic_status: newStatus },
+            getUserDisplayName(this.currentUser),
+            action,
+            successMessage
+          )
+        );
+        
+        await Promise.all(promises);
+        this.$message.success(successMessage);
+        this.selectedItems = [];
+        this.selectAll = false;
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Bulk update error:', error);
+        this.$message.error('Bulk operation failed');
+      }
+    },
+    
+    // Utility methods
+    getNextSubmitStatus() {
+      // Case 1 logic: IF KRI_OWNER == DATA_PROVIDER -> 50, ELSE -> 40
+      return (this.kriDetail.kri_owner === this.kriDetail.data_provider) ? 50 : 40;
+    },
+    
+    mapAtomicStatus(status) {
+      return mapStatus(status);
+    },
+    
+    getAtomicStatusType(status) {
+      const typeMap = {
+        10: 'info',     // Pending Input
+        20: 'warning',  // Under Rework
+        30: 'primary',  // Saved
+        40: 'warning',  // Submitted to Data Provider
+        50: 'warning',  // Submitted to KRI Owner
+        60: 'success'   // Finalized
+      };
+      return typeMap[status] || 'info';
+    },
+    
+    getProviderName(_item) {
+      return this.kriDetail.data_provider || 'N/A';
+    },
+    
+    getEvidenceInfo(_item) {
+      const evidence = this.evidenceData.filter(e => 
+        e.kri_id === this.kriDetail.kri_id && 
+        e.reporting_date === this.kriDetail.reporting_date
+      );
+      return evidence.length > 0 ? `${evidence.length} file(s)` : 'No evidence';
+    },
+    
+    getCommentInfo(_item) {
+      // This would come from audit trail data if available
+      return 'No comments';
+    },
+    
+    showUploadModal() {
+      this.$emit('evidence-uploaded');
+    }
+  }
+};
 </script>
 
 <style scoped>

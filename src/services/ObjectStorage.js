@@ -248,7 +248,23 @@ export class SupabaseStorageProvider extends ObjectStorage {
         .from(this.bucketName)
         .getPublicUrl(path);
 
-      return data.publicUrl;
+      // Check if the URL is valid and not localhost
+      if (data.publicUrl && !data.publicUrl.includes('localhost')) {
+        return data.publicUrl;
+      }
+
+      // If localhost or invalid URL, create signed URL as fallback
+      const { data: signedData, error } = await this.supabase.storage
+        .from(this.bucketName)
+        .createSignedUrl(path, 3600); // 1 hour expiry
+
+      if (error) {
+        console.error('Signed URL error:', error);
+        // Return the original URL as last resort
+        return data.publicUrl;
+      }
+
+      return signedData.signedUrl;
     } catch (error) {
       console.error('Get URL error:', error);
       throw error;
@@ -467,6 +483,8 @@ export class EvidenceStorageService {
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'application/vnd.ms-excel',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'image/jpeg',
+          'image/png',
           'text/plain',
           'text/csv'
         ],
