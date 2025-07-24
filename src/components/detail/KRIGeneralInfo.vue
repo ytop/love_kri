@@ -45,6 +45,43 @@
 </template>
 
 <script>
+import { mapState, mapActions } from 'vuex';
+
+export default {
+  name: 'KRIGeneralInfo',
+  props: {
+    kriId: {
+      type: String,
+      required: true
+    },
+    reportingDate: {
+      type: Number,
+      required: true
+    }
+  },
+  computed: {
+    ...mapState('kri', ['kriDetail', 'loading']),
+    kriData() {
+      return this.kriDetail || {};
+    }
+  },
+  async created() {
+    // Check if kriDetail is null and fetch if needed
+    if (!this.kriDetail) {
+      try {
+        await this.fetchKRIDetail({
+          kriId: this.kriId,
+          reportingDate: this.reportingDate
+        });
+      } catch (error) {
+        console.error('Error fetching KRI detail:', error);
+      }
+    }
+  },
+  methods: {
+    ...mapActions('kri', ['fetchKRIDetail'])
+  }
+};
 </script>
 
 <style scoped>

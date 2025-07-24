@@ -337,17 +337,19 @@ class BaseKRIService {
   }
 
   /**
- * Manually add audit trail entry with consistent pattern
- * @param {string|number} kriId - KRI ID
- * @param {string} reportingDate - Reporting date
- * @param {string} action - Action performed
- * @param {string} fieldName - Field that was changed
- * @param {*} oldValue - Previous value
- * @param {*} newValue - New value
- * @param {string} changedBy - User making the change
- * @param {string} comment - Additional comment
- * @returns {Promise<object>} Audit trail record
- */
+   * Audit Trail are automatically added by the server-side function updateKRI, updateAtomicKRI, updateEvidence
+   * This function is used to manually add audit trail entry only when needed
+    * Manually add audit trail entry with consistent pattern
+    * @param {string|number} kriId - KRI ID
+    * @param {string} reportingDate - Reporting date
+    * @param {string} action - Action performed
+    * @param {string} fieldName - Field that was changed
+    * @param {*} oldValue - Previous value
+    * @param {*} newValue - New value
+    * @param {string} changedBy - User making the change
+    * @param {string} comment - Additional comment
+    * @returns {Promise<object>} Audit trail record
+    */
   async addAuditTrailEntry(kriId, reportingDate, action, updateData, oldValue, newValue, changedBy, comment = '') {
     const auditData = {
       kri_id: this.parseKRIId(kriId),

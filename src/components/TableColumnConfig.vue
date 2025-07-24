@@ -30,7 +30,6 @@
             ghost-class="ghost-item"
             chosen-class="chosen-item"
             drag-class="drag-item"
-            handle=".drag-handle"
             :animation="200"
           >
             <div 
@@ -260,7 +259,7 @@ export default {
   border-radius: 4px;
   padding: 12px;
   margin-bottom: 8px;
-  cursor: pointer;
+  cursor: grab;
   transition: all 0.2s ease;
 }
 

@@ -1,10 +1,10 @@
 <template>
   <div class="kri-detail">
-    <div v-if="loading" class="loading-container">
+    <div v-if="loading || !kriDetail" class="loading-container">
       <el-skeleton :rows="8" animated />
     </div>
     
-    <div v-else-if="error || !kriDetail" class="error-container">
+    <div v-else-if="error" class="error-container">
       <NotFound />
     </div>
     
@@ -35,7 +35,10 @@
             <div slot="header" class="card-header">
               <span>General Information</span>
             </div>
-            <k-r-i-general-info :kri-data="kriDetail" />
+            <k-r-i-general-info 
+              :kri-id="String(id)" 
+              :reporting-date="parseInt(date)" 
+            />
           </el-card>
           
           <!-- KRI Overview -->
@@ -61,26 +64,6 @@
             />
           </el-card>
           
-          <!-- Simple Actions Card (if no data elements) -->
-          <el-card class="info-card simple-actions-card" v-else>
-            <div slot="header" class="card-header">
-              <span>Quick Actions</span>
-            </div>
-            <div class="simple-actions-content">
-              <!-- Unified action system -->
-              <el-button
-                v-for="action in availableKRIDetailActions"
-                :key="action.key"
-                :icon="action.icon"
-                @click="handleActionClick(action)"
-                :loading="action.loading"
-                :type="action.type"
-                :title="action.title"
-                :disabled="action.disabled">
-                {{ action.label }}
-              </el-button>
-            </div>
-          </el-card>
 
           <!-- Evidence and Audit -->
             <k-r-i-evidence-audit 
@@ -139,8 +122,16 @@ export default {
     }
   },
   computed: {
-    ...mapState('kri', ['kriDetail']),
-    ...mapState('kri', ['availableKRIDetailActions']),
+    ...mapState('kri', ['kriDetail', 'loading', 'error']),
+    atomicData() {
+      return this.$store.state.kri.atomicData;
+    },
+    evidenceData() {
+      return this.$store.state.kri.evidenceData;
+    },
+    auditTrailData() {
+      return this.$store.state.kri.auditTrailData;
+    }
   },
   watch: {
     '$route.params': {
@@ -314,28 +305,7 @@ export default {
     gap: 1rem;
   }
   
-  .simple-actions-content {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .simple-actions-content .el-button {
-    width: 100%;
-  }
 }
 
 
-.simple-actions-card .simple-actions-content {
-  display: flex;
-  flex-direction: row; /* Align buttons in a row */
-  gap: 1rem; /* Space between buttons */
-  align-items: center; /* Align items vertically */
-  justify-content: flex-start; /* Align buttons to the start of the container */
-  padding: 10px 0; /* Add some padding within the content area of the card */
-}
-
-/* If the card itself needs specific margin when it appears: */
-.simple-actions-card {
-    margin-bottom: 1.5rem; /* Same as other info-cards in the layout */
-}
 </style>

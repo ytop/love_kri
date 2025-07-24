@@ -17,7 +17,7 @@
           </el-button>
         </div>
         
-        <div v-if="evidenceData.length === 0" class="no-data">
+        <div v-if="evidenceData?.length === 0" class="no-data">
           <p>No evidence files available</p>
         </div>
         
@@ -80,7 +80,7 @@
       </el-tab-pane>
       
       <el-tab-pane label="Audit Trail" name="audit">
-        <div v-if="auditData.length === 0" class="no-data">
+        <div v-if="auditData?.length === 0" class="no-data">
           <p>No audit trail records available</p>
         </div>
         
@@ -127,12 +127,145 @@
       :visible.sync="uploadModalVisible"
       :kri-id="kriId"
       :reporting-date="reportingDate"
+      :kri-item="kriItem"
       @upload-success="handleUploadSuccess"
+      @close="handleModalClose"
     />
   </div>
 </template>
 
 <script>
+import { mapState, mapGetters } from 'vuex';
+import { formatDateFromInt } from '@/utils/helpers';
+
+export default {
+  name: 'KRIEvidenceAudit',
+  props: {
+    evidenceData: {
+      type: Array,
+      default: () => []
+    },
+    auditData: {
+      type: Array,
+      default: () => []
+    },
+    kriId: {
+      type: String,
+      required: true
+    },
+    reportingDate: {
+      type: Number,
+      required: true
+    },
+    currentStatus: {
+      type: Number,
+      default: null
+    },
+    kriItem: {
+      type: Object,
+      default: () => ({})
+    }
+  },
+  data() {
+    return {
+      activeTab: 'evidence',
+      uploadModalVisible: false
+    };
+  },
+  computed: {
+    ...mapState('kri', ['currentUser']),
+    ...mapGetters('kri', ['canPerform']),
+    
+    bothDataEmpty() {
+      return (!this.evidenceData || this.evidenceData?.length === 0) && 
+             (!this.auditData || this.auditData?.length === 0);
+    },
+    
+    canUploadEvidence() {
+      if (!this.currentUser || !this.currentUser.permissions) {
+        return false;
+      }
+      
+      const kriIdNum = parseInt(this.kriId, 10);
+      const allowedStatuses = [10, 20, 30, 40, 50];
+      const hasValidStatus = allowedStatuses.includes(this.currentStatus);
+      
+      return hasValidStatus && this.canPerform(kriIdNum, null, 'edit');
+    }
+  },
+  methods: {
+    formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      
+      try {
+        if (typeof dateString === 'string' && dateString.includes('T')) {
+          const date = new Date(dateString);
+          return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+        
+        if (typeof dateString === 'number') {
+          return formatDateFromInt(dateString);
+        }
+        
+        const date = new Date(dateString);
+        return date.toLocaleDateString();
+      } catch (error) {
+        console.warn('Error formatting date:', error);
+        return 'Invalid Date';
+      }
+    },
+    
+    showUploadModal() {
+      this.uploadModalVisible = true;
+    },
+    
+    async downloadFile(fileUrl, fileName) {
+      if (!fileUrl) {
+        this.$message.warning('File URL not available');
+        return;
+      }
+      
+      try {
+        const response = await fetch(fileUrl);
+        if (!response.ok) {
+          throw new Error('Failed to fetch file');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName || 'download';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        this.$message.success('File downloaded successfully');
+      } catch (error) {
+        console.error('Error downloading file:', error);
+        this.$message.error('Failed to download file');
+      }
+    },
+    
+    handleUploadSuccess() {
+      this.uploadModalVisible = false;
+      this.$message.success('Evidence uploaded successfully');
+      
+      this.$emit('evidence-uploaded');
+    },
+    
+    handleModalClose() {
+      this.uploadModalVisible = false;
+    }
+  },
+  components: {
+    EvidenceUploadModal: () => import('@/components/shared/EvidenceUploadModal.vue').catch(() => {
+      console.warn('EvidenceUploadModal component not found');
+      return { template: '<div></div>' };
+    })
+  }
+};
 </script>
 
 <style scoped>
@@ -172,7 +305,8 @@
 }
 
 .audit-item {
-  padding: 0.5rem 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .audit-header {
@@ -194,6 +328,9 @@
   margin: 0.25rem 0;
   font-size: 0.875rem;
   color: #6b7280;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .audit-details strong,
