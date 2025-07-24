@@ -186,12 +186,12 @@ export default {
       try {
         const fileHash = await excelParserService.generateFileHash(file.raw || file);
         
-        // Check for duplicates
+        // Check for duplicates in current session
         if (this.fileHashes.has(fileHash)) {
           const existingFile = this.fileHashes.get(fileHash);
           this.$confirm(
-            `This file appears to be identical to "${existingFile.name}". Do you want to continue?`,
-            'Duplicate File Detected',
+            `This file appears to be identical to "${existingFile.name}" in your current upload. Do you want to continue?`,
+            'Duplicate File in Current Upload',
             {
               confirmButtonText: 'Continue',
               cancelButtonText: 'Remove',
@@ -199,15 +199,22 @@ export default {
             }
           ).then(() => {
             // User chose to continue with duplicate
-            this.fileHashes.set(fileHash, { name: file.name, uid: file.uid });
+            this.fileHashes.set(fileHash, { name: file.name, uid: file.uid, hash: fileHash });
             this.duplicateWarnings.push(file.name);
           }).catch(() => {
             // User chose to remove duplicate
             this.handleFileRemove(file, fileList);
           });
         } else {
-          // New unique file
-          this.fileHashes.set(fileHash, { name: file.name, uid: file.uid });
+          // Check for system-wide duplicates
+          const existingFiles = await kriService.checkFileExists(fileHash);
+          
+          if (existingFiles && existingFiles.length > 0) {
+            await this.handleSystemWideDuplicate(file, fileList, fileHash, existingFiles);
+          } else {
+            // New unique file
+            this.fileHashes.set(fileHash, { name: file.name, uid: file.uid, hash: fileHash });
+          }
         }
         
         // Auto-parse Excel files for case 1 KRIs
@@ -251,6 +258,55 @@ export default {
     beforeUpload(_file) {
       // Prevent auto-upload since we handle manual upload
       return false;
+    },
+
+    // System-wide Duplicate Handler
+    async handleSystemWideDuplicate(file, fileList, fileHash, existingFiles) {
+      const mostRecent = existingFiles[0];
+      const uploadedDate = new Date(mostRecent.uploaded_at).toLocaleDateString();
+      const totalDuplicates = existingFiles.length;
+      
+      let message = `This file already exists in the system!\n\n`;
+      message += `Most recent upload:\n`;
+      message += `• File: ${mostRecent.file_name}\n`;
+      message += `• Uploaded by: ${mostRecent.uploaded_by || 'Unknown'}\n`;
+      message += `• Date: ${uploadedDate}\n`;
+      message += `• KRI ID: ${mostRecent.kri_id}\n`;
+      
+      if (totalDuplicates > 1) {
+        message += `\n(${totalDuplicates} total uploads of this file found)`;
+      }
+      
+      message += `\n\nWhat would you like to do?`;
+
+      try {
+        await this.$confirm(message, 'File Already Exists in System', {
+          confirmButtonText: 'Upload Anyway',
+          cancelButtonText: 'Skip This File',
+          type: 'warning',
+          customClass: 'duplicate-warning-dialog'
+        });
+        
+        // User chose to upload anyway
+        this.fileHashes.set(fileHash, { 
+          name: file.name, 
+          uid: file.uid, 
+          hash: fileHash,
+          isDuplicate: true,
+          existingFiles: existingFiles
+        });
+        this.duplicateWarnings.push(`${file.name} (system duplicate)`);
+        
+        this.$message.warning(
+          `Proceeding with upload of duplicate file: ${file.name}`,
+          { duration: 3000 }
+        );
+        
+      } catch (error) {
+        // User chose to skip this file
+        this.handleFileRemove(file, fileList);
+        this.$message.info(`Skipped duplicate file: ${file.name}`);
+      }
     },
 
     // Excel Auto-Parse Handler
@@ -379,12 +435,17 @@ export default {
               getUserDisplayName(this.currentUser)
             );
 
+            // Get the MD5 hash for this file
+            const fileInfo = this.getFileInfoByUid(file.uid);
+            const md5Hash = fileInfo ? fileInfo.hash : null;
+
             // Save evidence record to database
             await this.saveEvidenceToDatabase({
               file_name: file.name,
               file_url: uploadResult.fileInfo.url,
               description: this.uploadForm.description,
-              uploaded_by: getUserDisplayName(this.currentUser)
+              uploaded_by: getUserDisplayName(this.currentUser),
+              md5: md5Hash
             });
 
             successCount++;
@@ -494,7 +555,8 @@ export default {
         file_url: evidenceData.file_url,
         description: evidenceData.description,
         uploaded_by: evidenceData.uploaded_by,
-        uploaded_at: new Date().toISOString()
+        uploaded_at: new Date().toISOString(),
+        md5: evidenceData.md5 || null
       };
 
       await kriService.insertEvidence(
@@ -570,6 +632,15 @@ export default {
     },
 
     // Utility Methods
+    getFileInfoByUid(uid) {
+      for (const fileInfo of this.fileHashes.values()) {
+        if (fileInfo.uid === uid) {
+          return fileInfo;
+        }
+      }
+      return null;
+    },
+
     getFileExtension(filename) {
       return filename.substring(filename.lastIndexOf('.'));
     },
@@ -705,5 +776,18 @@ export default {
 .evidence-upload-dialog + .v-modal {
   z-index: 2049 !important;
   background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Duplicate warning dialog styling */
+.duplicate-warning-dialog .el-message-box__message {
+  white-space: pre-line;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.duplicate-warning-dialog .el-message-box__btns {
+  text-align: center;
+  padding-top: 20px;
 }
 </style>

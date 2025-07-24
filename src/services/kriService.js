@@ -102,7 +102,16 @@ class BaseKRIService {
  * @returns {Promise<object>} Query result with historical data ordered by reporting_date
  */
   async fetchKRIHistorical(kriId, months = 12) {
-    const kriIdInt = this.parseKRIId(kriId)[0]; // Single KRI ID only
+    if (kriId === '*') {
+      throw new Error('kriId cannot be "*"');
+    }
+    const kriIdInts = this.parseKRIId(kriId)
+    let kriIdInt;
+    if (kriIdInts.length == 1) {
+      kriIdInt = kriIdInts[0];
+    } else {
+      throw new Error('kriId must be a single value');
+    }
     
     // Calculate date range for the last N months
     const today = new Date();
@@ -534,6 +543,24 @@ export const kriService = {
   async insertEvidence(kriId, reportingDate, evidenceData, changedBy, action, comment = '') {
     const { data } = await baseKRIService.insertEvidence(kriId, reportingDate, evidenceData, changedBy, action, comment);
     return data;
+  },
+
+  async checkFileExists(md5Hash) {
+    if (!md5Hash) return null;
+    
+    const { data, error } = await supabase
+      .from('kri_evidence')
+      .select('evidence_id, kri_id, reporting_date, file_name, uploaded_by, uploaded_at')
+      .eq('md5', md5Hash)
+      .order('uploaded_at', { ascending: false })
+      .limit(5); // Get up to 5 most recent duplicates
+    
+    if (error) {
+      console.error('Error checking file duplicates:', error);
+      return null;
+    }
+    
+    return data && data.length > 0 ? data : null;
   },
 
   async updateAuditTrail(kriId, reportingDate, updateData, changedBy, action, comment = '') {
