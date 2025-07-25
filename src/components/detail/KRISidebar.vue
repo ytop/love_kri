@@ -375,7 +375,7 @@ export default {
             },
             title: { // Title for context if needed, e.g. "Breach Level"
               show: true,
-              offsetCenter: [0, '20%'],
+              offsetCenter: [0, '40%'],
               fontSize: 12,
               color: '#666'
             },
@@ -384,7 +384,7 @@ export default {
               width: '60%',
               lineHeight: 30, // Adjusted line height
               borderRadius: 6,  // Adjusted border radius
-              offsetCenter: [0, '-10%'], // Adjusted position
+              offsetCenter: [0, '60%'], // Adjusted position
               fontSize: 20, // Larger font size
               fontWeight: 'bold', // Bolder font
               formatter: '{value}%',

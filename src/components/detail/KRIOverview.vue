@@ -166,6 +166,14 @@
                   :disabled="!canSubmitValue">
                   Save and Submit
                 </el-button>
+                <el-button
+                  v-if="canUploadEvidence"
+                  type="info"
+                  icon="el-icon-upload2"
+                  @click="showUploadModal"
+                  :loading="inputLoading">
+                  Upload Evidence
+                </el-button>
               </div>
             </el-form-item>
           </el-form>

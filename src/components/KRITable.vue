@@ -126,6 +126,90 @@
           </template>
         </el-table-column>
         
+        <!-- KRI Status column with special handling -->
+        <el-table-column
+          v-else-if="column.key === 'kriStatus'"
+          :key="column.key"
+          prop="kriStatus"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          sortable
+        >
+          <template slot-scope="scope">
+            <el-tag
+              :type="getStatusTagType(scope.row.kriStatus)"
+              size="small"
+              class="status-tag"
+            >
+              {{ getKRIStatusLabel(scope.row.kriStatus) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        
+        <!-- Created At column with date formatting -->
+        <el-table-column
+          v-else-if="column.key === 'createdAt'"
+          :key="column.key"
+          prop="createdAt"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          sortable
+        >
+          <template slot-scope="scope">
+            {{ formatDateDisplay(scope.row.createdAt) }}
+          </template>
+        </el-table-column>
+        
+        <!-- Is Calculated KRI column with icon display -->
+        <el-table-column
+          v-else-if="column.key === 'isCalculatedKri'"
+          :key="column.key"
+          prop="isCalculatedKri"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          sortable
+        >
+          <template slot-scope="scope">
+            <div class="calculated-kri-indicator">
+              <i 
+                v-if="scope.row.isCalculatedKri" 
+                class="el-icon-s-operation calculated-icon"
+                title="Calculated KRI"
+              ></i>
+              <span v-else class="manual-indicator">Manual</span>
+            </div>
+          </template>
+        </el-table-column>
+        
+        <!-- Source column with tag display -->
+        <el-table-column
+          v-else-if="column.key === 'source'"
+          :key="column.key"
+          prop="source"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          sortable
+        >
+          <template slot-scope="scope">
+            <el-tag 
+              v-if="scope.row.source" 
+              :type="getSourceTagType(scope.row.source)"
+              size="mini"
+            >
+              {{ getSourceDisplayText(scope.row.source) }}
+            </el-tag>
+            <span v-else class="no-source">-</span>
+          </template>
+        </el-table-column>
+        
         <!-- Standard columns -->
         <el-table-column
           v-else
@@ -154,7 +238,8 @@ import {
   calculateAtomicBreach,
   getKRIStatusLabel,
   sortNumeric,
-  loadTablePreferencesFromStorage
+  loadTablePreferencesFromStorage,
+  formatDateFromInt
 } from '@/utils/helpers';
 import expandableTableMixin from '@/mixins/expandableTableMixin';
 import TableColumnConfig from '@/components/TableColumnConfig.vue';
@@ -251,6 +336,10 @@ export default {
     getBreachDescription(breachType) {
       return getBreachDescription(breachType);
     },
+    
+    getKRIStatusLabel(status) {
+      return getKRIStatusLabel(status);
+    },
     getSortMethod(dataType) {
       if (dataType === 'numeric') {
         return sortNumeric;
@@ -280,6 +369,53 @@ export default {
           tableType: this.tableType,
           preferences: stored
         });
+      }
+    },
+
+    // New formatting methods for additional columns
+    formatDateDisplay(dateValue) {
+      if (!dateValue) return 'N/A';
+      
+      try {
+        // Handle different date formats
+        if (typeof dateValue === 'number') {
+          return formatDateFromInt(dateValue);
+        } else if (typeof dateValue === 'string') {
+          const date = new Date(dateValue);
+          return date.toLocaleDateString();
+        }
+        return dateValue;
+      } catch (error) {
+        console.warn('Error formatting date:', error);
+        return 'Invalid Date';
+      }
+    },
+
+    getSourceTagType(source) {
+      switch (source?.toLowerCase()) {
+        case 'autoparse':
+          return 'success';
+        case 'system':
+          return 'info';
+        case 'manual':
+          return 'warning';
+        default:
+          return '';
+      }
+    },
+
+    getSourceDisplayText(source) {
+      if (!source) return '-';
+      
+      switch (source.toLowerCase()) {
+        case 'autoparse':
+          return 'Auto Parse';
+        case 'system':
+          return 'System';
+        case 'manual':
+          return 'Manual';
+        default:
+          return source;
       }
     }
   }
@@ -412,5 +548,28 @@ export default {
   font-size: 10px;
   height: 18px;
   line-height: 16px;
+}
+
+/* New column specific styling */
+.calculated-kri-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calculated-icon {
+  color: #409eff;
+  font-size: 16px;
+}
+
+.manual-indicator {
+  font-size: 12px;
+  color: #909399;
+  font-style: italic;
+}
+
+.no-source {
+  color: #c0c4cc;
+  font-style: italic;
 }
 </style>

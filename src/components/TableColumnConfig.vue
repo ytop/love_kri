@@ -27,10 +27,12 @@
           <draggable 
             v-model="localColumns" 
             class="column-list"
+            :class="{ 'drag-disabled': dragDisabled }"
             ghost-class="ghost-item"
             chosen-class="chosen-item"
             drag-class="drag-item"
             :animation="200"
+            :disabled="dragDisabled"
           >
             <div 
               v-for="column in localColumns" 
@@ -52,11 +54,16 @@
               </div>
               
               <!-- Enable/disable toggle -->
-              <div class="column-toggle">
+              <div 
+                class="column-toggle"
+                @mouseenter="dragDisabled = true"
+                @mouseleave="dragDisabled = false"
+              >
                 <el-switch 
                   v-model="column.enabled"
                   :disabled="column.required"
                   size="small"
+                  class="toggle-switch"
                 >
                 </el-switch>
               </div>
@@ -112,7 +119,8 @@ export default {
   data() {
     return {
       dialogVisible: false,
-      localColumns: []
+      localColumns: [],
+      dragDisabled: false
     };
   },
   computed: {
@@ -251,6 +259,10 @@ export default {
   min-height: 200px;
 }
 
+.column-list.drag-disabled .column-item {
+  cursor: default;
+}
+
 .column-item {
   display: flex;
   align-items: center;
@@ -283,14 +295,19 @@ export default {
   cursor: grab;
   font-size: 16px;
   min-width: 16px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .drag-handle:hover {
   color: #909399;
+  background-color: #f5f7fa;
 }
 
 .drag-handle:active {
   cursor: grabbing;
+  background-color: #e4e7ed;
 }
 
 .column-info {
@@ -312,6 +329,17 @@ export default {
 
 .column-toggle {
   margin-left: 12px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.column-toggle:hover {
+  background-color: #f5f7fa;
+}
+
+.toggle-switch {
+  cursor: pointer;
 }
 
 /* Dragging states */

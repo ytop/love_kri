@@ -1,9 +1,6 @@
 <template>
   <div class="evidence-audit">
-    <div v-if="bothDataEmpty" class="no-data-prominent">
-      <p>No evidence or audit trail information is available for this KRI.</p>
-    </div>
-    <div v-else class="tabs-container">
+    <div class="tabs-container">
       <el-tabs v-model="activeTab" type="border-card">
       
       <el-tab-pane label="Evidence" name="evidence">
@@ -243,10 +240,6 @@ export default {
     ...mapState('kri', ['currentUser']),
     ...mapGetters('kri', ['canPerform']),
     
-    bothDataEmpty() {
-      return (!this.evidenceData || this.evidenceData?.length === 0) && 
-             (!this.auditData || this.auditData?.length === 0);
-    },
     
     canUploadEvidence() {
       if (!this.currentUser || !this.currentUser.permissions) {
@@ -464,16 +457,6 @@ export default {
   padding: 0 5px;
 }
 
-.no-data-prominent {
-  text-align: center;
-  padding: 2rem;
-  color: #ef4444; /* Prominent color, adjust as needed */
-  font-size: 1.125rem; /* Larger font size */
-  border: 1px solid #fecaca; /* Optional border */
-  background-color: #fee2e2; /* Optional background */
-  border-radius: 0.375rem; /* Optional rounded corners */
-  margin-bottom: 1rem; /* Space before tabs if they were to appear */
-}
 
 .no-data {
   text-align: center;
