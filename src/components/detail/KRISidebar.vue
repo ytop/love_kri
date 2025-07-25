@@ -310,9 +310,18 @@ export default {
       return null;
     },
 
-    // Chart Options - Using previous design template
+    // Chart Options - Using actual KRI thresholds for dynamic color zones
     gaugeOption() {
-      const value = this.kriData.kri_value || this.kriData.kriValue || 67; // Use actual value or fallback
+      const value = parseFloat(this.kriData.kri_value) || 0;
+      const warning = parseFloat(this.kriData.warning_line_value) || 0;
+      const limit = parseFloat(this.kriData.limit_value) || 0;
+      
+      // Set dynamic max value with buffer
+      const maxValue = limit * 1.2;
+      
+      // Calculate segment positions as ratios
+      const warningRatio = warning / maxValue;
+      const limitRatio = limit / maxValue;
 
       return {
         series: [
@@ -322,15 +331,15 @@ export default {
             startAngle: 200,
             endAngle: -20,
             min: 0,
-            max: 100,
+            max: maxValue,
             splitNumber: 10, // More granularity for segments
             axisLine: {
               lineStyle: {
                 width: 18,
-                color: [ // Segment colors
-                  [0.3, '#67C23A'], // Green for 0-30%
-                  [0.7, '#E6A23C'], // Yellow for 30-70%
-                  [1, '#F56C6C']    // Red for 70-100%
+                color: [ // Dynamic color segments based on actual thresholds
+                  [warningRatio, '#67C23A'], // Green: 0 to warning
+                  [limitRatio, '#E6A23C'],   // Yellow: warning to limit
+                  [1, '#F56C6C']             // Red: limit to max
                 ]
               }
             },
@@ -368,7 +377,10 @@ export default {
             axisLabel: { // Show labels for thresholds
               distance: -10, // Adjusted distance
               color: 'auto', // Use segment colors or a default
-              fontSize: 9
+              fontSize: 9,
+              formatter: function(value) {
+                return -1 < value && value < 1 ? value : Math.round(value);
+              }
             },
             anchor: {
               show: false
@@ -387,12 +399,12 @@ export default {
               offsetCenter: [0, '60%'], // Adjusted position
               fontSize: 20, // Larger font size
               fontWeight: 'bold', // Bolder font
-              formatter: '{value}%',
+              formatter: '{value}', // Show raw value without percentage
               color: 'auto' // Color based on segment
             },
             data: [
               {
-                value: Math.round(value), // Use actual KRI value
+                value: -1 < value && value < 1 ? value : Math.round(value), // Round axis labels to integers
                 name: 'Status' // Optional name for title
               }
             ]

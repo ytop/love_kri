@@ -210,6 +210,29 @@
           </template>
         </el-table-column>
         
+        <!-- KRI Value column with color coding based on breach type ---->
+        <el-table-column
+          v-else-if="column.key === 'kriValue'"
+          :key="column.key"
+          prop="kriValue"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+          :sortable="column?.sortable ?? false"
+          :sort-method="getSortMethod(column?.sortType ?? 'numeric')"
+          show-overflow-tooltip
+        >
+          <template slot-scope="scope">
+            <span 
+              :class="getKRIValueColorClass(scope.row.breachType)" 
+              class="kri-value-display"
+            >
+              {{ scope.row.kriValue || 'N/A' }}
+            </span>
+          </template>
+        </el-table-column>
+        
         <!-- Standard columns -->
         <el-table-column
           v-else
@@ -417,6 +440,11 @@ export default {
         default:
           return source;
       }
+    },
+
+    getKRIValueColorClass(breachType) {
+      const tagType = this.getBreachTagType(breachType);
+      return `kri-value-${tagType}`;
     }
   }
 };
@@ -571,5 +599,25 @@ export default {
 .no-source {
   color: #c0c4cc;
   font-style: italic;
+}
+
+/* KRI Value color coding based on breach type (using App.vue color scheme) */
+.kri-value-success {
+  color: #15803d;
+  font-weight: 500;
+}
+
+.kri-value-warning {
+  color: #92400e;
+  font-weight: 500;
+}
+
+.kri-value-danger {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.kri-value-display {
+  display: inline-block;
 }
 </style>

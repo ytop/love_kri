@@ -208,7 +208,6 @@ export default StatusManager;
 // ---------------------------------- breach status mapping getters ----------------------------------
 
 // Breach Status Configuration
-// TODO: check if this is needed, suspect not used anywhere
 export const BREACH_STATUS_CONFIG = {
   'No Breach': {
     label: 'No Breach',
