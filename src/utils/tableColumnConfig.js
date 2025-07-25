@@ -125,17 +125,33 @@ class TableColumnManager {
       sortable: true,
       order: 16
     },
+    negativeWarning: {
+      key: 'negativeWarning',
+      label: 'Negative Warning',
+      minWidth: 110,
+      sortType: 'numeric',
+      sortable: true,
+      order: 17
+    },
+    negativeLimit: {
+      key: 'negativeLimit',
+      label: 'Negative Limit',
+      minWidth: 110,
+      sortType: 'numeric',
+      sortable: true,
+      order: 18
+    },
     reportingFrequency: {
       key: 'reportingFrequency',
       label: 'Reporting Frequency',
       minWidth: 130,
-      order: 17
+      order: 19
     },
     kriFormula: {
       key: 'kriFormula',
       label: 'KRI Formula',
       minWidth: 150,
-      order: 18
+      order: 20
     },
     kriStatus: {
       key: 'kriStatus',
@@ -143,25 +159,25 @@ class TableColumnManager {
       minWidth: 100,
       sortType: 'numeric',
       sortable: true,
-      order: 19
+      order: 21
     },
     createdAt: {
       key: 'createdAt',
       label: 'Created At',
       minWidth: 130,
-      order: 20
+      order: 22
     },
     isCalculatedKri: {
       key: 'isCalculatedKri',
       label: 'Calculated KRI',
       minWidth: 110,
-      order: 21
+      order: 23
     },
     source: {
       key: 'source',
       label: 'Source',
       minWidth: 100,
-      order: 22
+      order: 24
     },
     evidenceId: {
       key: 'evidenceId',
@@ -169,7 +185,7 @@ class TableColumnManager {
       minWidth: 100,
       sortType: 'numeric',
       sortable: true,
-      order: 23
+      order: 25
     },
     actions: {
       key: 'actions',
@@ -187,7 +203,7 @@ class TableColumnManager {
       availableColumns: [
         'selection', 'id', 'name', 'kriDescription', 'owner', 'dataProvider', 
         'collectionStatus', 'l1RiskType', 'l2RiskType', 'rasMetric',
-        'breachType', 'kriValue', 'limitValue', 'warningLineValue',
+        'breachType', 'kriValue', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
         'reportingCycle', 'reportingDate', 'reportingFrequency', 'kriFormula',
         'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId'
       ],
@@ -199,7 +215,7 @@ class TableColumnManager {
       defaultOrder: [
         'selection', 'id', 'name', 'kriDescription', 'owner', 'dataProvider',
         'collectionStatus', 'l1RiskType', 'l2RiskType', 'rasMetric',
-        'breachType', 'kriValue', 'limitValue', 'warningLineValue',
+        'breachType', 'kriValue', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
         'reportingCycle', 'reportingDate', 'reportingFrequency', 'kriFormula',
         'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId'
       ]

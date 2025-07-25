@@ -125,7 +125,7 @@
         </div>
       </el-tab-pane>
       
-      <el-tab-pane label="Audit Trail" name="audit">
+      <el-tab-pane label="KRI Change Log" name="audit">
         <div class="evidence-header">
           <div></div>
           <el-button
@@ -147,7 +147,7 @@
           <div class="audit-timeline-container" :class="{ 'scrollable': auditData.length > 5 }">
             <el-timeline>
               <el-timeline-item
-                v-for="audit in auditData.slice().reverse()"
+                v-for="audit in sortedAuditData"
                 :key="audit.audit_id"
                 :timestamp="formatDate(audit.changed_at)"
                 placement="top"
@@ -181,6 +181,73 @@
           </div>
         </div>
       </el-tab-pane>
+
+      <el-tab-pane label="Metadata Changes" name="metadata">
+        <div class="evidence-header">
+          <div></div>
+          <el-button
+            v-if="metadataHistoryData?.length > 0"
+            type="primary"
+            size="small"
+            icon="el-icon-download"
+            @click="exportMetadataCSV"
+          >
+            Export CSV
+          </el-button>
+        </div>
+
+        <div v-if="metadataHistoryData?.length === 0" class="no-data">
+          <p>No metadata change records available</p>
+        </div>
+
+        <div v-else>
+          <div class="audit-timeline-container" :class="{ 'scrollable': metadataHistoryData.length > 5 }">
+            <el-timeline>
+              <el-timeline-item
+                v-for="metadata in sortedMetadataHistoryData"
+                :key="metadata.metadata_id"
+                :timestamp="formatDate(metadata.changed_at)"
+                placement="top"
+              >
+                                 <el-card>
+                   <div class="audit-item">
+                     <div class="audit-header">
+                       <strong>Metadata Change</strong>
+                       <span v-if="metadata.changed_by" class="changed-by">
+                         by {{ metadata.changed_by }}
+                       </span>
+                     </div>
+
+                     <div class="audit-details">
+                       <p><strong>Effective From:</strong> {{ formatDate(metadata.effective_from) }}</p>
+                       <p v-if="metadata.effective_to"><strong>Effective To:</strong> {{ formatDate(metadata.effective_to) }}</p>
+                       <p v-if="metadata.change_reason"><strong>Change Reason:</strong> {{ metadata.change_reason }}</p>
+                     </div>
+
+                     <div class="metadata-fields">
+                       <p><strong>Name:</strong> {{ metadata.name }}</p>
+                       <p v-if="metadata.description"><strong>Description:</strong> {{ metadata.description }}</p>
+                       <p v-if="metadata.formula"><strong>Formula:</strong> {{ metadata.formula }}</p>
+                       <p v-if="metadata.owner"><strong>Owner:</strong> {{ metadata.owner }}</p>
+                       <p v-if="metadata.data_provider"><strong>Data Provider:</strong> {{ metadata.data_provider }}</p>
+                       <p v-if="metadata.l1_risk_type"><strong>L1 Risk Type:</strong> {{ metadata.l1_risk_type }}</p>
+                       <p v-if="metadata.l2_risk_type"><strong>L2 Risk Type:</strong> {{ metadata.l2_risk_type }}</p>
+                       <p v-if="metadata.ras_metric"><strong>RAS Metric:</strong> {{ metadata.ras_metric }}</p>
+                       <p v-if="metadata.breach_type"><strong>Breach Type:</strong> {{ metadata.breach_type }}</p>
+                       <p v-if="metadata.limit_value !== null"><strong>Limit Value:</strong> {{ metadata.limit_value }}</p>
+                       <p v-if="metadata.warning_line_value !== null"><strong>Warning Line Value:</strong> {{ metadata.warning_line_value }}</p>
+                       <p v-if="metadata.negative_warning !== null"><strong>Negative Warning:</strong> {{ metadata.negative_warning }}</p>
+                       <p v-if="metadata.negative_limit !== null"><strong>Negative Limit:</strong> {{ metadata.negative_limit }}</p>
+                       <p v-if="metadata.reporting_frequency"><strong>Reporting Frequency:</strong> {{ metadata.reporting_frequency }}</p>
+                       <p><strong>Is Calculated KRI:</strong> {{ metadata.is_calculated_kri ? 'Yes' : 'No' }}</p>
+                     </div>
+                   </div>
+                 </el-card>
+              </el-timeline-item>
+            </el-timeline>
+          </div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
     </div>
 
@@ -209,6 +276,10 @@ export default {
       default: () => []
     },
     auditData: {
+      type: Array,
+      default: () => []
+    },
+    metadataHistoryData: {
       type: Array,
       default: () => []
     },
@@ -272,6 +343,32 @@ export default {
     
     selectedEvidenceId() {
       return this.kriItem?.evidence_id || null;
+    },
+    
+    sortedAuditData() {
+      if (!this.auditData || this.auditData.length === 0) {
+        return [];
+      }
+      
+      // Sort by changed_at timestamp (newest first) as backup to database sorting
+      return this.auditData.slice().sort((a, b) => {
+        const dateA = new Date(a.changed_at);
+        const dateB = new Date(b.changed_at);
+        return dateB - dateA; // Descending order (newest first)
+      });
+    },
+
+    sortedMetadataHistoryData() {
+      if (!this.metadataHistoryData || this.metadataHistoryData.length === 0) {
+        return [];
+      }
+
+      // Sort by changed_at timestamp (newest first) as backup to database sorting
+      return this.metadataHistoryData.slice().sort((a, b) => {
+        const dateA = new Date(a.changed_at);
+        const dateB = new Date(b.changed_at);
+        return dateB - dateA; // Descending order (newest first)
+      });
     }
   },
   methods: {
@@ -424,6 +521,56 @@ export default {
       URL.revokeObjectURL(url);
       
       this.$message.success('Audit trail exported successfully');
+    },
+
+    exportMetadataCSV() {
+      if (!this.metadataHistoryData || this.metadataHistoryData.length === 0) {
+        this.$message.warning('No metadata change data to export');
+        return;
+      }
+
+      const headers = ['Date/Time', 'Changed By', 'Effective From', 'Effective To', 'Change Reason', 'Name', 'Description', 'Formula', 'Owner', 'Data Provider', 'L1 Risk Type', 'L2 Risk Type', 'RAS Metric', 'Breach Type', 'Limit Value', 'Warning Line Value', 'Negative Warning', 'Negative Limit', 'Reporting Frequency', 'Is Calculated KRI'];
+      const csvContent = [headers.join(',')];
+
+      this.metadataHistoryData.forEach(metadata => {
+        const row = [
+          `"${this.formatDate(metadata.changed_at)}"`,
+          `"${metadata.changed_by || ''}"`,
+          `"${this.formatDate(metadata.effective_from)}"`,
+          `"${metadata.effective_to ? this.formatDate(metadata.effective_to) : ''}"`,
+          `"${metadata.change_reason || ''}"`,
+          `"${metadata.name || ''}"`,
+          `"${metadata.description || ''}"`,
+          `"${metadata.formula || ''}"`,
+          `"${metadata.owner || ''}"`,
+          `"${metadata.data_provider || ''}"`,
+          `"${metadata.l1_risk_type || ''}"`,
+          `"${metadata.l2_risk_type || ''}"`,
+          `"${metadata.ras_metric || ''}"`,
+          `"${metadata.breach_type || ''}"`,
+          `"${metadata.limit_value || ''}"`,
+          `"${metadata.warning_line_value || ''}"`,
+          `"${metadata.negative_warning || ''}"`,
+          `"${metadata.negative_limit || ''}"`,
+          `"${metadata.reporting_frequency || ''}"`,
+          `"${metadata.is_calculated_kri ? 'Yes' : 'No'}"`
+        ];
+        csvContent.push(row.join(','));
+      });
+
+      const csvString = csvContent.join('\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `metadata_changes_${this.kriId}_${this.reportingDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      this.$message.success('Metadata changes exported successfully');
     }
   },
   components: {
@@ -502,6 +649,29 @@ export default {
 .audit-details strong,
 .audit-comment strong {
   color: #374151;
+}
+
+.metadata-fields {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: #f8fafc;
+  border-radius: 4px;
+  border-left: 3px solid #3b82f6;
+}
+
+.metadata-fields p {
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.metadata-fields strong {
+  color: #374151;
+  min-width: 120px;
+  display: inline-block;
 }
 
 /* Audit trail scroll functionality */

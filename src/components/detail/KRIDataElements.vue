@@ -859,7 +859,7 @@ export default {
 }
 
 /* Status Badges Styles */
-/* Status badge styles now in global src/styles/status.css */
+/* Status badge styles - using Element UI classes */
 
 /* Icon Styles (Placeholders) */
 .icon {

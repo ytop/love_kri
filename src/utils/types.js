@@ -309,6 +309,8 @@ export function transformKRIData(data, mapStatus) {
     kriValue: kri.kri_value || 'N/A',
     warningLineValue: kri.warning_line_value,
     limitValue: kri.limit_value,
+    negativeWarning: kri.negative_warning,
+    negativeLimit: kri.negative_limit,
     reportingCycle: kri.reporting_frequency || '',
     reportingDate: kri.reporting_date, // Keep as integer for internal operations
     isCalculatedKri: kri.is_calculated_kri || false, // Map calculated KRI flag

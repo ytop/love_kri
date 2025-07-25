@@ -142,7 +142,6 @@ import {
   getSaveValidationMessage,
   getSubmitValidationMessage
 } from '@/utils/helpers';
-import Permission from '@/utils/permission';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { GaugeChart, LineChart } from 'echarts/charts';
@@ -178,7 +177,7 @@ export default {
       required: true
     },
     reportingDate: {
-      type: Number,
+      type: String,
       required: true
     },
     kriData: {

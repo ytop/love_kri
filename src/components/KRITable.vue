@@ -416,14 +416,14 @@ export default {
 
     getSourceTagType(source) {
       switch (source?.toLowerCase()) {
-        case 'autoparse':
-          return 'success';
-        case 'system':
-          return 'info';
-        case 'manual':
-          return 'warning';
-        default:
-          return '';
+      case 'autoparse':
+        return 'success';
+      case 'system':
+        return 'info';
+      case 'manual':
+        return 'warning';
+      default:
+        return '';
       }
     },
 
@@ -431,14 +431,14 @@ export default {
       if (!source) return '-';
       
       switch (source.toLowerCase()) {
-        case 'autoparse':
-          return 'Auto Parse';
-        case 'system':
-          return 'System';
-        case 'manual':
-          return 'Manual';
-        default:
-          return source;
+      case 'autoparse':
+        return 'Auto Parse';
+      case 'system':
+        return 'System';
+      case 'manual':
+        return 'Manual';
+      default:
+        return source;
       }
     },
 

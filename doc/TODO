@@ -38,7 +38,7 @@ add formula change for atomic data element
 
 STD div avg 12 month, fluctuation range
 
-evidence tabs 和 audit trail tabs 宽度随意大小变化
+evidence tabs 和 audit trail tabs 宽度随地大小变
   - Problem: Tab container width changes when switching between Evidence and Audit Trail tabs
   - Root cause: Element UI tabs only render active tab content, causing width calculation based on current tab only
   - Attempted solutions:
@@ -48,3 +48,10 @@ evidence tabs 和 audit trail tabs 宽度随意大小变化
   - Current status: not fixed
   - Ideal solution needed: Dynamic width calculation based on max(evidence_content_width, audit_content_width)
 Improve UI/UX desig
+
+@kriService.js
+- updateAtomicKRI function - This method currently tries to
+  call a missing updateAtomicKRI database RPC function. The
+  function needs to be created in the database (requires
+  database migration permissions). For now, it's marked with a
+  TODO comment for future implementation.

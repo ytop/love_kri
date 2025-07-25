@@ -156,8 +156,8 @@ export default {
       this.$router.push({
         name: 'KRIDetail',
         params: {
-          id: row.kriId,
-          date: row.reportingDate
+          id: String(row.kriId),
+          date: String(row.reportingDate)
         }
       });
     },

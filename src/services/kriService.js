@@ -58,16 +58,20 @@ class BaseKRIService {
 
     let query = supabase.from(table).select(select);
 
-    // Build filters for .match, but skip any key where value is '*'
-    const filters = {};
+    // Build filters, handling arrays and single values properly
     for (let i = 0; i < primaryKey.length; i++) {
-      if (primaryValues[i] !== '*') {
-        filters[primaryKey[i]] = primaryValues[i];
+      const key = primaryKey[i];
+      const value = primaryValues[i];
+      
+      if (value !== '*') {
+        if (Array.isArray(value)) {
+          // Use .in() for array values
+          query = query.in(key, value);
+        } else {
+          // Use .eq() for single values
+          query = query.eq(key, value);
+        }
       }
-    }
-    // Only apply .match if there is at least one filter
-    if (Object.keys(filters).length > 0) {
-      query = query.match(filters);
     }
 
     if (orderBy) {
@@ -130,10 +134,10 @@ class BaseKRIService {
       startDate.getDate().toString().padStart(2, '0')
     );
 
-    // Query historical data within date range
+    // Query historical data within date range using metadata-aware view
     const { data, error } = await supabase
-      .from('kri_item')
-      .select('kri_id, reporting_date, kri_value, kri_status, warning_line_value, limit_value')
+      .from('kri_with_metadata')
+      .select('kri_id, reporting_date, kri_value')
       .eq('kri_id', kriIdInt)
       .gte('reporting_date', startDateInt)
       .lte('reporting_date', endDateInt)
@@ -227,6 +231,7 @@ class BaseKRIService {
  * @param {string} comment - Optional comment
  * @returns {Promise<object>} Updated kri_atomic row
  */
+  // TODO: fix in the future, the function did not exist in the database
   async updateAtomicKRI(kriId, atomicId, reportingDate, updateData, changedBy, action, comment = '') {
     if (!changedBy) throw new Error('changedBy is required');
     if (!action) throw new Error('action is required');
@@ -427,7 +432,7 @@ class BaseKRIService {
 
   async fetchAuditTrail(kriId, reportingDate, select = '*') {
     if (!kriId || !reportingDate) throw new Error('kriId and reportingDate are required');
-    return this.generalFetch('kri_audit_trail', ['kri_id', 'reporting_date'], [kriId, reportingDate], select);
+    return this.generalFetch('kri_audit_trail', ['kri_id', 'reporting_date'], [kriId, reportingDate], select, {column: 'changed_at', ascending: false});
   }
 
   /**
@@ -484,12 +489,34 @@ export const kriService = {
   // Just passing same parameters to the baseKRIService
   // ---------------------------------- fetch ---------------------------
   async fetchKRIItems(reportingDate = null) {
-    const { data } = await baseKRIService.fetchKRI('*', reportingDate);
+    // Use kri_with_metadata view to get complete KRI data including metadata
+    let query = supabase.from('kri_with_metadata').select('*');
+    
+    if (reportingDate) {
+      const reportingDateInts = baseKRIService.parseReportingDate(reportingDate);
+      if (Array.isArray(reportingDateInts)) {
+        query = query.in('reporting_date', reportingDateInts);
+      } else {
+        query = query.eq('reporting_date', reportingDateInts);
+      }
+    }
+    
+    const { data, error } = await query.order('kri_id', { ascending: true });
+    if (error) throw error;
     return data;
   },
 
   async fetchKRIDetail(kriId, reportingDate) {
-    const { data } = await baseKRIService.fetchKRI(kriId, reportingDate);
+    const kriIdInt = baseKRIService.parseKRIId(kriId)[0];
+    const reportingDateInt = baseKRIService.parseReportingDate(reportingDate);
+    
+    // Use the database function to get KRI with metadata
+    const { data, error } = await supabase.rpc('get_kri_with_metadata', {
+      p_kri_id: kriIdInt,
+      p_reporting_date: reportingDateInt
+    });
+    
+    if (error) throw error;
     return data?.[0] || {};
   },
 
@@ -627,6 +654,61 @@ export const kriService = {
   async updateAuditTrail(kriId, reportingDate, updateData, changedBy, action, comment = '') {
     const { data } = await baseKRIService.addAuditTrailEntry(kriId, reportingDate, updateData, changedBy, action, comment);
     return data;
+  },
+
+  // ---------------------------------- metadata functions ---------------------------
+  
+  async fetchKRIMetadata(kriCode, effectiveDate = null) {
+    const { data, error } = await supabase.rpc('get_kri_metadata_at_time', {
+      p_kri_code: kriCode,
+      p_effective_date: effectiveDate || new Date().toISOString()
+    });
+    
+    if (error) throw error;
+    return data?.[0] || null;
+  },
+
+  async fetchCurrentKRIMetadata(kriCode) {
+    const { data, error } = await supabase.rpc('get_current_kri_metadata', {
+      p_kri_code: kriCode
+    });
+    
+    if (error) throw error;
+    return data?.[0] || null;
+  },
+
+  async fetchKRIConfig(kriCode, effectiveTime = null) {
+    const { data, error } = await supabase.rpc('get_kri_config_at_time', {
+      p_kri_code: kriCode,
+      p_effective_time: effectiveTime || new Date().toISOString()
+    });
+    
+    if (error) throw error;
+    return data?.[0] || null;
+  },
+
+  async fetchKRIsForDate(reportingDate) {
+    const reportingDateInt = baseKRIService.parseReportingDate(reportingDate);
+    
+    const { data, error } = await supabase.rpc('get_kris_for_date', {
+      p_reporting_date: reportingDateInt
+    });
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  async fetchMetadataHistory(kriCode) {
+    if (!kriCode) throw new Error('kriCode is required');
+    
+    const { data, error } = await supabase
+      .from('metadata_history')
+      .select('*')
+      .eq('kri_code', kriCode)
+      .order('effective_from', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
   },
 
 };

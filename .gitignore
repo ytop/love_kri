@@ -5,8 +5,8 @@
 .claude
 .vscode
 .cursor
+.DS_Store
 
 node_modules/
 dist/
 CLAUDE.md
-

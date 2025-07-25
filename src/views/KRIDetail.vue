@@ -71,6 +71,7 @@
             <k-r-i-evidence-audit 
               :evidence-data="evidenceData"
               :audit-data="auditTrailData"
+              :metadata-history-data="metadataHistoryData"
               :kri-id="String(kriDetail.kri_id)"
               :reporting-date="kriDetail.reporting_date"
               :current-status="kriDetail.kri_status"
@@ -87,7 +88,7 @@
         <div class="sidebar">
           <k-r-i-sidebar 
             :kri-id="String(id)"
-            :reporting-date="parseInt(date)"
+            :reporting-date="String(date)"
             :kri-data="kriDetail"
             @data-updated="forceRefreshKRIDetail"
           />
@@ -143,6 +144,9 @@ export default {
     },
     auditTrailData() {
       return this.$store.state.kri.auditTrailData;
+    },
+    metadataHistoryData() {
+      return this.$store.state.kri.metadataHistoryData;
     },
     
     // Find the latest rejection information from audit trail
@@ -226,8 +230,6 @@ export default {
     
     // Handle Excel auto-parse results
     handleExcelParsed(parseData) {
-      console.log('Excel parsed:', parseData);
-      
       // Show notification about successful auto-parse
       this.$message.success(
         `Auto-parsed KRI value: ${parseData.kriValue} from ${parseData.file}`,
@@ -240,8 +242,6 @@ export default {
     
     // Handle status updates from evidence upload
     async handleStatusUpdated(statusData) {
-      console.log('Status updated:', statusData);
-      
       // Refresh the KRI detail to reflect status changes
       await this.refreshKRIDetail();
       
@@ -258,8 +258,6 @@ export default {
     
     // Handle evidence selection events
     handleEvidenceSelected(evidenceData) {
-      console.log('Evidence selected:', evidenceData);
-      
       // Refresh data to ensure UI reflects the selection state
       this.refreshKRIDetail();
       
@@ -271,8 +269,6 @@ export default {
     
     // Handle evidence unselection events
     handleEvidenceUnselected(evidenceData) {
-      console.log('Evidence unselected:', evidenceData);
-      
       // Refresh data to ensure UI reflects the unselection state
       this.refreshKRIDetail();
       

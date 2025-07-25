@@ -11,6 +11,7 @@ const state = {
   evidenceData: [],
   auditTrailData: [],
   historicalData: [],
+  metadataHistoryData: [], // Add metadata history data
   pendingKRIItems: [], // Cached pending KRIs for performance
   loading: false,
   error: null,
@@ -76,6 +77,9 @@ const mutations = {
   },
   SET_HISTORICAL_DATA(state, data) {
     state.historicalData = data;
+  },
+  SET_METADATA_HISTORY_DATA(state, data) {
+    state.metadataHistoryData = data;
   },
   SET_FILTERS(state, filters) {
     state.filters = { ...state.filters, ...filters };
@@ -188,11 +192,19 @@ const actions = {
         kriService.fetchKRIHistorical(kriId, 12)
       ]);
       
+      // Fetch metadata history if we have a kri_code
+      // cant in batch due to require kri_code
+      let metadataHistoryData = [];
+      if (kriDetail && kriDetail.kri_code) {
+        metadataHistoryData = await kriService.fetchMetadataHistory(kriDetail.kri_code);
+      }
+      
       commit('SET_KRI_DETAIL', kriDetail);
       commit('SET_ATOMIC_DATA', atomicData);
       commit('SET_EVIDENCE_DATA', evidenceData);
       commit('SET_AUDIT_TRAIL_DATA', auditTrailData);
       commit('SET_HISTORICAL_DATA', historicalData || []);
+      commit('SET_METADATA_HISTORY_DATA', metadataHistoryData);
     } catch (error) {
       commit('SET_ERROR', error.message);
       throw error;
