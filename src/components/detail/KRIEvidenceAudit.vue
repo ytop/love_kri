@@ -682,11 +682,11 @@ export default {
 }
 
 /* Ensure consistent tab content sizing */
-.evidence-audit >>> .el-tabs__content {
+.evidence-audit :deep(.el-tabs__content) {
   min-height: 300px; /* Set minimum height to prevent jumping */
 }
 
-.evidence-audit >>> .el-tab-pane {
+.evidence-audit :deep(.el-tab-pane) {
   width: 100%; /* Ensure full width for both tabs */
 }
 
@@ -705,7 +705,7 @@ export default {
   color: #6b7280;
 }
 
-.evidence-audit >>> .el-table th {
+.evidence-audit :deep(.el-table th) {
   background-color: #f8fafc;
   color: #374151;
   font-weight: 600;
@@ -809,7 +809,7 @@ export default {
   width: min(100%, 1800px);
 }
 
-.tabs-container >>> .el-tabs__content {
+.tabs-container :deep(.el-tabs__content) {
   min-height: 450px;
 }
 

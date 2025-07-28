@@ -1515,10 +1515,10 @@ export default {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.magical-button:hover {
-  transform: translateY(-3px) !important;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5) !important;
-  background: linear-gradient(45deg, #5a67d8, #6b46c1) !important;
+.admin-management .magical-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+  background: linear-gradient(45deg, #5a67d8, #6b46c1);
 }
 
 .magical-button:active {
@@ -1534,10 +1534,10 @@ export default {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.magical-button-success:hover {
-  transform: translateY(-3px) !important;
-  box-shadow: 0 8px 25px rgba(72, 187, 120, 0.5) !important;
-  background: linear-gradient(45deg, #38a169, #2f855a) !important;
+.admin-management .magical-button-success:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(72, 187, 120, 0.5);
+  background: linear-gradient(45deg, #38a169, #2f855a);
 }
 
 .button-ripple {
@@ -1581,9 +1581,9 @@ export default {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.pulse-hover:hover {
-  transform: translateY(-5px) scale(1.02) !important;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+.admin-management .pulse-hover:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
 }
 
 /* Gradient Shimmer Effect */
@@ -1655,20 +1655,20 @@ export default {
 }
 
 /* Form Input Enhancements */
-.el-form-item >>> .el-input__inner {
+.el-form-item :deep(.el-input__inner) {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.el-form-item >>> .el-input__inner:focus {
+.el-form-item :deep(.el-input__inner:focus) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
-.el-form-item >>> .el-select .el-input__inner {
+.el-form-item :deep(.el-select .el-input__inner) {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.el-form-item >>> .el-select:hover .el-input__inner {
+.el-form-item :deep(.el-select:hover .el-input__inner) {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
 }
@@ -1861,9 +1861,10 @@ export default {
   transition: all 0.3s ease;
 }
 
-.add-button:hover, .batch-button:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+.admin-management .add-button:hover, 
+.admin-management .batch-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Permission Content */
@@ -1916,16 +1917,16 @@ export default {
   table-layout: fixed;
 }
 
-.enhanced-table >>> .el-table__header {
+.enhanced-table :deep(.el-table__header) {
   background: #f8fafc;
 }
 
-.enhanced-table >>> .el-table__header th {
-  background: #f8fafc !important;
-  color: #374151 !important;
-  font-weight: 600;
+.admin-management .enhanced-table :deep(.el-table__header th) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
   border: none;
-  padding: 14px 16px;
+  padding: var(--space-3) var(--space-4);
   height: 48px;
 }
 
@@ -1989,13 +1990,13 @@ html body .admin-management .enhanced-table tbody tr:hover::before {
   z-index: 11 !important;
 }
 
-.enhanced-table >>> .el-table__body td {
+.enhanced-table :deep(.el-table__body td) {
   border: none;
   padding: 12px 16px;
   vertical-align: middle;
 }
 
-.enhanced-table >>> .el-table__body tr + tr td {
+.enhanced-table :deep(.el-table__body tr + tr td) {
   border-top: 1px solid #f1f5f9;
 }
 
@@ -2004,16 +2005,16 @@ html body .admin-management .enhanced-table tbody tr:hover::before {
   margin-top: 24px;
 }
 
-.user-section .enhanced-table >>> .el-table__body td {
+.user-section .enhanced-table :deep(.el-table__body td) {
   padding: 14px 16px;
 }
 
-.user-section .enhanced-table >>> .el-table__header th {
+.user-section .enhanced-table :deep(.el-table__header th) {
   padding: 16px 16px;
   height: 52px;
 }
 
-.user-section .enhanced-table >>> .el-table__body tr {
+.user-section .enhanced-table :deep(.el-table__body tr) {
   height: 64px;
 }
 
@@ -2022,16 +2023,16 @@ html body .admin-management .enhanced-table tbody tr:hover::before {
   margin-top: 16px;
 }
 
-.permission-section .enhanced-table >>> .el-table__body td {
+.permission-section .enhanced-table :deep(.el-table__body td) {
   padding: 10px 14px;
 }
 
-.permission-section .enhanced-table >>> .el-table__header th {
+.permission-section .enhanced-table :deep(.el-table__header th) {
   padding: 12px 14px;
   height: 46px;
 }
 
-.permission-section .enhanced-table >>> .el-table__body tr {
+.permission-section .enhanced-table :deep(.el-table__body tr) {
   height: 56px;
 }
 
@@ -2303,7 +2304,7 @@ html body .admin-management .enhanced-table tbody tr:hover::before {
   margin-bottom: 20px;
 }
 
-.el-form-item >>> .el-form-item__label {
+.el-form-item :deep(.el-form-item__label) {
   font-weight: 500;
   color: #374151;
 }
@@ -2381,29 +2382,29 @@ html body .admin-management .enhanced-table tbody tr:hover::before {
     width: 100%;
   }
 
-      .user-section .enhanced-table >>> .el-table__body td {
+      .user-section .enhanced-table :deep(.el-table__body td) {
       padding: 12px 10px;
     }
     
-    .user-section .enhanced-table >>> .el-table__header th {
+    .user-section .enhanced-table :deep(.el-table__header th) {
       padding: 14px 10px;
       height: 48px;
     }
     
-    .user-section .enhanced-table >>> .el-table__body tr {
+    .user-section .enhanced-table :deep(.el-table__body tr) {
       height: 58px;
     }
     
-    .permission-section .enhanced-table >>> .el-table__body td {
+    .permission-section .enhanced-table :deep(.el-table__body td) {
       padding: 8px 10px;
     }
     
-    .permission-section .enhanced-table >>> .el-table__header th {
+    .permission-section .enhanced-table :deep(.el-table__header th) {
       padding: 10px 10px;
       height: 42px;
     }
     
-    .permission-section .enhanced-table >>> .el-table__body tr {
+    .permission-section .enhanced-table :deep(.el-table__body tr) {
       height: 50px;
     }
 

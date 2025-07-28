@@ -386,7 +386,7 @@ export default {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
-.table-card >>> .el-card__body {
+.table-card :deep(.el-card__body) {
   padding: 0;
 }
 

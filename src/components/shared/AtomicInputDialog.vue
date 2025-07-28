@@ -115,47 +115,50 @@ export default {
 
 <style scoped>
 .atomic-input-container {
-  padding: 10px 0;
+  padding: var(--space-2) 0;
 }
 
 .dialog-description {
-  margin-bottom: 20px;
-  color: #606266;
-  font-size: 14px;
-  line-height: 1.5;
+  margin-bottom: var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
 .atomic-list {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .atomic-list h4 {
-  margin-bottom: 10px;
-  color: #303133;
-  font-size: 16px;
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
 }
 
 .bulk-input-notice {
-  margin-top: 20px;
+  margin-top: var(--space-5);
 }
 
 .dialog-footer {
   text-align: right;
 }
 
-/* Dialog positioning */
+/* Use shared modal base styles */
 .atomic-input-dialog {
-  position: fixed !important;
-  top: 10vh !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  z-index: 2060 !important;
-  margin: 0 !important;
+  position: fixed;
+  top: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-modal);
+  margin: 0;
 }
 
 .atomic-input-dialog .el-dialog {
-  margin: 0 !important;
-  max-height: 80vh !important;
-  overflow-y: auto !important;
+  margin: 0;
+  max-height: var(--modal-max-height);
+  overflow-y: auto;
+  border-radius: var(--modal-border-radius);
+  box-shadow: var(--shadow-2xl);
 }
 </style>

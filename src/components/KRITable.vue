@@ -484,13 +484,13 @@ export default {
 }
 
 /* Minimal table overrides - let Element UI handle most styling */
-.kri-table >>> .el-table th {
+.kri-table :deep(.el-table th) {
   background-color: #f8fafc;
   color: #374151;
   font-weight: 600;
 }
 
-.kri-table >>> .el-table td {
+.kri-table :deep(.el-table td) {
   padding: 8px 0;
 }
 
@@ -527,26 +527,26 @@ export default {
 }
 
 /* Calculated KRI row styling */
-.kri-table >>> .calculated-kri-row {
+.kri-table :deep(.calculated-kri-row) {
   background-color: #fefefe;
 }
 
-.kri-table >>> .calculated-kri-row.expanded {
+.kri-table :deep(.calculated-kri-row.expanded) {
   background-color: #f0f9ff;
   border-bottom: 2px solid #bfdbfe;
 }
 
 /* Atomic sub-row styling */
-.kri-table >>> .atomic-sub-row {
+.kri-table :deep(.atomic-sub-row) {
   background-color: #fafbfc !important;
   border-left: 3px solid #e2e8f0 !important;
 }
 
-.kri-table >>> .atomic-sub-row:hover {
+.kri-table :deep(.atomic-sub-row:hover) {
   background-color: #f1f5f9 !important;
 }
 
-.kri-table >>> .atomic-sub-row td {
+.kri-table :deep(.atomic-sub-row td) {
   padding: 8px 12px !important;
   font-size: 12px;
   color: #64748b;

@@ -114,7 +114,7 @@
                 v-model="inputForm.kriValue"
                 placeholder="Enter KRI value"
                 :precision="2"
-                style="width: 100%"
+class="full-width"
                 :disabled="inputLoading">
               </el-input-number>
             </el-form-item>
@@ -181,7 +181,7 @@
       </el-card>
     </div>
     
-    <el-row :gutter="24" style="margin-top: 1.5rem;">
+    <el-row :gutter="24" class="info-row">
       <el-col :span="12">
         <div class="info-item">
           <label>RAS Metric</label>
@@ -204,7 +204,7 @@
     </el-row>
 
     <!-- Selected Evidence Section -->
-    <el-row v-if="selectedEvidence" :gutter="24" style="margin-top: 1rem;">
+    <el-row v-if="selectedEvidence" :gutter="24" class="evidence-row">
       <el-col :span="24">
         <div class="evidence-section">
           <div class="evidence-header">
@@ -227,7 +227,7 @@
           </div>
           <div class="evidence-item">
             <div class="evidence-info">
-              <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="evidence-name-container">
                 <span class="file-name">{{ selectedEvidence.file_name }}</span>
                 <el-tag 
                   v-if="isEvidenceSelected" 
@@ -916,8 +916,27 @@ export default {
   font-size: 13px;
 }
 
-.validation-alert >>> .el-alert__title {
-  font-size: 13px;
-  line-height: 1.4;
+.validation-alert :deep(.el-alert__title) {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+}
+
+/* Layout spacing classes */
+.info-row {
+  margin-top: var(--space-6);
+}
+
+.evidence-row {
+  margin-top: var(--space-4);
+}
+
+.evidence-name-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.full-width {
+  width: 100%;
 }
 </style>

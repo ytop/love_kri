@@ -793,7 +793,7 @@ export default {
   width: 100%;
 }
 
-.upload-dragger >>> .el-upload-dragger {
+.upload-dragger :deep(.el-upload-dragger) {
   width: 100%;
   height: 180px;
   border: 2px dashed #d9d9d9;
@@ -804,29 +804,29 @@ export default {
   transition: border-color 0.3s;
 }
 
-.upload-dragger >>> .el-upload-dragger:hover {
+.upload-dragger :deep(.el-upload-dragger:hover) {
   border-color: #409eff;
 }
 
-.upload-dragger >>> .el-upload-dragger .el-icon-upload {
+.upload-dragger :deep(.el-upload-dragger .el-icon-upload) {
   font-size: 67px;
   color: #c0c4cc;
   margin: 40px 0 16px;
   line-height: 50px;
 }
 
-.upload-dragger >>> .el-upload__text {
+.upload-dragger :deep(.el-upload__text) {
   color: #606266;
   font-size: 14px;
   text-align: center;
 }
 
-.upload-dragger >>> .el-upload__text em {
+.upload-dragger :deep(.el-upload__text em) {
   color: #409eff;
   font-style: normal;
 }
 
-.upload-dragger >>> .el-upload__tip {
+.upload-dragger :deep(.el-upload__tip) {
   font-size: 12px;
   color: #606266;
   margin-top: 7px;
@@ -858,57 +858,56 @@ export default {
 }
 
 /* File list styling */
-.upload-container >>> .el-upload-list {
+.upload-container :deep(.el-upload-list) {
   margin-top: 10px;
 }
 
-.upload-container >>> .el-upload-list__item {
+.upload-container :deep(.el-upload-list__item) {
   transition: all 0.3s;
   margin-bottom: 8px;
 }
 
-.upload-container >>> .el-upload-list__item:hover {
-  background-color: #f5f7fa;
+.upload-container :deep(.el-upload-list__item:hover) {
+  background-color: var(--table-row-hover);
 }
 
-/* Evidence Upload Dialog Positioning */
+/* Use shared modal base styles */
 .evidence-upload-dialog {
-  position: fixed !important;
-  top: 10vh !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  z-index: 2050 !important;
-  margin: 0 !important;
+  position: fixed;
+  top: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-modal);
+  margin: 0;
 }
 
-/* Ensure modal doesn't overlap main content */
 .evidence-upload-dialog .el-dialog {
-  margin: 0 !important;
-  max-height: 80vh !important;
-  overflow-y: auto !important;
+  margin: 0;
+  max-height: var(--modal-max-height);
+  overflow-y: auto;
+  border-radius: var(--modal-border-radius);
+  box-shadow: var(--shadow-2xl);
 }
 
-/* Ensure modal backdrop doesn't interfere with main content */
 .el-dialog__wrapper.evidence-upload-dialog {
-  z-index: 2050 !important;
+  z-index: var(--z-modal);
 }
 
-/* Modal backdrop styling */
 .evidence-upload-dialog + .v-modal {
-  z-index: 2049 !important;
-  background-color: rgba(0, 0, 0, 0.3) !important;
+  z-index: var(--z-modal-backdrop);
+  background-color: var(--modal-backdrop);
 }
 
 /* Duplicate warning dialog styling */
 .duplicate-warning-dialog .el-message-box__message {
   white-space: pre-line;
   font-family: monospace;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
 }
 
 .duplicate-warning-dialog .el-message-box__btns {
   text-align: center;
-  padding-top: 20px;
+  padding-top: var(--space-5);
 }
 </style>

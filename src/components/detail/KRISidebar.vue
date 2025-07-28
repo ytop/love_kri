@@ -799,16 +799,16 @@ export default {
   margin-bottom: 0.75rem;
 }
 
-.calculated-kri-notice >>> .el-alert {
+.calculated-kri-notice :deep(.el-alert) {
   margin: 0;
 }
 
-.calculated-kri-notice >>> .el-alert__title {
+.calculated-kri-notice :deep(.el-alert__title) {
   font-size: 0.875rem;
   font-weight: 600;
 }
 
-.calculated-kri-notice >>> .el-alert__description {
+.calculated-kri-notice :deep(.el-alert__description) {
   font-size: 0.75rem;
   line-height: 1.4;
   margin-top: 0.25rem;
@@ -836,16 +836,16 @@ export default {
   margin-bottom: 0.75rem;
 }
 
-.no-actions >>> .el-alert {
+.no-actions :deep(.el-alert) {
   margin: 0;
 }
 
-.no-actions >>> .el-alert__title {
+.no-actions :deep(.el-alert__title) {
   font-size: 0.875rem;
   font-weight: 600;
 }
 
-.no-actions >>> .el-alert__description {
+.no-actions :deep(.el-alert__description) {
   font-size: 0.75rem;
   line-height: 1.4;
   margin-top: 0.25rem;
@@ -902,7 +902,7 @@ export default {
 }
 
 /* Minimalist chart container styling */
-.kri-sidebar >>> .el-card__body {
+.kri-sidebar :deep(.el-card__body) {
   padding: 20px;
 }
 
@@ -943,7 +943,7 @@ export default {
 }
 
 /* Clean header styling */
-.kri-sidebar >>> .el-card__header {
+.kri-sidebar :deep(.el-card__header) {
   background: #fafafa;
   border-bottom: 1px solid #e5e7eb;
   padding: 16px 20px;
@@ -958,7 +958,7 @@ export default {
   font-size: 12px;
 }
 
-.validation-alert >>> .el-alert__title {
+.validation-alert :deep(.el-alert__title) {
   font-size: 12px;
   line-height: 1.4;
 }

@@ -315,14 +315,14 @@ export default {
   gap: 0.5rem;
 }
 
-.compact-form >>> .el-form-item.compact-item {
+.compact-form :deep(.el-form-item.compact-item) {
   margin-bottom: 0;
   margin-right: 0;
   display: flex;
   align-items: center;
 }
 
-.compact-form >>> .el-form-item__label {
+.compact-form :deep(.el-form-item__label) {
   font-weight: 500;
   color: #374151;
   font-size: 0.875rem;
@@ -334,18 +334,18 @@ export default {
   align-items: center;
 }
 
-.compact-form >>> .el-form-item__content {
+.compact-form :deep(.el-form-item__content) {
   display: flex;
   align-items: center;
   height: 32px;
 }
 
-.compact-form >>> .el-input--small .el-input__inner {
+.compact-form :deep(.el-input--small .el-input__inner) {
   height: 32px;
   line-height: 32px;
 }
 
-.compact-form >>> .el-select--small .el-input__inner {
+.compact-form :deep(.el-select--small .el-input__inner) {
   height: 32px;
   line-height: 32px;
 }
@@ -382,12 +382,12 @@ export default {
   margin-top: 1rem;
 }
 
-.advanced-filters >>> .el-form-item {
+.advanced-filters :deep(.el-form-item) {
   margin-bottom: 1rem;
   margin-right: 1rem;
 }
 
-.advanced-filters >>> .el-form-item__label {
+.advanced-filters :deep(.el-form-item__label) {
   font-weight: 500;
   color: #374151;
 }
@@ -420,7 +420,7 @@ export default {
     margin-top: 0.5rem;
   }
   
-  .compact-form >>> .el-form-item.compact-item {
+  .compact-form :deep(.el-form-item.compact-item) {
     margin-bottom: 0.5rem;
   }
 }
@@ -432,20 +432,20 @@ export default {
     gap: 0.75rem;
   }
   
-  .compact-form >>> .el-form-item.compact-item {
+  .compact-form :deep(.el-form-item.compact-item) {
     flex-direction: column;
     align-items: flex-start;
     margin-bottom: 0.5rem;
   }
   
-  .compact-form >>> .el-form-item__label {
+  .compact-form :deep(.el-form-item__label) {
     margin-bottom: 0.25rem;
     padding: 0;
     height: auto;
     line-height: 1.4;
   }
   
-  .compact-form >>> .el-form-item__content {
+  .compact-form :deep(.el-form-item__content) {
     width: 100%;
     height: auto;
   }
@@ -475,7 +475,7 @@ export default {
     gap: 0.5rem;
   }
   
-  .compact-form >>> .el-form-item__label {
+  .compact-form :deep(.el-form-item__label) {
     font-size: 0.8rem;
   }
 }
