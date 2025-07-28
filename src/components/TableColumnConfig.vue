@@ -24,21 +24,24 @@
           <h4>Column Order & Visibility</h4>
           <p class="section-desc">Drag to reorder columns and toggle visibility</p>
           
-          <draggable 
-            v-model="localColumns" 
+          <div 
             class="column-list"
             :class="{ 'drag-disabled': dragDisabled }"
-            ghost-class="ghost-item"
-            chosen-class="chosen-item"
-            drag-class="drag-item"
-            :animation="200"
-            :disabled="dragDisabled"
           >
             <div 
-              v-for="column in localColumns" 
+              v-for="(column, index) in localColumns" 
               :key="column.key" 
               class="column-item"
-              :class="{ 'disabled-column': !column.enabled }"
+              :class="{ 
+                'disabled-column': !column.enabled,
+                'dragging-item': draggedIndex === index,
+                'drag-over': dragOverIndex === index && draggedIndex !== index
+              }"
+              :draggable="!dragDisabled"
+              @dragstart="handleDragStart($event, index)"
+              @dragover.prevent="handleDragOver($event, index)"
+              @drop.prevent="handleDrop($event, index)"
+              @dragend="handleDragEnd"
             >
               <!-- Drag handle -->
               <div class="drag-handle">
@@ -68,7 +71,7 @@
                 </el-switch>
               </div>
             </div>
-          </draggable>
+          </div>
         </div>
       </div>
 
@@ -102,13 +105,9 @@ import {
   loadTablePreferencesFromStorage,
   clearTablePreferencesFromStorage 
 } from '@/utils/helpers';
-import draggable from 'vuedraggable';
 
 export default {
   name: 'TableColumnConfig',
-  components: {
-    draggable
-  },
   props: {
     tableType: {
       type: String,
@@ -120,7 +119,10 @@ export default {
     return {
       dialogVisible: false,
       localColumns: [],
-      dragDisabled: false
+      dragDisabled: false,
+      draggedIndex: null,
+      dragOverIndex: null,
+      isDragging: false
     };
   },
   computed: {
@@ -214,6 +216,78 @@ export default {
           preferences: stored
         });
       }
+    },
+    
+    // Native HTML5 drag and drop methods
+    handleDragStart(event, index) {
+      if (this.dragDisabled) {
+        event.preventDefault();
+        return;
+      }
+      
+      this.draggedIndex = index;
+      this.isDragging = true;
+      
+      // Set drag effect and data
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/html', event.target.outerHTML);
+      
+      // Add visual feedback
+      event.target.classList.add('dragging-item');
+    },
+    
+    handleDragOver(event, index) {
+      if (this.dragDisabled || this.draggedIndex === null) return;
+      
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      
+      // Update drag over index for visual feedback
+      if (this.dragOverIndex !== index) {
+        this.dragOverIndex = index;
+      }
+    },
+    
+    handleDrop(event, index) {
+      if (this.dragDisabled || this.draggedIndex === null) return;
+      
+      event.preventDefault();
+      
+      // Only reorder if dropping on a different position
+      if (this.draggedIndex !== index) {
+        // Create a copy of the array for reordering
+        const newColumns = [...this.localColumns];
+        const draggedItem = newColumns[this.draggedIndex];
+        
+        // Remove the dragged item from its original position
+        newColumns.splice(this.draggedIndex, 1);
+        
+        // Insert the dragged item at the new position
+        // Adjust the insert index if dragging from earlier position
+        const insertIndex = this.draggedIndex < index ? index - 1 : index;
+        newColumns.splice(insertIndex, 0, draggedItem);
+        
+        // Update the local columns array
+        this.localColumns = newColumns;
+      }
+      
+      this.cleanupDragState();
+    },
+    
+    handleDragEnd() {
+      this.cleanupDragState();
+    },
+    
+    cleanupDragState() {
+      this.draggedIndex = null;
+      this.dragOverIndex = null;
+      this.isDragging = false;
+      
+      // Remove any remaining drag classes
+      const draggingItems = document.querySelectorAll('.dragging-item');
+      draggingItems.forEach(item => {
+        item.classList.remove('dragging-item');
+      });
     }
   }
 };
@@ -342,7 +416,25 @@ export default {
   cursor: pointer;
 }
 
-/* Dragging states */
+/* Native HTML5 drag states */
+.dragging-item {
+  opacity: 0.7;
+  transform: rotate(3deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 2px solid #409eff;
+  background: #f0f9ff;
+  cursor: grabbing;
+  z-index: 1000;
+}
+
+.drag-over {
+  border: 2px dashed #409eff;
+  background: #f0f9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.2);
+}
+
+/* Legacy dragging states (kept for compatibility) */
 .ghost-item {
   opacity: 0.5;
   background: #f0f9ff;
