@@ -440,7 +440,7 @@ export default {
 }
 
 /* Ensure card body doesn't overflow */
-.info-card >>> .el-card__body {
+.info-card :deep(.el-card__body) {
   min-width: 0;
   overflow: hidden;
 }
