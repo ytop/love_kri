@@ -78,7 +78,7 @@ class TableColumnManager {
     kriValue: {
       key: 'kriValue',
       label: 'KRI Value',
-      minWidth: 100,
+      minWidth: 240,
       required: true,
       sortType: 'numeric',
       sortable: true,
@@ -197,8 +197,8 @@ class TableColumnManager {
       key: 'actions',
       label: 'Actions',
       width: 200,
-      fixed: 'right',
-      required: true,
+      fixed: false,
+      required: false,
       order: 99
     }
   };
@@ -211,7 +211,7 @@ class TableColumnManager {
         'collectionStatus', 'l1RiskType', 'l2RiskType', 'rasMetric',
         'breachType', 'kriValue', 'warningBar', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
         'reportingCycle', 'reportingDate', 'reportingFrequency', 'kriFormula',
-        'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId'
+        'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId', 'actions'
       ],
       defaultVisible: [
         'selection', 'id', 'name', 'owner', 'dataProvider',
@@ -223,7 +223,7 @@ class TableColumnManager {
         'collectionStatus', 'l1RiskType', 'l2RiskType', 'rasMetric',
         'breachType', 'kriValue', 'warningBar', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
         'reportingCycle', 'reportingDate', 'reportingFrequency', 'kriFormula',
-        'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId'
+        'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId', 'actions'
       ]
     },
     [TableColumnManager.TABLE_TYPES.KRI_COLLECT_TABLE]: {

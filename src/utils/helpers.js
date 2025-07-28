@@ -692,4 +692,285 @@ export const applyKRIFilters = (items, filters) => {
   return filtered;
 };
 
+// ---------------------------------- Inline Editing Utilities ----------------------------------
+
+/**
+ * Check if a KRI item can be edited inline based on status and permissions
+ * @param {Object} kriItem - KRI item to check
+ * @param {Function} canPerformFn - Permission checking function
+ * @returns {boolean} True if item can be edited inline
+ */
+export const canInlineEditKRI = (kriItem, canPerformFn) => {
+  if (!kriItem || !canPerformFn) return false;
+  
+  // Check permission to edit
+  const hasEditPermission = canPerformFn(kriItem.kriId || kriItem.id, null, 'edit');
+  
+  // Check status allows editing (10, 20, 30)
+  const editableStatuses = [10, 20, 30];
+  const currentStatus = kriItem.kri_status || kriItem.kriStatus;
+  const statusAllowsEdit = editableStatuses.includes(currentStatus);
+  
+  return hasEditPermission && statusAllowsEdit;
+};
+
+/**
+ * Check if a KRI item can be approved based on status and permissions
+ * @param {Object} kriItem - KRI item to check
+ * @param {Function} canPerformFn - Permission checking function
+ * @returns {boolean} True if item can be approved
+ */
+export const canApproveKRI = (kriItem, canPerformFn) => {
+  if (!kriItem || !canPerformFn) return false;
+  
+  // Check permission to review/approve
+  const hasReviewPermission = canPerformFn(kriItem.kriId || kriItem.id, null, 'review');
+  
+  // Check status allows approval (40, 50)
+  const approvableStatuses = [40, 50];
+  const currentStatus = kriItem.kri_status || kriItem.kriStatus;
+  const statusAllowsApproval = approvableStatuses.includes(currentStatus);
+  
+  return hasReviewPermission && statusAllowsApproval;
+};
+
+/**
+ * Get available actions for a KRI item in inline editing context
+ * @param {Object} kriItem - KRI item to check
+ * @param {Function} canPerformFn - Permission checking function
+ * @returns {Array} Array of available action objects
+ */
+export const getInlineEditActions = (kriItem, canPerformFn) => {
+  const actions = [];
+  
+  if (!kriItem || !canPerformFn) return actions;
+  
+  const currentStatus = kriItem.kri_status || kriItem.kriStatus;
+  
+  // Edit actions (Status 10, 20, 30)
+  if (canInlineEditKRI(kriItem, canPerformFn)) {
+    // Save action
+    actions.push({
+      key: 'save',
+      label: 'Save',
+      icon: 'el-icon-document',
+      type: 'primary',
+      disabled: !hasValidKRIValue(kriItem),
+      tooltip: hasValidKRIValue(kriItem) ? 'Save current changes' : 'Please enter a valid KRI value'
+    });
+    
+    // Submit action
+    actions.push({
+      key: 'submit',
+      label: 'Submit',
+      icon: 'el-icon-upload',
+      type: 'success',
+      disabled: !hasValidKRIValue(kriItem),
+      tooltip: hasValidKRIValue(kriItem) ? 'Submit for approval' : 'Please enter a valid KRI value'
+    });
+  }
+  
+  // Approval actions (Status 40, 50)
+  if (canApproveKRI(kriItem, canPerformFn)) {
+    actions.push({
+      key: 'approve',
+      label: 'Approve',
+      icon: 'el-icon-check',
+      type: 'success',
+      disabled: false,
+      tooltip: currentStatus === 40 ? 'Approve as Data Provider' : 'Approve as KRI Owner'
+    });
+    
+    actions.push({
+      key: 'reject',
+      label: 'Reject',
+      icon: 'el-icon-close',
+      type: 'danger',
+      disabled: false,
+      tooltip: 'Reject and send back for rework'
+    });
+  }
+  
+  return actions;
+};
+
+/**
+ * Check if KRI has a valid value for submission
+ * @param {Object} kriItem - KRI item to check
+ * @returns {boolean} True if KRI has valid value
+ */
+export const hasValidKRIValue = (kriItem) => {
+  if (!kriItem) return false;
+  
+  const value = kriItem.kri_value || kriItem.kriValue;
+  return value !== null && value !== undefined && value !== '' && !isNaN(Number(value));
+};
+
+/**
+ * Format KRI value for display with proper number formatting
+ * @param {number|string} value - KRI value to format
+ * @param {number} precision - Number of decimal places (default: 2)
+ * @returns {string} Formatted value
+ */
+export const formatKRIValue = (value, precision = 2) => {
+  if (value === null || value === undefined || value === '') {
+    return 'N/A';
+  }
+  
+  const numValue = Number(value);
+  if (isNaN(numValue)) {
+    return 'Invalid';
+  }
+  
+  return numValue.toLocaleString(undefined, {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
+  });
+};
+
+/**
+ * Get status-specific action button styling
+ * @param {string} action - Action type ('save', 'submit', 'approve', 'reject')
+ * @returns {Object} Button styling configuration
+ */
+export const getActionButtonStyle = (action) => {
+  const baseStyles = {
+    save: {
+      type: 'primary',
+      icon: 'el-icon-document',
+      size: 'mini'
+    },
+    submit: {
+      type: 'success',
+      icon: 'el-icon-upload',
+      size: 'mini'
+    },
+    approve: {
+      type: 'success',
+      icon: 'el-icon-check',
+      size: 'mini'
+    },
+    reject: {
+      type: 'danger',
+      icon: 'el-icon-close',
+      size: 'mini'
+    }
+  };
+  
+  return baseStyles[action] || {
+    type: 'default',
+    icon: 'el-icon-more',
+    size: 'mini'
+  };
+};
+
+/**
+ * Generate audit trail comment for inline editing actions
+ * @param {string} action - Action performed
+ * @param {Object} kriItem - KRI item affected
+ * @param {*} oldValue - Previous value (optional)
+ * @param {*} newValue - New value (optional)
+ * @returns {string} Formatted audit comment
+ */
+export const generateInlineEditComment = (action, kriItem, oldValue = null, newValue = null) => {
+  const kriId = kriItem.kriId || kriItem.id;
+  const baseComment = `Inline ${action} for KRI ${kriId}`;
+  
+  if (action === 'edit' && oldValue !== null && newValue !== null) {
+    return `${baseComment}: Changed value from ${oldValue} to ${newValue}`;
+  }
+  
+  return baseComment;
+};
+
+/**
+ * Validate KRI data before save/submit operations
+ * @param {Object} kriItem - KRI item to validate
+ * @param {string} operation - Operation type ('save' or 'submit')
+ * @returns {Object} Validation result
+ */
+export const validateKRIForOperation = (kriItem, operation) => {
+  const errors = [];
+  const warnings = [];
+  
+  // Basic validation
+  if (!kriItem) {
+    errors.push('KRI item is required');
+    return { valid: false, errors, warnings };
+  }
+  
+  // Value validation
+  if (!hasValidKRIValue(kriItem)) {
+    if (operation === 'submit') {
+      errors.push('Valid KRI value is required for submission');
+    } else {
+      warnings.push('KRI value should be provided');
+    }
+  }
+  
+  // Status validation
+  const currentStatus = kriItem.kri_status || kriItem.kriStatus;
+  const validStatuses = [10, 20, 30];
+  if (!validStatuses.includes(currentStatus)) {
+    errors.push(`Cannot ${operation} KRI in current status: ${currentStatus}`);
+  }
+  
+  // Threshold validation (warnings only)
+  if (hasValidKRIValue(kriItem)) {
+    const value = Number(kriItem.kri_value || kriItem.kriValue);
+    const warningThreshold = Number(kriItem.warningLineValue);
+    const limitThreshold = Number(kriItem.limitValue);
+    
+    if (!isNaN(limitThreshold) && value >= limitThreshold) {
+      warnings.push('KRI value exceeds limit threshold');
+    } else if (!isNaN(warningThreshold) && value >= warningThreshold) {
+      warnings.push('KRI value exceeds warning threshold');
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  };
+};
+
+/**
+ * Get next workflow status for a KRI based on operation and current state
+ * @param {Object} kriItem - KRI item
+ * @param {string} operation - Operation type
+ * @returns {number|null} Next status code or null if invalid
+ */
+export const getNextWorkflowStatus = (kriItem, operation) => {
+  if (!kriItem) return null;
+  
+  const currentStatus = kriItem.kri_status || kriItem.kriStatus;
+  const owner = kriItem.kri_owner || kriItem.owner;
+  const provider = kriItem.data_provider || kriItem.dataProvider;
+  
+  switch (operation) {
+  case 'save':
+    return [10, 20, 30].includes(currentStatus) ? 30 : null;
+  case 'submit':
+    if ([10, 20, 30].includes(currentStatus)) {
+      // IF KRI_OWNER == DATA_PROVIDER -> 50, ELSE -> 40
+      return (owner === provider) ? 50 : 40;
+    }
+    return null;
+  case 'approve':
+    if (currentStatus === 40) {
+      // Data Provider approval - check if same as owner
+      return (owner === provider) ? 60 : 50;
+    } else if (currentStatus === 50) {
+      // KRI Owner approval
+      return 60;
+    }
+    return null;
+  case 'reject':
+    return [40, 50].includes(currentStatus) ? 20 : null;
+  default:
+    return null;
+  }
+};
+
 

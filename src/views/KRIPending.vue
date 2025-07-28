@@ -61,7 +61,16 @@
         </div>
       </el-card>
 
-      <!-- KRI Table -->
+      <!-- Bulk Actions Toolbar -->
+      <k-r-i-bulk-actions-toolbar
+        :selected-items="selectedRows"
+        :all-items="filteredPendingKRIItems"
+        @clear-selection="clearSelection"
+        @bulk-operation-complete="handleBulkOperationComplete"
+        @bulk-operation-item="handleBulkOperationItem"
+      />
+
+      <!-- KRI Table with Inline Editing -->
       <el-card class="table-card">
         <div v-if="error" class="error-message">
           <el-alert
@@ -71,12 +80,13 @@
             show-icon>
           </el-alert>
         </div>
-        <k-r-i-table
+        <k-r-i-table-inline-edit
           ref="kriTable"
           :data="filteredPendingKRIItems"
           :loading="loading"
           @row-click="handleKRIClick"
           @selection-change="handleSelectionChange"
+          @data-updated="handleDataUpdated"
         />
         <div v-if="!loading && filteredPendingKRIItems.length === 0 && !error" class="no-data-message">
           <el-empty :description="emptyMessage">
@@ -91,15 +101,18 @@
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
 import KRIFilters from '@/components/KRIFilters.vue';
-import KRITable from '@/components/KRITable.vue';
+import KRITableInlineEdit from '@/components/KRITableInlineEdit.vue';
+import KRIBulkActionsToolbar from '@/components/KRIBulkActionsToolbar.vue';
 import { getLastDayOfPreviousMonth } from '@/utils/helpers';
 import StatusManager from '@/utils/types';
+import KRIWorkflowService from '@/services/kriWorkflowService';
 
 export default {
   name: 'KRIPending',
   components: {
     KRIFilters,
-    KRITable
+    KRITableInlineEdit,
+    KRIBulkActionsToolbar
   },
   data() {
     return {
@@ -254,6 +267,91 @@ export default {
       this.selectedRows = selection;
       // Emit for parent components if needed
       this.$emit('selection-change', selection);
+    },
+
+    // Clear selection
+    clearSelection() {
+      this.selectedRows = [];
+      // Clear table selection
+      if (this.$refs.kriTable && this.$refs.kriTable.$refs.table) {
+        this.$refs.kriTable.$refs.table.clearSelection();
+      }
+    },
+
+    // Handle data updates from inline editing
+    handleDataUpdated() {
+      // Refresh data to reflect changes
+      this.refreshData();
+    },
+
+    // Handle bulk operation completion
+    handleBulkOperationComplete(operation, results) {
+      // Clear selection after bulk operation
+      this.clearSelection();
+      
+      // Refresh data to reflect changes
+      this.refreshData();
+      
+      // Log results for debugging
+      console.log(`Bulk ${operation} completed:`, results);
+    },
+
+    // Handle individual bulk operation items
+    async handleBulkOperationItem({ item, operation, updateData, callback }) {
+      try {
+        let result;
+        
+        switch (operation) {
+          case 'save':
+            result = await KRIWorkflowService.saveKRI(
+              item, 
+              updateData, 
+              this.currentUser, 
+              `Bulk save operation`
+            );
+            break;
+            
+          case 'submit':
+            result = await KRIWorkflowService.submitKRI(
+              item, 
+              updateData, 
+              this.currentUser, 
+              `Bulk submit operation`
+            );
+            break;
+            
+          case 'approve':
+            result = await KRIWorkflowService.approveKRI(
+              item, 
+              this.currentUser, 
+              `Bulk approve operation`
+            );
+            break;
+            
+          case 'reject':
+            // For bulk reject, we'll use a generic reason
+            // In a real implementation, you might want to collect reasons
+            result = await KRIWorkflowService.rejectKRI(
+              item, 
+              this.currentUser, 
+              `Bulk reject operation - requires further review`
+            );
+            break;
+            
+          default:
+            throw new Error(`Unknown bulk operation: ${operation}`);
+        }
+        
+        // Return result to the bulk toolbar
+        callback(result);
+        
+      } catch (error) {
+        console.error(`Error processing bulk ${operation} for item:`, item, error);
+        callback({
+          success: false,
+          error: error.message
+        });
+      }
     }
   },
   async created() {
