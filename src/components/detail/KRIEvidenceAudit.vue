@@ -3,7 +3,7 @@
     <div class="tabs-container">
       <el-tabs v-model="activeTab" type="border-card">
       
-      <el-tab-pane label="Evidence" name="evidence">
+      <el-tab-pane label="KRI Evidence" name="evidence">
         <div class="evidence-header">
           <el-button
             v-if="canUploadEvidence"
@@ -119,6 +119,91 @@
                 >
                   Unselect
                 </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </el-tab-pane>
+
+      <!-- Atomic Evidence Tab (only for calculated KRIs) -->
+      <el-tab-pane v-if="isCalculatedKRI" label="Atomic Evidence" name="atomic-evidence">
+        <div class="evidence-header">
+          <div class="header-info">
+            <el-tag type="info" size="small">
+              <i class="el-icon-info"></i>
+              Atomic-level evidence for calculated KRI
+            </el-tag>
+          </div>
+          <div></div>
+        </div>
+        
+        <div v-if="!atomicData || atomicData.length === 0" class="no-data">
+          <p>No atomic data available</p>
+        </div>
+        
+        <div v-else>
+          <el-table :data="atomicData" style="width: 100%">
+            <el-table-column
+              prop="atomic_id"
+              label="Atomic ID"
+              width="100"
+              align="center"
+            >
+              <template slot-scope="scope">
+                <el-tag size="mini">A{{ scope.row.atomic_id }}</el-tag>
+              </template>
+            </el-table-column>
+            
+            <el-table-column
+              prop="atomic_metadata"
+              label="Atomic Element"
+              min-width="200"
+              show-overflow-tooltip
+            />
+            
+            <el-table-column
+              prop="atomic_value"
+              label="Value"
+              width="100"
+              align="center"
+            />
+            
+            <el-table-column
+              label="Linked Evidence"
+              min-width="250"
+              show-overflow-tooltip
+            >
+              <template slot-scope="scope">
+                <div v-if="scope.row.linkedEvidence" class="linked-evidence">
+                  <div class="evidence-file">
+                    <i class="el-icon-document"></i>
+                    <span>{{ scope.row.linkedEvidence.file_name }}</span>
+                  </div>
+                  <div class="evidence-meta">
+                    <small>Uploaded: {{ formatDate(scope.row.linkedEvidence.uploaded_at) }}</small>
+                  </div>
+                </div>
+                <div v-else class="no-evidence">
+                  <el-tag type="info" size="mini">No evidence linked</el-tag>
+                </div>
+              </template>
+            </el-table-column>
+            
+            <el-table-column
+              label="Actions"
+              width="120"
+              align="center"
+            >
+              <template slot-scope="scope">
+                <el-button
+                  v-if="scope.row.linkedEvidence"
+                  type="text"
+                  size="small"
+                  @click="downloadFile(scope.row.linkedEvidence.file_url, scope.row.linkedEvidence.file_name)"
+                >
+                  Download
+                </el-button>
+                <span v-else class="no-actions">-</span>
               </template>
             </el-table-column>
           </el-table>
@@ -298,6 +383,10 @@ export default {
     kriItem: {
       type: Object,
       default: () => ({})
+    },
+    atomicData: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
@@ -369,6 +458,11 @@ export default {
         const dateB = new Date(b.changed_at);
         return dateB - dateA; // Descending order (newest first)
       });
+    },
+
+    // Check if this is a calculated KRI for atomic evidence tab
+    isCalculatedKRI() {
+      return this.kriItem?.is_calculated_kri || false;
     }
   },
   methods: {
@@ -717,5 +811,41 @@ export default {
 
 .tabs-container >>> .el-tabs__content {
   min-height: 450px;
+}
+
+/* Atomic Evidence Tab Styling */
+.linked-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.evidence-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evidence-file i {
+  color: #409eff;
+}
+
+.evidence-meta {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.no-evidence {
+  text-align: center;
+}
+
+.no-actions {
+  color: #c0c4cc;
+  font-style: italic;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
 }
 </style>

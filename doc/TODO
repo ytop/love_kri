@@ -52,8 +52,8 @@ evidence tabs 和 audit trail tabs 宽度随地大小变
 Improve UI/UX desig
 
 @kriService.js
-- updateAtomicKRI function - This method currently tries to
-  call a missing updateAtomicKRI database RPC function. The
+- updateatomickri function - This method currently tries to
+  call a missing updateatomickri database RPC function. The
   function needs to be created in the database (requires
   database migration permissions). For now, it's marked with a
   TODO comment for future implementation.

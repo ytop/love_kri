@@ -3,6 +3,7 @@ import { mapStatus, transformKRIData } from '@/utils/types';
 import sessionStorageUtil from '@/utils/sessionStorage';
 import { getLastDayOfPreviousMonth, applyKRIFilters, calculatePendingKRIs } from '@/utils/helpers';
 import Permission from '@/utils/permission';
+import { kriCalculationService } from '@/utils/kriCalculation';
 
 const state = {
   kriItems: [],
@@ -184,13 +185,20 @@ const actions = {
     commit('SET_ERROR', null);
     
     try {
-      const [kriDetail, atomicData, evidenceData, auditTrailData, historicalData] = await Promise.all([
+      const [kriDetail, evidenceData, auditTrailData, historicalData] = await Promise.all([
         kriService.fetchKRIDetail(kriId, reportingDate),
-        kriService.fetchKRIAtomic(kriId, reportingDate),
         kriService.fetchKRIEvidence(kriId, reportingDate),
         kriService.fetchKRIAuditTrail(kriId, reportingDate),
         kriService.fetchKRIHistorical(kriId, 12)
       ]);
+      
+      // Fetch atomic data with evidence if this is a calculated KRI
+      let atomicData = [];
+      if (kriDetail && kriDetail.is_calculated_kri) {
+        atomicData = await kriService.fetchAtomicWithEvidence(kriId, reportingDate);
+      } else {
+        atomicData = await kriService.fetchKRIAtomic(kriId, reportingDate);
+      }
       
       // Fetch metadata history if we have a kri_code
       // cant in batch due to require kri_code
@@ -350,6 +358,90 @@ const actions = {
     // Refresh data after update
     await dispatch('refreshKRIDetail');
   },
+
+  // Atomic evidence actions
+  async linkAtomicEvidence({ dispatch, getters }, { kriId, atomicId, reportingDate, evidenceId, comment }) {
+    const currentUser = getters.currentUser;
+    
+    await kriService.linkEvidenceToAtomic(
+      kriId,
+      atomicId,
+      reportingDate,
+      evidenceId,
+      currentUser.name || currentUser.User_ID,
+      comment
+    );
+    
+    // Refresh data after update
+    await dispatch('refreshKRIDetail');
+  },
+
+  async unlinkAtomicEvidence({ dispatch, getters }, { kriId, atomicId, reportingDate, comment }) {
+    const currentUser = getters.currentUser;
+    
+    await kriService.unlinkEvidenceFromAtomic(
+      kriId,
+      atomicId,
+      reportingDate,
+      currentUser.name || currentUser.User_ID,
+      comment
+    );
+    
+    // Refresh data after update
+    await dispatch('refreshKRIDetail');
+  },
+
+  // KRI calculation action
+  async calculateKRI({ dispatch, getters, state }, { kriId, reportingDate }) {
+    if (!kriId || !reportingDate) {
+      throw new Error('kriId and reportingDate are required for KRI calculation');
+    }
+
+    const currentUser = getters.currentUser;
+    
+    // Get KRI detail and atomic data from state
+    if (!state.kriDetail || state.kriDetail.kri_id !== kriId || state.kriDetail.reporting_date !== reportingDate) {
+      throw new Error('KRI detail not loaded for calculation');
+    }
+    
+    const kriDetail = state.kriDetail;
+    const atomicData = state.atomicData;
+    
+    // Validate we have formula and atomic data
+    if (!kriDetail.kri_formula) {
+      throw new Error('No formula found for KRI calculation');
+    }
+    
+    if (!atomicData || atomicData.length === 0) {
+      throw new Error('No atomic data available for calculation');
+    }
+    
+    try {
+      // Calculate new KRI value using existing calculation service
+      const calculatedValue = kriCalculationService.executeFormulaCalculation(
+        kriDetail.kri_formula,
+        atomicData
+      );
+      
+      // Update KRI with calculated value
+      await kriService.updateKRI(
+        kriId,
+        reportingDate,
+        { kri_value: calculatedValue.toString() },
+        currentUser.name || currentUser.User_ID || 'system',
+        'recalculate',
+        `KRI recalculated using formula: ${kriDetail.kri_formula} = ${calculatedValue}`
+      );
+      
+      // Refresh data to show updated values
+      await dispatch('refreshKRIDetail');
+      
+      return calculatedValue;
+    } catch (error) {
+      console.error('KRI calculation failed:', error);
+      throw new Error(`KRI calculation failed: ${error.message}`);
+    }
+  },
 };
 
 const getters = {
@@ -430,6 +522,21 @@ const getters = {
       (atomic.kriId || atomic.kri_id) === kriId && 
       (atomic.reportingDate || atomic.reporting_date) === reportingDate
     );
+  },
+
+  // Get atomic data with evidence information for calculated KRIs
+  getAtomicWithEvidenceForKRI: (state) => (kriId, reportingDate) => {
+    return state.atomicData
+      .filter(atomic => 
+        (atomic.kriId || atomic.kri_id) === kriId && 
+        (atomic.reportingDate || atomic.reporting_date) === reportingDate
+      )
+      .map(atomic => ({
+        ...atomic,
+        hasEvidence: !!(atomic.evidence_id || atomic.linkedEvidence),
+        evidenceFileName: atomic.linkedEvidence?.file_name || null,
+        evidenceId: atomic.evidence_id || atomic.linkedEvidence?.evidence_id || null
+      }));
   },
 
   // Transform atomic data into table row format for a specific KRI

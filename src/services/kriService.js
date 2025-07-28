@@ -216,7 +216,7 @@ class BaseKRIService {
   }
 
   /**
- * Server-side function: updateAtomicKRI
+ * Server-side function: updateatomickri
  * This function updates a single atomic KRI record in the kri_atomic table and logs the change in kri_audit_trail.
  * It takes the KRI ID, atomic ID, reporting date, update data (as JSON), user info, action, and comment.
  * For each field updated, it logs the old and new value in the audit trail.
@@ -232,7 +232,7 @@ class BaseKRIService {
  * @returns {Promise<object>} Updated kri_atomic row
  */
   // TODO: fix in the future, the function did not exist in the database
-  async updateAtomicKRI(kriId, atomicId, reportingDate, updateData, changedBy, action, comment = '') {
+  async updateatomickri(kriId, atomicId, reportingDate, updateData, changedBy, action, comment = '') {
     if (!changedBy) throw new Error('changedBy is required');
     if (!action) throw new Error('action is required');
     if (!comment) throw new Error('comment is required');
@@ -240,7 +240,7 @@ class BaseKRIService {
     if (!kriId || !atomicId || !reportingDate) throw new Error('kriId, atomicId, and reportingDate are required');
 
     // Call the Postgres function via Supabase RPC
-    const { data, error } = await supabase.rpc('updateAtomicKRI', {
+    const { data, error } = await supabase.rpc('updateatomickri', {
       p_kri_id: kriId,
       p_atomic_id: atomicId,
       p_reporting_date: reportingDate,
@@ -436,7 +436,7 @@ class BaseKRIService {
   }
 
   /**
-   * Audit Trail are automatically added by the server-side function updateKRI, updateAtomicKRI, updateEvidence
+   * Audit Trail are automatically added by the server-side function updateKRI, updateatomickri, updateEvidence
    * This function is used to manually add audit trail entry only when needed
     * Manually add audit trail entry with consistent pattern
     * @param {string|number} kriId - KRI ID
@@ -557,8 +557,8 @@ export const kriService = {
     return data;
   },
 
-  async updateAtomicKRI(kriId, atomicId, reportingDate, updateData, changedBy, action, comment = '') {
-    const { data } = await baseKRIService.updateAtomicKRI(kriId, atomicId, reportingDate, updateData, changedBy, action, comment);
+  async updateatomickri(kriId, atomicId, reportingDate, updateData, changedBy, action, comment = '') {
+    const { data } = await baseKRIService.updateatomickri(kriId, atomicId, reportingDate, updateData, changedBy, action, comment);
     return data;
   },
 
@@ -651,6 +651,91 @@ export const kriService = {
     return null;
   },
 
+  // ---------------------------------- atomic evidence functions ---------------------------
+
+  async linkEvidenceToAtomic(kriId, atomicId, reportingDate, evidenceId, changedBy, comment = 'Evidence linked to atomic element') {
+    if (!kriId || !atomicId || !reportingDate || !evidenceId || !changedBy) {
+      throw new Error('kriId, atomicId, reportingDate, evidenceId, and changedBy are required');
+    }
+
+    const updateData = { evidence_id: evidenceId };
+    
+    const result = await baseKRIService.updateatomickri(
+      kriId,
+      atomicId,
+      reportingDate,
+      updateData,
+      changedBy,
+      'select_atomic_evidence',
+      comment
+    );
+    
+    return result;
+  },
+
+  async unlinkEvidenceFromAtomic(kriId, atomicId, reportingDate, changedBy, comment = 'Evidence unlinked from atomic element') {
+    if (!kriId || !atomicId || !reportingDate || !changedBy) {
+      throw new Error('kriId, atomicId, reportingDate, and changedBy are required');
+    }
+
+    const updateData = { evidence_id: null };
+    
+    const result = await baseKRIService.updateatomickri(
+      kriId,
+      atomicId,
+      reportingDate,
+      updateData,
+      changedBy,
+      'unselect_atomic_evidence',
+      comment
+    );
+    
+    return result;
+  },
+
+  async fetchAtomicWithEvidence(kriId, reportingDate) {
+    // First fetch atomic data
+    const atomicData = await this.fetchKRIAtomic(kriId, reportingDate);
+    
+    if (!atomicData || atomicData.length === 0) {
+      return [];
+    }
+
+    // Get all evidence IDs from atomic data
+    const evidenceIds = atomicData
+      .map(atomic => atomic.evidence_id)
+      .filter(id => id !== null && id !== undefined);
+
+    if (evidenceIds.length === 0) {
+      // Return atomic data with null evidence
+      return atomicData.map(atomic => ({
+        ...atomic,
+        linkedEvidence: null
+      }));
+    }
+
+    // Fetch evidence data for the evidence IDs
+    const { data: evidenceData, error } = await supabase
+      .from('kri_evidence')
+      .select('*')
+      .in('evidence_id', evidenceIds);
+
+    if (error) {
+      console.error('Error fetching atomic evidence:', error);
+      // Return atomic data without evidence on error
+      return atomicData.map(atomic => ({
+        ...atomic,
+        linkedEvidence: null
+      }));
+    }
+
+    // Join atomic data with evidence data
+    return atomicData.map(atomic => ({
+      ...atomic,
+      linkedEvidence: evidenceData.find(evidence => evidence.evidence_id === atomic.evidence_id) || null
+    }));
+  },
+
   async updateAuditTrail(kriId, reportingDate, updateData, changedBy, action, comment = '') {
     const { data } = await baseKRIService.addAuditTrailEntry(kriId, reportingDate, updateData, changedBy, action, comment);
     return data;
@@ -710,6 +795,7 @@ export const kriService = {
     if (error) throw error;
     return data || [];
   },
+
 
 };
 

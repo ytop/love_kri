@@ -72,6 +72,7 @@
               :evidence-data="evidenceData"
               :audit-data="auditTrailData"
               :metadata-history-data="metadataHistoryData"
+              :atomic-data="atomicData"
               :kri-id="String(kriDetail.kri_id)"
               :reporting-date="kriDetail.reporting_date"
               :current-status="kriDetail.kri_status"
@@ -81,6 +82,7 @@
               @status-updated="handleStatusUpdated"
               @evidence-selected="handleEvidenceSelected"
               @evidence-unselected="handleEvidenceUnselected"
+              @atomic-evidence-updated="handleAtomicEvidenceUpdated"
             />
         </div>
         
@@ -281,6 +283,21 @@ export default {
       // Optional: Show feedback to user about unselection
       if (evidenceData && evidenceData.filename) {
         this.$message.info(`Evidence unselected: ${evidenceData.filename}`);
+      }
+    },
+
+    // Handle atomic evidence updates (linking/unlinking)
+    handleAtomicEvidenceUpdated(updateData) {
+      // Refresh data to ensure UI reflects the atomic evidence changes
+      this.refreshKRIDetail();
+      
+      // Show feedback to user about atomic evidence update
+      if (updateData && updateData.atomicId && updateData.evidenceFileName) {
+        if (updateData.action === 'link') {
+          this.$message.success(`Evidence "${updateData.evidenceFileName}" linked to atomic element ${updateData.atomicId}`);
+        } else if (updateData.action === 'unlink') {
+          this.$message.info(`Evidence unlinked from atomic element ${updateData.atomicId}`);
+        }
       }
     },
     

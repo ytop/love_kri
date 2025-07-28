@@ -205,17 +205,46 @@
             <td>{{ getProviderName(item) }}</td>
             <td class="evidence-cell">
               <div class="evidence-content">
-                <span class="evidence-info">{{ getEvidenceInfo(item) }}</span>
-                <el-button
-                  v-if="canUploadEvidence"
-                  type="text"
-                  size="mini"
-                  icon="el-icon-upload2"
-                  @click="showUploadModal"
-                  class="evidence-upload-btn"
-                >
-                  Upload
-                </el-button>
+                <!-- Atomic evidence for calculated KRIs -->
+                <template v-if="isCalculatedKRI && canLinkAtomicEvidence(kriDetail, item)">
+                  <el-select
+                    :value="item.evidence_id || item.evidenceId || null"
+                    @change="handleAtomicEvidenceChange(item, $event)"
+                    placeholder="Select evidence"
+                    size="mini"
+                    style="width: 140px"
+                    :disabled="!canEditAtomicElement(item)"
+                    clearable>
+                    <el-option
+                      v-for="evidence in getAvailableEvidenceForAtomic(evidenceData, item.atomic_id, atomicData)"
+                      :key="evidence.evidence_id"
+                      :label="evidence.file_name"
+                      :value="evidence.evidence_id">
+                      <span style="float: left">{{ evidence.file_name }}</span>
+                      <span style="float: right; color: #8492a6; font-size: 13px">
+                        {{ formatEvidenceDate(evidence.uploaded_at) }}
+                      </span>
+                    </el-option>
+                  </el-select>
+                  <div v-if="item.evidenceFileName" class="evidence-filename" :title="item.evidenceFileName">
+                    {{ item.evidenceFileName }}
+                  </div>
+                </template>
+                
+                <!-- KRI-level evidence for regular KRIs -->
+                <template v-else>
+                  <span class="evidence-info">{{ getEvidenceInfo(item) }}</span>
+                  <el-button
+                    v-if="canUploadEvidence"
+                    type="text"
+                    size="mini"
+                    icon="el-icon-upload2"
+                    @click="showUploadModal"
+                    class="evidence-upload-btn"
+                  >
+                    Upload
+                  </el-button>
+                </template>
               </div>
             </td>
             <td>{{ getCommentInfo(item) }}</td>
@@ -306,7 +335,11 @@
       :visible.sync="uploadModalVisible"
       :kri-id="String(kriDetail.kri_id)"
       :reporting-date="kriDetail.reporting_date"
+      :kri-item="kriDetail"
       @upload-success="handleUploadSuccess"
+      @excel-parsed="handleExcelParsed"
+      @status-updated="handleStatusUpdated"
+      @evidence-selected="handleEvidenceSelected"
     />
   </div>
 </template>
@@ -314,12 +347,18 @@
 <script>
 import { mapState, mapActions, mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
-import { getUserDisplayName, isCalculatedKRI } from '@/utils/helpers';
+import { getUserDisplayName, isCalculatedKRI, getAtomicEvidenceStatus, getAvailableEvidenceForAtomic, canLinkAtomicEvidence } from '@/utils/helpers';
 import { mapStatus } from '@/utils/types';
 import { kriCalculationService } from '@/utils/kriCalculation';
+import EvidenceUploadModal from '@/components/shared/EvidenceUploadModal.vue';
+import AtomicInputDialog from '@/components/shared/AtomicInputDialog.vue';
 
 export default {
   name: 'KRIDataElements',
+  components: {
+    EvidenceUploadModal,
+    AtomicInputDialog
+  },
   props: {
     atomicData: {
       type: Array,
@@ -341,7 +380,11 @@ export default {
       editingAtomic: null,
       editingValue: null,
       savingAtomic: null,
-      submittingAtomicData: false
+      submittingAtomicData: false,
+      // Missing data properties for template
+      previousAtomicData: [],
+      showBulkInputDialog: false,
+      uploadModalVisible: false
     };
   },
   computed: {
@@ -468,7 +511,7 @@ export default {
     }
   },
   methods: {
-    ...mapActions('kri', ['refreshKRIDetail']),
+    ...mapActions('kri', ['refreshKRIDetail', 'linkAtomicEvidence', 'unlinkAtomicEvidence']),
     
     // Permission checking methods
     canEditAtomicElement(item) {
@@ -521,7 +564,7 @@ export default {
       
       this.savingAtomic = item.atomic_id;
       try {
-        await kriService.updateAtomicKRI(
+        await kriService.updateatomickri(
           this.kriDetail.kri_id,
           item.atomic_id,
           this.kriDetail.reporting_date,
@@ -559,7 +602,7 @@ export default {
           updateData.atomic_status = 30; // Status 30: "Saved"
         }
         
-        await kriService.updateAtomicKRI(
+        await kriService.updateatomickri(
           this.kriDetail.kri_id,
           item.atomic_id,
           this.kriDetail.reporting_date,
@@ -587,7 +630,7 @@ export default {
         // Determine next status based on KRI owner/data provider logic
         const nextStatus = this.getNextSubmitStatus();
         
-        await kriService.updateAtomicKRI(
+        await kriService.updateatomickri(
           this.kriDetail.kri_id,
           item.atomic_id,
           this.kriDetail.reporting_date,
@@ -615,7 +658,7 @@ export default {
         // For case 1: direct transition from 10/20 to submit status
         const nextStatus = this.getNextSubmitStatus();
         
-        await kriService.updateAtomicKRI(
+        await kriService.updateatomickri(
           this.kriDetail.kri_id,
           item.atomic_id,
           this.kriDetail.reporting_date,
@@ -650,7 +693,7 @@ export default {
     
     async updateAtomicStatus(item, newStatus, action, message) {
       try {
-        await kriService.updateAtomicKRI(
+        await kriService.updateatomickri(
           this.kriDetail.kri_id,
           item.atomic_id,
           this.kriDetail.reporting_date,
@@ -680,7 +723,7 @@ export default {
         const nextStatus = this.getNextSubmitStatus();
         const promises = this.atomicData
           .filter(item => this.canEditAtomicElement(item) && this.hasAtomicValue(item))
-          .map(item => kriService.updateAtomicKRI(
+          .map(item => kriService.updateatomickri(
             this.kriDetail.kri_id,
             item.atomic_id,
             this.kriDetail.reporting_date,
@@ -716,7 +759,7 @@ export default {
     async bulkUpdateSelected(newStatus, action, successMessage) {
       try {
         const promises = this.selectedItems.map(atomicId => 
-          kriService.updateAtomicKRI(
+          kriService.updateatomickri(
             this.kriDetail.kri_id,
             atomicId,
             this.kriDetail.reporting_date,
@@ -764,7 +807,13 @@ export default {
       return this.kriDetail.data_provider || 'N/A';
     },
     
-    getEvidenceInfo(_item) {
+    getEvidenceInfo(item) {
+      // For calculated KRIs, show atomic-level evidence
+      if (this.isCalculatedKRI && canLinkAtomicEvidence(this.kriDetail, item)) {
+        return getAtomicEvidenceStatus(item, this.evidenceData);
+      }
+      
+      // For regular KRIs, show KRI-level evidence count
       const evidence = this.evidenceData.filter(e => 
         e.kri_id === this.kriDetail.kri_id && 
         e.reporting_date === this.kriDetail.reporting_date
@@ -776,9 +825,96 @@ export default {
       // This would come from audit trail data if available
       return 'No comments';
     },
+
+    // Atomic evidence methods
+    async handleAtomicEvidenceChange(item, evidenceId) {
+      try {
+        if (evidenceId) {
+          // Link evidence to atomic
+          await this.linkAtomicEvidence({
+            kriId: this.kriDetail.kri_id,
+            atomicId: item.atomic_id,
+            reportingDate: this.kriDetail.reporting_date,
+            evidenceId: evidenceId,
+            comment: `Evidence linked to atomic element ${item.atomic_id}`
+          });
+          this.$message.success('Evidence linked to atomic element');
+        } else {
+          // Unlink evidence from atomic
+          await this.unlinkAtomicEvidence({
+            kriId: this.kriDetail.kri_id,
+            atomicId: item.atomic_id,
+            reportingDate: this.kriDetail.reporting_date,
+            comment: `Evidence unlinked from atomic element ${item.atomic_id}`
+          });
+          this.$message.success('Evidence unlinked from atomic element');
+        }
+      } catch (error) {
+        console.error('Error updating atomic evidence:', error);
+        this.$message.error('Failed to update atomic evidence');
+      }
+    },
+
+    formatEvidenceDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    },
+
+    // Helper methods for template usage
+    getAvailableEvidenceForAtomic,
+    canLinkAtomicEvidence,
     
     showUploadModal() {
+      this.uploadModalVisible = true;
+    },
+    
+    // Missing methods for template event handlers
+    handleBulkDataUpdate(updateData) {
+      // Handle bulk atomic data updates from AtomicInputDialog
+      console.log('Bulk data update:', updateData);
+      // Close the dialog
+      this.showBulkInputDialog = false;
+      // Emit data-updated event to parent
+      this.$emit('data-updated');
+      // Show success message
+      this.$message.success('Bulk atomic data updated successfully');
+    },
+    
+    handleUploadSuccess(uploadData) {
+      // Handle evidence upload completion from EvidenceUploadModal
+      console.log('Upload success:', uploadData);
+      // Close the modal
+      this.uploadModalVisible = false;
+      // Emit evidence-uploaded event to parent  
       this.$emit('evidence-uploaded');
+      // Refresh data
+      this.refreshKRIDetail();
+    },
+    
+    handleExcelParsed(parseData) {
+      // Handle Excel auto-parse results from EvidenceUploadModal
+      console.log('Excel parsed:', parseData);
+      // Emit to parent for potential KRI value updates
+      this.$emit('excel-parsed', parseData);
+    },
+    
+    handleStatusUpdated(statusData) {
+      // Handle status updates from evidence upload
+      console.log('Status updated:', statusData);
+      // Emit to parent for status change handling
+      this.$emit('status-updated', statusData);
+      // Refresh data to reflect changes
+      this.refreshKRIDetail();
+    },
+    
+    handleEvidenceSelected(evidenceId) {
+      // Handle evidence selection from upload modal
+      console.log('Evidence selected:', evidenceId);
+      // Emit to parent 
+      this.$emit('evidence-selected', evidenceId);
+      // Refresh data to show selection
+      this.refreshKRIDetail();
     },
     
     // Scroll to specific atomic element row in the table
@@ -1570,6 +1706,47 @@ export default {
 
 .highlight-atomic-row td {
   background-color: #fef5e7 !important;
+}
+
+/* Evidence cell styling */
+.evidence-cell {
+  min-width: 160px;
+  max-width: 180px;
+}
+
+.evidence-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.evidence-filename {
+  font-size: 12px;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.evidence-upload-btn {
+  align-self: flex-start;
+  padding: 0;
+  margin-top: 2px;
+}
+
+/* Atomic evidence select styling */
+.evidence-cell .el-select {
+  width: 100%;
+}
+
+.evidence-cell .el-select .el-input {
+  font-size: 12px;
+}
+
+.evidence-cell .el-select .el-input__inner {
+  padding-left: 8px;
+  padding-right: 24px;
 }
 
 </style>

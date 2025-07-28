@@ -439,6 +439,80 @@ export const isEvidenceSelected = (kriItem, evidenceData) => {
   return kriItem?.evidence_id && evidenceData?.some(e => e.evidence_id === kriItem.evidence_id);
 };
 
+// ---------------------------------- Atomic Evidence Utilities ----------------------------------
+
+// Get the selected evidence file for an atomic element (adapted from KRI-level function)
+export const getSelectedAtomicEvidence = (atomicItem, evidenceData) => {
+  if (!atomicItem || !evidenceData || evidenceData.length === 0) {
+    return null;
+  }
+
+  // If atomic has a linked evidence_id, find that evidence
+  if (atomicItem.evidence_id) {
+    const selectedEvidence = evidenceData.find(evidence => evidence.evidence_id === atomicItem.evidence_id);
+    if (selectedEvidence) {
+      return selectedEvidence;
+    }
+    // If selected evidence not found in current data, log warning but continue
+    console.warn(`Selected evidence ID ${atomicItem.evidence_id} not found in evidence data for atomic ${atomicItem.atomic_id}`);
+  }
+
+  // If atomic has linkedEvidence from service join, return it
+  if (atomicItem.linkedEvidence) {
+    return atomicItem.linkedEvidence;
+  }
+
+  return null;
+};
+
+// Check if atomic evidence is actually selected (not just available)
+export const isAtomicEvidenceSelected = (atomicItem, evidenceData) => {
+  if (!atomicItem) return false;
+  
+  // Check if atomic has evidence_id and it exists in evidence data
+  if (atomicItem.evidence_id) {
+    return evidenceData?.some(e => e.evidence_id === atomicItem.evidence_id);
+  }
+  
+  // Check if atomic has linkedEvidence from service join
+  return !!(atomicItem.linkedEvidence);
+};
+
+// Get display text for atomic evidence status
+export const getAtomicEvidenceStatus = (atomicItem, evidenceData) => {
+  if (!atomicItem) return 'No atomic data';
+  
+  if (isAtomicEvidenceSelected(atomicItem, evidenceData)) {
+    const evidence = getSelectedAtomicEvidence(atomicItem, evidenceData);
+    return evidence?.file_name || 'Evidence linked';
+  }
+  
+  return 'No evidence';
+};
+
+// Check if atomic element can have evidence linked (only for calculated KRIs)
+export const canLinkAtomicEvidence = (kriDetail, atomicItem) => {
+  if (!kriDetail || !atomicItem) return false;
+  
+  // Only calculated KRIs support atomic-level evidence
+  return isCalculatedKRI(kriDetail);
+};
+
+// Get available evidence for atomic linking (exclude already linked evidence)
+export const getAvailableEvidenceForAtomic = (evidenceData, currentAtomicId, allAtomicData) => {
+  if (!evidenceData || evidenceData.length === 0) {
+    return [];
+  }
+
+  // Get evidence IDs that are already linked to other atomics
+  const linkedEvidenceIds = allAtomicData
+    .filter(atomic => atomic.atomic_id !== currentAtomicId && atomic.evidence_id)
+    .map(atomic => atomic.evidence_id);
+
+  // Return evidence that is not linked to other atomics
+  return evidenceData.filter(evidence => !linkedEvidenceIds.includes(evidence.evidence_id));
+};
+
 // ---------------------------------- Filter Utilities ----------------------------------
 
 /**
