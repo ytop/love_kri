@@ -56,7 +56,7 @@
           </el-card>
           
           <!-- Data Elements -->
-          <el-card class="info-card" v-if="atomicData && atomicData.length > 0">
+          <el-card class="info-card" v-if="atomicData && atomicData.length > 0" id="data-elements-section">
             <k-r-i-data-elements 
               :atomic-data="atomicData"
               :kri-detail="kriDetail"
@@ -106,7 +106,7 @@ import KRIOverview from '@/components/detail/KRIOverview.vue';
 import KRIDataElements from '@/components/detail/KRIDataElements.vue';
 import KRIEvidenceAudit from '@/components/detail/KRIEvidenceAudit.vue';
 import KRISidebar from '@/components/detail/KRISidebar.vue';
-import { formatReportingDate, createGoBackHandler } from '@/utils/helpers';
+import { formatReportingDate, createGoBackHandler, isCalculatedKRI } from '@/utils/helpers';
 import { mapStatus, getStatusTagType } from '@/utils/types';
 
 export default {
@@ -147,6 +147,11 @@ export default {
     },
     metadataHistoryData() {
       return this.$store.state.kri.metadataHistoryData;
+    },
+    
+    // Calculated KRI detection (for conditional display)
+    isCalculatedKRI() {
+      return this.kriDetail ? isCalculatedKRI(this.kriDetail) : false;
     },
     
     // Find the latest rejection information from audit trail
@@ -236,8 +241,9 @@ export default {
         { duration: 5000 }
       );
       
-      // Optionally emit to parent or handle auto-fill logic here
-      // For now, the value will be applied when status transitions to "Saved"
+      // For calculated KRIs, the child component will handle recalculation
+      // Just refresh the data
+      this.refreshKRIDetail();
     },
     
     // Handle status updates from evidence upload
@@ -497,6 +503,7 @@ export default {
   background-color: #ed8936;
   border-color: #ed8936;
 }
+
 
 
 </style>

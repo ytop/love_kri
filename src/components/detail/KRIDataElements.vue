@@ -1,209 +1,10 @@
 <template>
   <div class="data-elements">
-    <div class="actions-toolbar">
-        <div class="left-title">
+    <div class="left-title">
             <h4>Data Elements</h4>
         </div>
-        <div class="right-actions">
-            <el-button
-              v-if="canSubmitAtomicData"
-              type="success"
-              icon="el-icon-upload"
-              @click="handleSubmitAtomicData"
-              :loading="submittingAtomicData"
-              size="small">
-              Submit Atomic Data
-            </el-button>
-            <el-button
-              v-if="showApproveButton"
-              type="success"
-              icon="el-icon-check"
-              @click="approveSelectedRows"
-              :disabled="!canApproveSelected"
-              size="small">
-              Approve Selected ({{ approvableCount }})
-            </el-button>
-            <el-button
-              v-if="showRejectButton"
-              type="danger"
-              icon="el-icon-close"
-              @click="rejectSelectedRows"
-              :disabled="!canRejectSelected"
-              size="small">
-              Reject Selected
-            </el-button>
-            <el-button
-              v-if="showAcknowledgeButton"
-              type="primary"
-              icon="el-icon-check"
-              @click="acknowledgeSelectedRows"
-              :disabled="!canAcknowledgeSelected"
-              size="small">
-              Acknowledge Selected ({{ acknowledgableCount }})
-            </el-button>
-        </div>
-    </div>
-    <div class="table-container">
-      <table class="data-table" id="dataElementsTable">
-        <thead>
-            <tr>
-                <th><input type="checkbox" id="selectAllCheckboxes" v-model="selectAll" @change="handleSelectAllChange"></th>
-                <th>Element ID</th>
-                <th>Data Element Name</th>
-                <th>Value</th>
-                <th>Status</th>
-                <th>Provider</th>
-                <th>Evidence</th>
-                <th>Comment</th>
-                <th class="fixed-column">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-if="atomicData.length === 0">
-                <td colspan="9" style="text-align: center; padding: 16px;">No data elements available</td>
-            </tr>
-            <tr v-for="item in atomicData" :key="item.atomic_id" :data-item-status="mapAtomicStatus(item.atomic_status)">
-                <td><input type="checkbox" class="row-checkbox" :value="item.atomic_id" v-model="selectedItems"></td>
-                <td>{{ item.atomic_id }}</td>
-                <td>{{ item.atomic_metadata }}</td> <!-- Using atomic_metadata for Data Element Name -->
-                <td class="data-value" :data-original-value="item.atomic_value">
-                  <template v-if="canEditAtomicElement(item)">
-                    <div v-if="editingAtomic === item.atomic_id" class="inline-edit-container">
-                      <el-input-number
-                        v-model="editingValue"
-                        :precision="2"
-                        size="small"
-                        @keyup.enter="saveAtomicValue(item)"
-                        @keyup.esc="cancelEdit"
-                        style="width: 120px"
-                        ref="editInput">
-                      </el-input-number>
-                      <div class="inline-edit-actions">
-                        <el-button
-                          type="success"
-                          icon="el-icon-check"
-                          size="mini"
-                          @click="saveAtomicValue(item)"
-                          :loading="savingAtomic === item.atomic_id"
-                          circle>
-                        </el-button>
-                        <el-button
-                          type="info"
-                          icon="el-icon-close"
-                          size="mini"
-                          @click="cancelEdit"
-                          circle>
-                        </el-button>
-                      </div>
-                    </div>
-                    <div v-else class="editable-value" @click="startEditAtomic(item)">
-                      <span class="value-display">{{ item.atomic_value || 'Click to edit' }}</span>
-                      <i class="el-icon-edit-outline edit-icon"></i>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <span class="readonly-value">{{ item.atomic_value || 'N/A' }}</span>
-                  </template>
-                </td>
-                <td>
-                    <el-tag 
-                        :type="getAtomicStatusType(item.atomic_status)"
-                        size="small"
-                        class="status-tag">
-                        {{ mapAtomicStatus(item.atomic_status) }}
-                    </el-tag>
-                </td>
-                <td>{{ getProviderName(item) }}</td>
-                <td class="evidence-cell">
-                  <div class="evidence-content">
-                    <span class="evidence-info">{{ getEvidenceInfo(item) }}</span>
-                    <el-button
-                      v-if="canUploadEvidence"
-                      type="text"
-                      size="mini"
-                      icon="el-icon-upload2"
-                      @click="showUploadModal"
-                      class="evidence-upload-btn"
-                    >
-                      Upload
-                    </el-button>
-                  </div>
-                </td>
-                <td>{{ getCommentInfo(item) }}</td>
-                <td class="fixed-column">
-                  <div class="row-actions">
-                    <template v-if="canEditAtomicElement(item)">
-                      <el-button
-                        type="primary"
-                        icon="el-icon-check"
-                        size="mini"
-                        @click="saveAtomicElement(item)"
-                        :loading="savingAtomic === item.atomic_id"
-                        :disabled="!hasAtomicValue(item)">
-                        Save
-                      </el-button>
-                      <el-button
-                        v-if="item.atomic_status === 30"
-                        type="success"
-                        icon="el-icon-upload"
-                        size="mini"
-                        @click="submitAtomicElement(item)"
-                        :loading="savingAtomic === item.atomic_id">
-                        Submit
-                      </el-button>
-                      <el-button
-                        v-if="[10, 20].includes(item.atomic_status)"
-                        type="success"
-                        icon="el-icon-upload"
-                        size="mini"
-                        @click="saveAndSubmitAtomicElement(item)"
-                        :loading="savingAtomic === item.atomic_id"
-                        :disabled="!hasAtomicValue(item)">
-                        Save & Submit
-                      </el-button>
-                    </template>
-                    <template v-else-if="canApproveAtomicElement(item)">
-                      <el-button
-                        type="success"
-                        icon="el-icon-check"
-                        size="mini"
-                        @click="approveAtomicElement(item)">
-                        Approve
-                      </el-button>
-                      <el-button
-                        type="danger"
-                        icon="el-icon-close"
-                        size="mini"
-                        @click="rejectAtomicElement(item)">
-                        Reject
-                      </el-button>
-                    </template>
-                    <template v-else-if="canAcknowledgeAtomicElement(item)">
-                      <el-button
-                        type="primary"
-                        icon="el-icon-check"
-                        size="mini"
-                        @click="acknowledgeAtomicElement(item)">
-                        Acknowledge
-                      </el-button>
-                      <el-button
-                        type="danger"
-                        icon="el-icon-close"
-                        size="mini"
-                        @click="rejectAtomicElement(item)">
-                        Reject
-                      </el-button>
-                    </template>
-                    <span v-else class="no-actions-text">No actions available</span>
-                  </div>
-                </td>
-            </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Calculation Details Section -->
-    <div class="formula-result-section">
+    <!-- Calculation Details Section (Only for Calculated KRIs) -->
+    <div v-if="isCalculatedKRI && kriDetail.kri_formula" class="formula-result-section">
         <div class="formula-header">
           <h4>
             <i class="el-icon-s-data"></i>
@@ -228,7 +29,7 @@
               <i class="el-icon-s-operation"></i>
               <strong>Substitution:</strong>
             </div>
-            <code class="calculation-code">{{ calculateFormula() }}</code>
+            <code class="calculation-code">{{ calculateFormula }}</code>
           </div>
           
           <div class="formula-item result-item">
@@ -255,20 +56,241 @@
               <strong>Atomic Values:</strong>
             </div>
             <div class="atomic-grid">
-              <div v-for="item in atomicData" :key="item.atomic_id" class="atomic-card">
+              <div 
+                v-for="item in atomicData" 
+                :key="item.atomic_id" 
+                class="atomic-card"
+                :class="{'atomic-card-highlight': isDynamicResult}"
+                :id="`atomic-${item.atomic_id}`"
+                @click="scrollToAtomicRow(item.atomic_id)">
+                
                 <div class="atomic-header">
-                  <span class="atomic-id">{{ item.atomic_id }}</span>
+                  <span class="atomic-id">A{{ item.atomic_id }}</span>
                   <el-tag :type="getAtomicStatusType(item.atomic_status)" size="mini">
                     {{ mapAtomicStatus(item.atomic_status) }}
                   </el-tag>
                 </div>
-                <div class="atomic-name">{{ item.atomic_metadata || `Element ${item.atomic_id}` }}</div>
-                <div class="atomic-value-display">{{ item.atomic_value || 'N/A' }}</div>
+                
+                <div class="atomic-card-content">
+                  <div class="atomic-name">{{ item.atomic_metadata || `Element ${item.atomic_id}` }}</div>
+                  <div class="atomic-value-display">{{ item.atomic_value || 'N/A' }}</div>
+                </div>
+                
+                <div class="atomic-card-footer">
+                  <el-button 
+                    type="text" 
+                    size="mini" 
+                    icon="el-icon-view"
+                    @click.stop="scrollToAtomicRow(item.atomic_id)">
+                    View in Table
+                  </el-button>
+                </div>
               </div>
             </div>
           </div>
         </div>
     </div>
+
+    <div class="actions-toolbar">
+
+    <div class="right-actions">
+        <el-button
+          v-if="canSubmitAtomicData"
+          type="success"
+          icon="el-icon-upload"
+          @click="handleSubmitAtomicData"
+          :loading="submittingAtomicData"
+          size="small">
+          Submit Atomic Data
+        </el-button>
+        <el-button
+          v-if="showApproveButton"
+          type="success"
+          icon="el-icon-check"
+          @click="approveSelectedRows"
+          :disabled="!canApproveSelected"
+          size="small">
+          Approve Selected ({{ approvableCount }})
+        </el-button>
+        <el-button
+          v-if="showRejectButton"
+          type="danger"
+          icon="el-icon-close"
+          @click="rejectSelectedRows"
+          :disabled="!canRejectSelected"
+          size="small">
+          Reject Selected
+        </el-button>
+        <el-button
+          v-if="showAcknowledgeButton"
+          type="primary"
+          icon="el-icon-check"
+          @click="acknowledgeSelectedRows"
+          :disabled="!canAcknowledgeSelected"
+          size="small">
+          Acknowledge Selected ({{ acknowledgableCount }})
+        </el-button>
+    </div>
+    </div>
+    <div class="table-container">
+    <table class="data-table" id="dataElementsTable">
+    <thead>
+        <tr>
+            <th><input type="checkbox" id="selectAllCheckboxes" v-model="selectAll" @change="handleSelectAllChange"></th>
+            <th>Element ID</th>
+            <th>Data Element Name</th>
+            <th>Value</th>
+            <th>Status</th>
+            <th>Provider</th>
+            <th>Evidence</th>
+            <th>Comment</th>
+            <th class="fixed-column">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr v-if="atomicData.length === 0">
+            <td colspan="9" style="text-align: center; padding: 16px;">No data elements available</td>
+        </tr>
+        <tr v-for="item in atomicData" :key="item.atomic_id" :data-item-status="mapAtomicStatus(item.atomic_status)">
+            <td><input type="checkbox" class="row-checkbox" :value="item.atomic_id" v-model="selectedItems"></td>
+            <td>{{ item.atomic_id }}</td>
+            <td>{{ item.atomic_metadata }}</td> <!-- Using atomic_metadata for Data Element Name -->
+            <td class="data-value" :data-original-value="item.atomic_value">
+              <template v-if="canEditAtomicElement(item)">
+                <div v-if="editingAtomic === item.atomic_id" class="inline-edit-container">
+                  <el-input-number
+                    v-model="editingValue"
+                    :precision="2"
+                    size="small"
+                    @keyup.enter="saveAtomicValue(item)"
+                    @keyup.esc="cancelEdit"
+                    style="width: 120px"
+                    ref="editInput">
+                  </el-input-number>
+                  <div class="inline-edit-actions">
+                    <el-button
+                      type="success"
+                      icon="el-icon-check"
+                      size="mini"
+                      @click="saveAtomicValue(item)"
+                      :loading="savingAtomic === item.atomic_id"
+                      circle>
+                    </el-button>
+                    <el-button
+                      type="info"
+                      icon="el-icon-close"
+                      size="mini"
+                      @click="cancelEdit"
+                      circle>
+                    </el-button>
+                  </div>
+                </div>
+                <div v-else class="editable-value" @click="startEditAtomic(item)">
+                  <span class="value-display">{{ item.atomic_value || 'Click to edit' }}</span>
+                  <i class="el-icon-edit-outline edit-icon"></i>
+                </div>
+              </template>
+              <template v-else>
+                <span class="readonly-value">{{ item.atomic_value || 'N/A' }}</span>
+              </template>
+            </td>
+            <td>
+                <el-tag 
+                    :type="getAtomicStatusType(item.atomic_status)"
+                    size="small"
+                    class="status-tag">
+                    {{ mapAtomicStatus(item.atomic_status) }}
+                </el-tag>
+            </td>
+            <td>{{ getProviderName(item) }}</td>
+            <td class="evidence-cell">
+              <div class="evidence-content">
+                <span class="evidence-info">{{ getEvidenceInfo(item) }}</span>
+                <el-button
+                  v-if="canUploadEvidence"
+                  type="text"
+                  size="mini"
+                  icon="el-icon-upload2"
+                  @click="showUploadModal"
+                  class="evidence-upload-btn"
+                >
+                  Upload
+                </el-button>
+              </div>
+            </td>
+            <td>{{ getCommentInfo(item) }}</td>
+            <td class="fixed-column">
+              <div class="row-actions">
+                <template v-if="canEditAtomicElement(item)">
+                  <el-button
+                    type="primary"
+                    icon="el-icon-check"
+                    size="mini"
+                    @click="saveAtomicElement(item)"
+                    :loading="savingAtomic === item.atomic_id"
+                    :disabled="!hasAtomicValue(item)">
+                    Save
+                  </el-button>
+                  <el-button
+                    v-if="item.atomic_status === 30"
+                    type="success"
+                    icon="el-icon-upload"
+                    size="mini"
+                    @click="submitAtomicElement(item)"
+                    :loading="savingAtomic === item.atomic_id">
+                    Submit
+                  </el-button>
+                  <el-button
+                    v-if="[10, 20].includes(item.atomic_status)"
+                    type="success"
+                    icon="el-icon-upload"
+                    size="mini"
+                    @click="saveAndSubmitAtomicElement(item)"
+                    :loading="savingAtomic === item.atomic_id"
+                    :disabled="!hasAtomicValue(item)">
+                    Save & Submit
+                  </el-button>
+                </template>
+                <template v-else-if="canApproveAtomicElement(item)">
+                  <el-button
+                    type="success"
+                    icon="el-icon-check"
+                    size="mini"
+                    @click="approveAtomicElement(item)">
+                    Approve
+                  </el-button>
+                  <el-button
+                    type="danger"
+                    icon="el-icon-close"
+                    size="mini"
+                    @click="rejectAtomicElement(item)">
+                    Reject
+                  </el-button>
+                </template>
+                <template v-else-if="canAcknowledgeAtomicElement(item)">
+                  <el-button
+                    type="primary"
+                    icon="el-icon-check"
+                    size="mini"
+                    @click="acknowledgeAtomicElement(item)">
+                    Acknowledge
+                  </el-button>
+                  <el-button
+                    type="danger"
+                    icon="el-icon-close"
+                    size="mini"
+                    @click="rejectAtomicElement(item)">
+                    Reject
+                  </el-button>
+                </template>
+                <span v-else class="no-actions-text">No actions available</span>
+              </div>
+            </td>
+        </tr>
+    </tbody>
+    </table>
+    </div>
+
 
     <!-- Atomic Input Dialog -->
     <atomic-input-dialog
@@ -292,8 +314,9 @@
 <script>
 import { mapState, mapActions, mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
-import { getUserDisplayName } from '@/utils/helpers';
+import { getUserDisplayName, isCalculatedKRI } from '@/utils/helpers';
 import { mapStatus } from '@/utils/types';
+import { kriCalculationService } from '@/utils/kriCalculation';
 
 export default {
   name: 'KRIDataElements',
@@ -383,6 +406,65 @@ export default {
     
     canUploadEvidence() {
       return this.isCase1Status && this.canPerform(this.kriDetail.kri_id, null, 'edit');
+    },
+    
+    // Calculated KRI detection
+    isCalculatedKRI() {
+      return this.kriDetail ? isCalculatedKRI(this.kriDetail) : false;
+    },
+    
+    // Calculate formula with atomic values substitution
+    calculateFormula() {
+      if (!this.isCalculatedKRI || !this.kriDetail?.kri_formula || !this.atomicData?.length) {
+        return 'No formula or atomic data available';
+      }
+      
+      try {
+        // Create substitution string showing formula with actual values
+        let substitution = this.kriDetail.kri_formula;
+        
+        this.atomicData.forEach(atomic => {
+          const atomicVar = `atomic${atomic.atomic_id}`;
+          const atomicValue = atomic.atomic_value || 0;
+          const regex = new RegExp(`\\b${atomicVar}\\b`, 'gi');
+          substitution = substitution.replace(regex, atomicValue);
+        });
+        
+        return substitution;
+      } catch (error) {
+        return `Calculation error: ${error.message}`;
+      }
+    },
+    
+    // Real-time calculated result
+    calculatedResult() {
+      if (!this.isCalculatedKRI || !this.kriDetail?.kri_formula || !this.atomicData?.length) {
+        return 'N/A';
+      }
+      
+      try {
+        const result = kriCalculationService.executeFormulaCalculation(
+          this.kriDetail.kri_formula,
+          this.atomicData
+        );
+        return typeof result === 'number' ? result.toFixed(2) : result;
+      } catch (error) {
+        console.error('Calculation error:', error);
+        return 'Error';
+      }
+    },
+    
+    // Check if calculated result differs from stored value
+    isDynamicResult() {
+      if (!this.isCalculatedKRI || this.calculatedResult === 'N/A' || this.calculatedResult === 'Error') {
+        return false;
+      }
+      
+      const storedValue = parseFloat(this.kriDetail?.kri_value || 0);
+      const calculatedValue = parseFloat(this.calculatedResult);
+      
+      // Consider values different if they differ by more than 0.01
+      return Math.abs(storedValue - calculatedValue) > 0.01;
     }
   },
   methods: {
@@ -452,6 +534,11 @@ export default {
         this.cancelEdit();
         this.$message.success('Atomic value updated successfully');
         this.$emit('data-updated');
+        
+        // Check for auto-recalculation after atomic value update
+        this.$nextTick(() => {
+          this.checkForAutoRecalculation();
+        });
       } catch (error) {
         console.error('Error updating atomic value:', error);
         this.$message.error('Failed to update atomic value');
@@ -575,6 +662,11 @@ export default {
         
         this.$message.success(message);
         this.$emit('data-updated');
+        
+        // Check for auto-recalculation after status update
+        this.$nextTick(() => {
+          this.checkForAutoRecalculation();
+        });
       } catch (error) {
         console.error(`Error updating atomic status:`, error);
         this.$message.error(`Failed to ${action.replace('_', ' ')}`);
@@ -687,6 +779,82 @@ export default {
     
     showUploadModal() {
       this.$emit('evidence-uploaded');
+    },
+    
+    // Scroll to specific atomic element row in the table
+    scrollToAtomicRow(atomicId) {
+      this.$nextTick(() => {
+        // Find the table row for this atomic element
+        const atomicRow = document.querySelector(`tr[data-atomic-id="${atomicId}"]`) || 
+                         document.querySelector(`#dataElementsTable tbody tr:nth-child(${atomicId + 1})`) ||
+                         Array.from(document.querySelectorAll('#dataElementsTable tbody tr')).find(row => {
+                           const cells = row.querySelectorAll('td');
+                           return cells.length > 1 && cells[1].textContent.trim() == atomicId;
+                         });
+        
+        if (atomicRow) {
+          atomicRow.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+          
+          // Add highlight effect
+          atomicRow.classList.add('highlight-atomic-row');
+          setTimeout(() => {
+            atomicRow.classList.remove('highlight-atomic-row');
+          }, 2000);
+        } else {
+          // Fallback: scroll to the table
+          const table = document.getElementById('dataElementsTable');
+          if (table) {
+            table.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start' 
+            });
+          }
+        }
+      });
+    },
+    
+    // Check if all atomic elements are finalized and trigger auto-recalculation
+    async checkForAutoRecalculation() {
+      if (!this.isCalculatedKRI || !this.atomicData?.length) return;
+      
+      // Check if all atomic elements are finalized (status 60)
+      const allAtomicsFinalized = this.atomicData.every(atomic => atomic.atomic_status === 60);
+      
+      if (allAtomicsFinalized && this.isDynamicResult) {
+        // All atomics are finalized and calculation differs from stored value
+        try {
+          const newKriValue = parseFloat(this.calculatedResult);
+          
+          // Update KRI with calculated value via service
+          await kriService.updateKRI(
+            this.kriDetail.kri_id,
+            this.kriDetail.reporting_date,
+            { 
+              kri_value: newKriValue.toString(),
+              kri_status: 30 // Set to "Saved" status after auto-calculation
+            },
+            getUserDisplayName(this.currentUser),
+            'auto_recalculate_kri',
+            `Auto-recalculated KRI value from atomic elements: ${this.calculatedResult}`
+          );
+          
+          this.$message.success(
+            `KRI auto-recalculated: ${this.calculatedResult}`,
+            { duration: 5000 }
+          );
+          
+          // Emit to parent for refresh
+          this.$emit('data-updated');
+          
+        } catch (error) {
+          console.error('Auto-recalculation failed:', error);
+          this.$message.error('Failed to auto-recalculate KRI value');
+        }
+      }
     }
   }
 };
@@ -700,11 +868,34 @@ export default {
 /* Actions Toolbar and Buttons */
 .actions-toolbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     flex-wrap: wrap;
     gap: 16px;
-    margin-bottom: 15pt;
+    margin-bottom: 16px;
+    padding: 12px 0;
+}
+
+.left-title {
+  margin-bottom: 16px;
+}
+
+.left-title h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+@media (max-width: 768px) {
+  .left-title h4 {
+    font-size: 16px;
+  }
+  
+  .actions-toolbar {
+    justify-content: center;
+    padding: 8px 0;
+  }
 }
 
 .actions-toolbar .right-actions {
@@ -773,25 +964,36 @@ export default {
   position: sticky;
   right: 0;
   background: #f8f9fa; /* Header background */
-  z-index: 2;
+  z-index: 10;
   border-left: 2px solid #e2e8f0;
-  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
-  min-width: 200px;
-  width: 200px;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.08);
+  min-width: 240px;
+  width: 240px;
+  max-width: 240px;
 }
 
 .data-table td.fixed-column {
   background: white; /* Body background */
+  vertical-align: middle;
 }
 
 /* Enhanced styling for fixed column */
 .data-table th.fixed-column {
   background: #f1f5f9; /* Slightly different header background */
+  position: sticky;
+  z-index: 11;
 }
 
 /* Add hover effect for fixed column */
 .data-table tbody tr:hover td.fixed-column {
   background: #f8fafc;
+}
+
+/* Ensure fixed column content doesn't overflow */
+.data-table th.fixed-column,
+.data-table td.fixed-column {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Prevent content shift when scrollbar appears */
@@ -821,6 +1023,7 @@ export default {
     table-layout: auto; /* Auto layout for natural column sizing */
     position: relative;
     transform: translateZ(0); /* Create new stacking context */
+    min-width: 800px; /* Ensure table has minimum width for proper layout */
 }
 
 .data-table th {
@@ -856,6 +1059,43 @@ export default {
     cursor: pointer;
     width: 16px;
     height: 16px;
+    transform: scale(1.2);
+    margin: 4px;
+}
+
+/* Improve touch targets on mobile */
+@media (max-width: 768px) {
+  .data-table input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    transform: scale(1.4);
+    margin: 6px;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 16px 12px;
+    font-size: 14px;
+  }
+  
+  .data-table th {
+    font-size: 13px;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .data-table th,
+  .data-table td {
+    padding: 14px 14px;
+  }
+  
+  .data-table th.fixed-column,
+  .data-table td.fixed-column {
+    min-width: 220px;
+    width: 220px;
+    max-width: 220px;
+  }
 }
 
 /* Status Badges Styles */
@@ -877,6 +1117,25 @@ export default {
     margin: 20px 0;
     border: 1px solid #e2e8f0;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    max-width: 100%;
+}
+
+/* Responsive formula section */
+@media (max-width: 768px) {
+  .formula-result-section {
+    padding: 16px;
+    margin: 16px 0;
+    border-radius: 8px;
+  }
+  
+  .formula-header h4 {
+    font-size: 16px;
+  }
+  
+  .formula-content {
+    gap: 12px;
+  }
 }
 
 .formula-header {
@@ -937,6 +1196,21 @@ export default {
     font-size: 13px;
     border: 1px solid #4a5568;
     overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-width: 100%;
+    display: block;
+    box-sizing: border-box;
+}
+
+/* Responsive code blocks */
+@media (max-width: 768px) {
+  .formula-code, .calculation-code {
+    font-size: 12px;
+    padding: 10px 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 }
 
 .result-item {
@@ -975,22 +1249,80 @@ export default {
 
 .atomic-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+/* Responsive atomic cards grid */
+@media (max-width: 768px) {
+  .atomic-grid {
+    grid-template-columns: 1fr;
     gap: 12px;
     margin-top: 12px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .atomic-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .atomic-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+  }
 }
 
 .atomic-card {
     background-color: #f8f9fa;
     border: 1px solid #e9ecef;
     border-radius: 8px;
-    padding: 12px;
+    padding: 14px;
+    cursor: pointer;
     transition: all 0.2s ease;
+    position: relative;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .atomic-card:hover {
     border-color: #409eff;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.atomic-card-highlight {
+    border-color: #f6ad55;
+    background: #fef5e7;
+    box-shadow: 0 2px 8px rgba(246, 173, 85, 0.2);
+}
+
+/* Mobile atomic card optimizations */
+@media (max-width: 768px) {
+  .atomic-card {
+    padding: 16px;
+    min-height: 100px;
+  }
+  
+  .atomic-card:hover {
+    transform: none; /* Disable hover transform on mobile */
     box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+  }
+}
+
+.atomic-card-content {
+    margin-bottom: 8px;
+}
+
+.atomic-card-footer {
+    display: flex;
+    justify-content: center;
 }
 
 .atomic-header {
@@ -1027,27 +1359,45 @@ export default {
 /* Row Actions Styling */
 .row-actions {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    padding: 4px;
+    padding: 6px;
     width: 100%;
-    min-height: 40px;
+    min-height: 44px;
 }
 
 .row-actions .el-button {
-    padding: 4px 8px;
-    font-size: 10px;
+    padding: 6px 10px;
+    font-size: 11px;
     border-radius: 4px;
     flex: 0 1 auto;
     min-width: 0;
     white-space: nowrap;
     margin: 0;
+    line-height: 1.2;
+    min-height: 28px;
 }
 
 .row-actions .el-button + .el-button {
     margin-left: 0;
+}
+
+/* Ensure buttons wrap properly in narrow spaces */
+@media (max-width: 1200px) {
+  .row-actions {
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+  }
+  
+  .row-actions .el-button {
+    width: 100%;
+    max-width: 100px;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
 }
 
 .no-actions-text {
@@ -1061,46 +1411,100 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 10px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
-    min-width: 80px;
+    min-width: 100px;
+    min-height: 32px;
+    border: 1px solid transparent;
+    background-color: rgba(0, 0, 0, 0.02);
 }
 
 .editable-value:hover {
     background-color: #f0f9ff;
     border: 1px solid #409eff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(64, 158, 255, 0.1);
 }
 
 .value-display {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .edit-icon {
     opacity: 0;
-    transition: opacity 0.2s ease;
+    transition: all 0.2s ease;
     color: #409eff;
-    font-size: 12px;
+    font-size: 14px;
+    margin-left: 6px;
+    flex-shrink: 0;
 }
 
 .editable-value:hover .edit-icon {
     opacity: 1;
+    transform: scale(1.1);
 }
 
 .readonly-value {
     color: #606266;
+    padding: 6px 10px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
 }
 
 .inline-edit-container {
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    min-height: 40px;
 }
 
 .inline-edit-actions {
     display: flex;
     gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Improve input styling within inline edit */
+.inline-edit-container .el-input-number {
+    flex: 1;
+    min-width: 80px;
+}
+
+.inline-edit-container .el-input-number .el-input__inner {
+    padding: 6px 8px;
+    height: 32px;
+    font-size: 13px;
+}
+
+/* Mobile optimizations for inline editing */
+@media (max-width: 768px) {
+  .editable-value {
+    padding: 8px 12px;
+    min-height: 36px;
+  }
+  
+  .edit-icon {
+    font-size: 16px;
+    opacity: 0.6; /* Make more visible on touch devices */
+  }
+  
+  .inline-edit-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  
+  .inline-edit-actions {
+    justify-content: center;
+  }
 }
 
 /* Dynamic calculation styling - enhanced */
@@ -1151,6 +1555,21 @@ export default {
 .evidence-upload-btn:hover {
   color: #409eff;
   background-color: #ecf5ff;
+}
+
+/* Highlight Effect for Atomic Table Rows */
+@keyframes highlightAtomicRow {
+  0% { background-color: #fef3c7; }
+  100% { background-color: transparent; }
+}
+
+.highlight-atomic-row {
+  animation: highlightAtomicRow 2s ease-in-out;
+  border: 2px solid #f6ad55 !important;
+}
+
+.highlight-atomic-row td {
+  background-color: #fef5e7 !important;
 }
 
 </style>
