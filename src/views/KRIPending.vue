@@ -72,6 +72,7 @@
           </el-alert>
         </div>
         <k-r-i-table
+          ref="kriTable"
           :data="filteredPendingKRIItems"
           :loading="loading"
           @row-click="handleKRIClick"
@@ -234,6 +235,11 @@ export default {
             console.warn('Background atomic data loading failed:', error);
             // Don't show error to user - this is background loading
           });
+          
+          // Auto-expand all calculated KRIs after data refresh
+          if (this.$refs.kriTable && this.filteredPendingKRIItems.length > 0) {
+            this.$refs.kriTable.expandAll();
+          }
         });
         
         this.$message.success('Data refreshed');
@@ -268,6 +274,13 @@ export default {
     // But refresh if we don't have any data
     if (!this.workflowItems.length && this.isAuthenticated) {
       await this.refreshData();
+    } else if (this.workflowItems.length > 0) {
+      // If data already exists, auto-expand calculated KRIs
+      this.$nextTick(() => {
+        if (this.$refs.kriTable) {
+          this.$refs.kriTable.expandAll();
+        }
+      });
     }
   }
 };
