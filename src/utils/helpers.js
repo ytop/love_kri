@@ -163,6 +163,95 @@ export const calculateAtomicBreach = (atomic, kriItem) => {
   return calculateBreachStatus(atomic.atomicValue, kriItem.warningLineValue, kriItem.limitValue);
 };
 
+// Calculate warning bar data for inline risk level display
+export const calculateWarningBarData = (kriValue, warningLineValue, limitValue, negativeWarning, negativeLimit) => {
+  // Convert values to numbers
+  const value = parseFloat(kriValue);
+  const warning = parseFloat(warningLineValue);
+  const limit = parseFloat(limitValue);
+  const negWarn = parseFloat(negativeWarning);
+  const negLim = parseFloat(negativeLimit);
+
+  // Default safe state
+  const result = {
+    percentage: 0,
+    color: 'safe',
+    severity: 'safe',
+    showIcon: false,
+    tooltip: 'No threshold data available'
+  };
+
+  // Return default if no valid value
+  if (isNaN(value)) {
+    result.tooltip = 'No KRI value';
+    return result;
+  }
+
+  // Check positive thresholds first (warning < limit)
+  if (!isNaN(warning) && !isNaN(limit)) {
+    if (value >= limit) {
+      result.percentage = 100;
+      result.color = 'breach';
+      result.severity = 'limit';
+      result.showIcon = true;
+      result.tooltip = `LIMIT BREACH: ${value} ≥ ${limit} (Limit)`;
+    } else if (value >= warning) {
+      result.percentage = 100;
+      result.color = 'caution';
+      result.severity = 'warning';
+      result.showIcon = true;
+      result.tooltip = `WARNING: ${value} ≥ ${warning} (Warning Line)`;
+    } else {
+      // Calculate percentage to warning threshold
+      result.percentage = Math.max(0, Math.min(100, (value / warning) * 100));
+      if (result.percentage >= 70) {
+        result.color = 'caution';
+        result.showIcon = true;
+        result.tooltip = `APPROACHING WARNING: ${value} (${result.percentage.toFixed(1)}% of warning threshold)`;
+      } else {
+        result.color = 'safe';
+        result.tooltip = `SAFE: ${value} (${result.percentage.toFixed(1)}% of warning threshold)`;
+      }
+    }
+    return result;
+  }
+
+  // Check negative thresholds (negativeWarning > negativeLimit, lower values are worse)
+  if (!isNaN(negWarn) && !isNaN(negLim)) {
+    if (value <= negLim) {
+      result.percentage = 100;
+      result.color = 'breach';
+      result.severity = 'limit';
+      result.showIcon = true;
+      result.tooltip = `NEGATIVE LIMIT BREACH: ${value} ≤ ${negLim} (Negative Limit)`;
+    } else if (value <= negWarn) {
+      result.percentage = 100;
+      result.color = 'caution';
+      result.severity = 'warning';
+      result.showIcon = true;
+      result.tooltip = `NEGATIVE WARNING: ${value} ≤ ${negWarn} (Negative Warning)`;
+    } else {
+      // Calculate percentage approach to negative warning (inverted logic)
+      const range = negWarn - negLim;
+      const position = value - negLim;
+      result.percentage = Math.max(0, Math.min(100, 100 - ((position / range) * 100)));
+      if (result.percentage >= 70) {
+        result.color = 'caution';
+        result.showIcon = true;
+        result.tooltip = `APPROACHING NEGATIVE WARNING: ${value} (${result.percentage.toFixed(1)}% risk level)`;
+      } else {
+        result.color = 'safe';
+        result.tooltip = `SAFE: ${value} (${result.percentage.toFixed(1)}% risk level)`;
+      }
+    }
+    return result;
+  }
+
+  // No valid thresholds
+  result.tooltip = `Value: ${value} (No thresholds configured)`;
+  return result;
+};
+
 // ---------------------------------- KRI Classification Utilities ----------------------------------
 
 // Check if a KRI has calculated atomic components

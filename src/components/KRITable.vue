@@ -233,6 +233,41 @@
           </template>
         </el-table-column>
         
+        <!-- Warning Bar column with inline risk level visualization -->
+        <el-table-column
+          v-else-if="column.key === 'warningBar'"
+          :key="column.key"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+        >
+          <template slot-scope="scope">
+            <div class="warning-bar-container">
+              <el-tooltip 
+                :content="getWarningBarData(scope.row).tooltip" 
+                placement="top"
+                :open-delay="300"
+              >
+                <div class="warning-bar-wrapper">
+                  <div class="warning-bar-background">
+                    <div 
+                      class="warning-bar-fill"
+                      :class="`warning-bar-${getWarningBarData(scope.row).color}`"
+                      :style="{ width: Math.min(100, getWarningBarData(scope.row).percentage) + '%' }"
+                    ></div>
+                  </div>
+                  <i 
+                    v-if="getWarningBarData(scope.row).showIcon"
+                    class="el-icon-warning warning-icon"
+                    :class="`warning-icon-${getWarningBarData(scope.row).color}`"
+                  ></i>
+                </div>
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+        
         <!-- Standard columns -->
         <el-table-column
           v-else
@@ -259,6 +294,7 @@ import {
   getBreachDisplayText, 
   getBreachDescription, 
   calculateAtomicBreach,
+  calculateWarningBarData,
   getKRIStatusLabel,
   sortNumeric,
   loadTablePreferencesFromStorage,
@@ -445,6 +481,43 @@ export default {
     getKRIValueColorClass(breachType) {
       const tagType = this.getBreachTagType(breachType);
       return `kri-value-${tagType}`;
+    },
+
+    // Warning bar data calculation method
+    getWarningBarData(row) {
+      if (row.isAtomicRow) {
+        // For atomic rows, use parent KRI thresholds
+        const parentKRI = this.data.find(kri => 
+          (kri.kriId || kri.id) === row.kriId && kri.reportingDate === row.reportingDate
+        );
+        if (parentKRI) {
+          return calculateWarningBarData(
+            row.atomicValue,
+            parentKRI.warningLineValue,
+            parentKRI.limitValue,
+            parentKRI.negativeWarning,
+            parentKRI.negativeLimit
+          );
+        }
+      } else {
+        // For main KRI rows
+        return calculateWarningBarData(
+          row.kriValue,
+          row.warningLineValue,
+          row.limitValue,
+          row.negativeWarning,
+          row.negativeLimit
+        );
+      }
+      
+      // Fallback for rows without valid data
+      return {
+        percentage: 0,
+        color: 'safe',
+        severity: 'safe',
+        showIcon: false,
+        tooltip: 'No threshold data available'
+      };
     }
   }
 };
@@ -619,5 +692,116 @@ export default {
 
 .kri-value-display {
   display: inline-block;
+}
+
+/* Warning Bar Column Styling */
+.warning-bar-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+}
+
+.warning-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.warning-bar-background {
+  position: relative;
+  width: 100px;
+  height: 6px;
+  background-color: #f0f2f5;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid #e4e7ed;
+}
+
+.warning-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  position: relative;
+}
+
+/* Warning bar color states */
+.warning-bar-safe {
+  background-color: #52c41a;
+  background: linear-gradient(90deg, #52c41a 0%, #73d13d 100%);
+}
+
+.warning-bar-caution {
+  background-color: #faad14;
+  background: linear-gradient(90deg, #faad14 0%, #ffc53d 100%);
+}
+
+.warning-bar-breach {
+  background-color: #ff4d4f;
+  background: linear-gradient(90deg, #ff4d4f 0%, #ff7875 100%);
+}
+
+/* Warning icons */
+.warning-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.warning-icon-safe {
+  color: #52c41a;
+  display: none; /* Only show for caution/breach */
+}
+
+.warning-icon-caution {
+  color: #faad14;
+  animation: pulse-warning 2s infinite;
+}
+
+.warning-icon-breach {
+  color: #ff4d4f;
+  animation: pulse-danger 1.5s infinite;
+}
+
+/* Pulse animations for warning states */
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.15); }
+}
+
+/* Hover effects */
+.warning-bar-container:hover .warning-bar-background {
+  border-color: #409eff;
+  box-shadow: 0 0 4px rgba(64, 158, 255, 0.3);
+}
+
+.warning-bar-container:hover .warning-bar-fill {
+  filter: brightness(1.1);
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 1200px) {
+  .warning-bar-background {
+    width: 80px;
+  }
+}
+
+@media (max-width: 768px) {
+  .warning-bar-background {
+    width: 60px;
+  }
+  
+  .warning-bar-wrapper {
+    gap: 4px;
+  }
+  
+  .warning-icon {
+    font-size: 12px;
+  }
 }
 </style>

@@ -84,6 +84,12 @@ class TableColumnManager {
       sortable: true,
       order: 10
     },
+    warningBar: {
+      key: 'warningBar',
+      label: 'Risk Level',
+      width: 120,
+      order: 10.5
+    },
     reportingCycle: {
       key: 'reportingCycle',
       label: 'Reporting Cycle',
@@ -203,19 +209,19 @@ class TableColumnManager {
       availableColumns: [
         'selection', 'id', 'name', 'kriDescription', 'owner', 'dataProvider', 
         'collectionStatus', 'l1RiskType', 'l2RiskType', 'rasMetric',
-        'breachType', 'kriValue', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
+        'breachType', 'kriValue', 'warningBar', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
         'reportingCycle', 'reportingDate', 'reportingFrequency', 'kriFormula',
         'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId'
       ],
       defaultVisible: [
         'selection', 'id', 'name', 'owner', 'dataProvider',
         'collectionStatus', 'l1RiskType', 'l2RiskType',
-        'breachType', 'kriValue', 'reportingCycle'
+        'breachType', 'kriValue', 'warningBar', 'reportingCycle'
       ],
       defaultOrder: [
         'selection', 'id', 'name', 'kriDescription', 'owner', 'dataProvider',
         'collectionStatus', 'l1RiskType', 'l2RiskType', 'rasMetric',
-        'breachType', 'kriValue', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
+        'breachType', 'kriValue', 'warningBar', 'limitValue', 'warningLineValue', 'negativeWarning', 'negativeLimit',
         'reportingCycle', 'reportingDate', 'reportingFrequency', 'kriFormula',
         'kriStatus', 'createdAt', 'isCalculatedKri', 'source', 'evidenceId'
       ]
