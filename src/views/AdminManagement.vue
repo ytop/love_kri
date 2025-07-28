@@ -297,15 +297,79 @@
           <el-input-number v-model="permissionForm.kri_id" :min="1" :disabled="isEditingPermission" />
         </el-form-item>
         <el-form-item label="Reporting Date" prop="reporting_date">
-          <el-input-number v-model="permissionForm.reporting_date" :min="20200101" :max="30001231" :disabled="isEditingPermission" />
+          <el-select 
+            v-model="permissionForm.reporting_date" 
+            placeholder="Select reporting date" 
+            :disabled="isEditingPermission || !permissionForm.kri_id"
+            filterable
+            style="width: 100%;"
+          >
+            <el-option
+              v-for="date in validReportingDates"
+              :key="date"
+              :value="date"
+              :label="formatReportingDate(date)"
+            >
+              <span>{{ formatReportingDate(date) }}</span>
+            </el-option>
+          </el-select>
+          <div v-if="!permissionForm.kri_id" class="form-help-text">
+            Please select a KRI ID first to load available reporting dates
+          </div>
+          <div v-else-if="validReportingDates.length === 0" class="form-help-text">
+            No reporting dates available for this KRI ID
+          </div>
         </el-form-item>
         <el-form-item label="Actions" prop="actions">
           <el-checkbox-group v-model="permissionForm.selectedActions">
+            <div style="margin-bottom: 12px;">
+              <strong style="color: #667eea; font-size: 14px;">General Actions:</strong>
+            </div>
             <el-checkbox label="view">View</el-checkbox>
             <el-checkbox label="edit">Edit</el-checkbox>
             <el-checkbox label="review">Review</el-checkbox>
             <el-checkbox label="acknowledge">Acknowledge</el-checkbox>
             <el-checkbox label="delete">Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 1 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic1_view">Atomic1 View</el-checkbox>
+            <el-checkbox label="atomic1_edit">Atomic1 Edit</el-checkbox>
+            <el-checkbox label="atomic1_review">Atomic1 Review</el-checkbox>
+            <el-checkbox label="atomic1_acknowledge">Atomic1 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic1_delete">Atomic1 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 2 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic2_view">Atomic2 View</el-checkbox>
+            <el-checkbox label="atomic2_edit">Atomic2 Edit</el-checkbox>
+            <el-checkbox label="atomic2_review">Atomic2 Review</el-checkbox>
+            <el-checkbox label="atomic2_acknowledge">Atomic2 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic2_delete">Atomic2 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 3 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic3_view">Atomic3 View</el-checkbox>
+            <el-checkbox label="atomic3_edit">Atomic3 Edit</el-checkbox>
+            <el-checkbox label="atomic3_review">Atomic3 Review</el-checkbox>
+            <el-checkbox label="atomic3_acknowledge">Atomic3 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic3_delete">Atomic3 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 4 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic4_view">Atomic4 View</el-checkbox>
+            <el-checkbox label="atomic4_edit">Atomic4 Edit</el-checkbox>
+            <el-checkbox label="atomic4_review">Atomic4 Review</el-checkbox>
+            <el-checkbox label="atomic4_acknowledge">Atomic4 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic4_delete">Atomic4 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Custom Action:</strong>
+            </div>
             <el-checkbox label="other">Other</el-checkbox>
           </el-checkbox-group>
           <div v-if="permissionForm.selectedActions.includes('other')" style="margin-top: 8px;">
@@ -345,11 +409,54 @@
         </el-form-item>
         <el-form-item label="Actions" prop="actions">
           <el-checkbox-group v-model="batchForm.selectedActions">
+            <div style="margin-bottom: 12px;">
+              <strong style="color: #667eea; font-size: 14px;">General Actions:</strong>
+            </div>
             <el-checkbox label="view">View</el-checkbox>
             <el-checkbox label="edit">Edit</el-checkbox>
             <el-checkbox label="review">Review</el-checkbox>
             <el-checkbox label="acknowledge">Acknowledge</el-checkbox>
             <el-checkbox label="delete">Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 1 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic1_view">Atomic1 View</el-checkbox>
+            <el-checkbox label="atomic1_edit">Atomic1 Edit</el-checkbox>
+            <el-checkbox label="atomic1_review">Atomic1 Review</el-checkbox>
+            <el-checkbox label="atomic1_acknowledge">Atomic1 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic1_delete">Atomic1 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 2 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic2_view">Atomic2 View</el-checkbox>
+            <el-checkbox label="atomic2_edit">Atomic2 Edit</el-checkbox>
+            <el-checkbox label="atomic2_review">Atomic2 Review</el-checkbox>
+            <el-checkbox label="atomic2_acknowledge">Atomic2 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic2_delete">Atomic2 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 3 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic3_view">Atomic3 View</el-checkbox>
+            <el-checkbox label="atomic3_edit">Atomic3 Edit</el-checkbox>
+            <el-checkbox label="atomic3_review">Atomic3 Review</el-checkbox>
+            <el-checkbox label="atomic3_acknowledge">Atomic3 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic3_delete">Atomic3 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Atomic 4 Actions:</strong>
+            </div>
+            <el-checkbox label="atomic4_view">Atomic4 View</el-checkbox>
+            <el-checkbox label="atomic4_edit">Atomic4 Edit</el-checkbox>
+            <el-checkbox label="atomic4_review">Atomic4 Review</el-checkbox>
+            <el-checkbox label="atomic4_acknowledge">Atomic4 Acknowledge</el-checkbox>
+            <el-checkbox label="atomic4_delete">Atomic4 Delete</el-checkbox>
+            
+            <div style="margin: 16px 0 12px 0;">
+              <strong style="color: #667eea; font-size: 14px;">Custom Action:</strong>
+            </div>
             <el-checkbox label="other">Other</el-checkbox>
           </el-checkbox-group>
           <div v-if="batchForm.selectedActions.includes('other')" style="margin-top: 8px;">
@@ -425,6 +532,7 @@ export default {
       isEditingPermission: false,
       selectedPermissions: [],
       originalPermission: null, // Store original permission for editing
+      validReportingDates: [], // Store valid reporting dates for selected KRI ID
       permissionForm: {
         user_uuid: '',
         kri_id: null,
@@ -489,6 +597,16 @@ export default {
         });
       },
       deep: true
+    },
+    'permissionForm.kri_id': {
+      async handler(newKriId) {
+        if (newKriId && !this.isEditingPermission) {
+          // Load valid reporting dates for the selected KRI ID
+          this.validReportingDates = await this.getValidReportingDates(newKriId);
+          // Reset reporting date when KRI ID changes
+          this.permissionForm.reporting_date = null;
+        }
+      }
     }
   },
   computed: {
@@ -690,6 +808,7 @@ export default {
     showAddPermissionDialog() {
       this.isEditingPermission = false;
       this.originalPermission = null;
+      this.validReportingDates = [];
       this.permissionForm = {
         user_uuid: '',
         kri_id: null,
@@ -701,13 +820,16 @@ export default {
       this.permissionDialogVisible = true;
     },
 
-    editPermission(permission) {
+    async editPermission(permission) {
       this.isEditingPermission = true;
       this.originalPermission = { ...permission };
       
+      // Load valid reporting dates for the selected KRI ID
+      this.validReportingDates = await this.getValidReportingDates(permission.kri_id);
+      
       // Parse actions back into array for the form
       const actions = permission.actions.split(',').map(action => action.trim());
-      const predefinedActions = ['view', 'edit', 'review', 'acknowledge', 'delete'];
+      const predefinedActions = ['view', 'edit', 'review', 'acknowledge', 'delete', 'atomic1_view', 'atomic1_edit', 'atomic1_review', 'atomic1_acknowledge', 'atomic1_delete', 'atomic2_view', 'atomic2_edit', 'atomic2_review', 'atomic2_acknowledge', 'atomic2_delete', 'atomic3_view', 'atomic3_edit', 'atomic3_review', 'atomic3_acknowledge', 'atomic3_delete', 'atomic4_view', 'atomic4_edit', 'atomic4_review', 'atomic4_acknowledge', 'atomic4_delete'];
       const selectedActions = [];
       let otherAction = '';
       
@@ -769,6 +891,19 @@ export default {
             this.$message.error('Please select at least one action');
             return;
           }
+
+          // Validate that the KRI item exists before creating permission
+          const kriExists = await this.validateKriItemExists(
+            this.permissionForm.kri_id, 
+            this.permissionForm.reporting_date
+          );
+          
+          if (!kriExists) {
+            this.$message.error(
+              `KRI with ID ${this.permissionForm.kri_id} and reporting date ${this.formatReportingDate(this.permissionForm.reporting_date)} does not exist. Please ensure the KRI item is created first.`
+            );
+            return;
+          }
           
           let result;
           
@@ -802,7 +937,14 @@ export default {
           this.permissionDialogVisible = false;
           await this.loadPermissions();
         } catch (error) {
-          this.$message.error('Failed to save permission: ' + error.message);
+          console.error('Permission save error:', error);
+          if (error.code === '23503') {
+            this.$message.error('Cannot create permission: The specified KRI ID and reporting date combination does not exist in the system.');
+          } else if (error.message.includes('violates foreign key constraint')) {
+            this.$message.error('Foreign key constraint violation: Please ensure the KRI item exists before creating permissions.');
+          } else {
+            this.$message.error('Failed to save permission: ' + error.message);
+          }
         } finally {
           this.permissionSaving = false;
         }
@@ -869,12 +1011,15 @@ export default {
           const { data: kriItems, error: kriError } = await supabase
             .from('kri_item')
             .select('reporting_date')
-            .eq('kri_id', this.batchForm.kri_id);
+            .eq('kri_id', this.batchForm.kri_id)
+            .order('reporting_date', { ascending: false });
           
           if (kriError) throw kriError;
           
           if (!kriItems || kriItems.length === 0) {
-            this.$message.warning('No KRIs found with the specified ID');
+            this.$message.warning(
+              `No KRI items found with ID ${this.batchForm.kri_id}. Please ensure KRI items exist before granting permissions.`
+            );
             return;
           }
           
@@ -885,6 +1030,7 @@ export default {
             return;
           }
           
+          // Create permissions for each valid KRI item
           const permissions = kriItems.map(item => ({
             user_uuid: this.batchForm.user_uuid,
             kri_id: this.batchForm.kri_id,
@@ -893,17 +1039,33 @@ export default {
             effect: true
           }));
           
+          // Use upsert to handle conflicts gracefully
           const { error } = await supabase
             .from('kri_user_permission')
-            .upsert(permissions);
+            .upsert(permissions, { 
+              onConflict: 'user_uuid,kri_id,reporting_date' 
+            });
           
           if (error) throw error;
           
-          this.$message.success(`Batch granted ${permissions.length} permissions successfully`);
+          const dateRange = kriItems.length > 0 ? 
+            `from ${this.formatReportingDate(kriItems[kriItems.length - 1].reporting_date)} to ${this.formatReportingDate(kriItems[0].reporting_date)}` :
+            '';
+          
+          this.$message.success(
+            `Successfully granted ${permissions.length} permissions for KRI ${this.batchForm.kri_id} ${dateRange}`
+          );
           this.batchGrantDialogVisible = false;
           await this.loadPermissions();
         } catch (error) {
-          this.$message.error('Failed to batch grant permissions: ' + error.message);
+          console.error('Batch grant error:', error);
+          if (error.code === '23503') {
+            this.$message.error('Cannot grant permissions: Some KRI items may not exist in the system. Please verify all KRI records are properly created.');
+          } else if (error.message.includes('violates foreign key constraint')) {
+            this.$message.error('Foreign key constraint violation during batch grant: Please ensure all KRI items exist before granting permissions.');
+          } else {
+            this.$message.error('Failed to batch grant permissions: ' + error.message);
+          }
         } finally {
           this.batchOperationLoading = false;
         }
@@ -933,6 +1095,48 @@ export default {
           this.batchOperationLoading = false;
         }
       });
+    },
+
+    // Validation Helper Methods
+    async validateKriItemExists(kriId, reportingDate) {
+      try {
+        const { data, error } = await supabase
+          .from('kri_item')
+          .select('kri_id, reporting_date')
+          .eq('kri_id', kriId)
+          .eq('reporting_date', reportingDate)
+          .single();
+        
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // No rows returned
+            return false;
+          }
+          throw error;
+        }
+        
+        return !!data;
+      } catch (error) {
+        console.error('Error validating KRI item existence:', error);
+        return false;
+      }
+    },
+
+    async getValidReportingDates(kriId) {
+      try {
+        const { data, error } = await supabase
+          .from('kri_item')
+          .select('reporting_date')
+          .eq('kri_id', kriId)
+          .order('reporting_date', { ascending: false });
+        
+        if (error) throw error;
+        
+        return (data || []).map(item => item.reporting_date);
+      } catch (error) {
+        console.error('Error fetching valid reporting dates:', error);
+        return [];
+      }
     },
 
     // UI Helper Methods
@@ -2442,5 +2646,13 @@ html body .admin-management .enhanced-table tbody tr:hover::before {
     font-size: 24px;
     padding: 10px;
   }
+}
+
+/* Form help text */
+.form-help-text {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 </style>
