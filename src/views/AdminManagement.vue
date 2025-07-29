@@ -1,1386 +1,1060 @@
 <template>
   <div class="admin-management">
-    <!-- Animated Background Particles -->
-    <div class="particles-container">
-      <div v-for="i in 50" :key="i" class="particle" :style="getParticleStyle(i)"></div>
-    </div>
-    
-    <!-- Floating Orbs -->
-    <div class="floating-orbs">
-      <div class="orb orb-1"></div>
-      <div class="orb orb-2"></div>
-      <div class="orb orb-3"></div>
-    </div>
-    <!-- Enhanced Header -->
-    <div class="page-header animate-slide-down">
-      <div class="header-content">
-        <div class="header-text animate-fade-in-up">
-          <h1 class="animated-title"><i class="el-icon-setting spinning-gear"></i> Admin Management</h1>
-          <p class="typing-effect">Manage users and permissions for the KRI system</p>
-        </div>
-        <div class="header-stats animate-fade-in-right">
-          <el-card class="stat-card pulse-hover" :class="{ 'animate-bounce-in': isLoaded }">
-            <div class="stat-content">
-              <i class="el-icon-user stat-icon icon-float"></i>
-              <div class="stat-text">
-                <div class="stat-number counter-animation" ref="userCounter">{{ animatedUserCount }}</div>
-                <div class="stat-label glow-text">Users</div>
-              </div>
-            </div>
-          </el-card>
-          <el-card class="stat-card pulse-hover" :class="{ 'animate-bounce-in-delayed': isLoaded }">
-            <div class="stat-content">
-              <i class="el-icon-key stat-icon icon-float icon-delayed"></i>
-              <div class="stat-text">
-                <div class="stat-number counter-animation" ref="permissionCounter">{{ animatedPermissionCount }}</div>
-                <div class="stat-label glow-text">Permissions</div>
-              </div>
-            </div>
-          </el-card>
-        </div>
+    <div class="admin-header">
+      <h1 class="admin-title">
+        <i class="el-icon-setting"></i>
+        System Administration
+      </h1>
+      <div class="admin-breadcrumb">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item :to="{ path: '/' }">Dashboard</el-breadcrumb-item>
+          <el-breadcrumb-item>Administration</el-breadcrumb-item>
+        </el-breadcrumb>
       </div>
     </div>
 
-    <div class="management-sections animate-stagger-up">
-      <!-- User Management Section -->
-      <el-card class="section-card user-section magical-card" :class="{ 'card-loaded': isLoaded }">
-        <div slot="header" class="enhanced-section-header gradient-shimmer">
-          <div class="section-title">
-            <i class="el-icon-user-solid section-icon icon-rotate"></i>
-            <div class="section-info">
+    <el-card class="admin-container">
+      <el-tabs v-model="activeTab" type="card" @tab-click="handleTabClick">
+        <!-- User Management Tab -->
+        <el-tab-pane label="User Management" name="users">
+          <div class="tab-content">
+            <div class="content-header">
               <h3>User Management</h3>
-              <p>Add, edit, and manage system users</p>
-            </div>
-          </div>
-          <el-button type="primary" size="medium" icon="el-icon-plus" @click="showAddUserDialog" class="add-button magical-button">
-            <span class="button-text">Add New User</span>
-            <div class="button-ripple"></div>
-          </el-button>
-        </div>
-
-        <div class="table-container user-table-container">
-          <el-table 
-            :data="users" 
-            v-loading="usersLoading"
-            empty-text="No users found"
-            class="enhanced-table"
-            header-row-class-name="table-header"
-            style="width: 100%"
-          >
-            <el-table-column prop="User_ID" label="User ID" width="140" sortable>
-              <template slot-scope="scope">
-                <div class="user-id-cell">
-                  <el-avatar :size="32" :src="generateAvatar(scope.row.User_Name)" class="user-avatar">
-                    {{ scope.row.User_Name ? scope.row.User_Name.charAt(0).toUpperCase() : 'U' }}
-                  </el-avatar>
-                  <span class="user-id-text">{{ scope.row.User_ID }}</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="User_Name" label="Display Name" min-width="180" sortable>
-              <template slot-scope="scope">
-                <div class="user-name-cell">
-                  <span class="user-name">{{ scope.row.User_Name }}</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="Department" label="Department" width="130" sortable>
-              <template slot-scope="scope">
-                <el-tag size="small" class="department-tag">
-                  {{ scope.row.Department || 'Not Set' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="UUID" label="UUID" width="140" show-overflow-tooltip>
-              <template slot-scope="scope">
-                <el-tooltip :content="scope.row.UUID" placement="top">
-                  <span class="uuid-text">{{ scope.row.UUID.substring(0, 8) }}...</span>
-                </el-tooltip>
-              </template>
-            </el-table-column>
-            <el-table-column label="Actions" width="210" align="center">
-              <template slot-scope="scope">
-                <div class="action-buttons-container">
-                  <el-button size="small" icon="el-icon-edit" @click="editUser(scope.row)" class="edit-btn">
-                    Edit
-                  </el-button>
-                  <el-button size="small" type="danger" icon="el-icon-delete" @click="deleteUser(scope.row)" class="delete-btn">
-                    Delete
-                  </el-button>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </el-card>
-
-      <!-- Permission Management Section -->
-      <el-card class="section-card permission-section magical-card card-delayed" :class="{ 'card-loaded': isLoaded }">
-        <div slot="header" class="enhanced-section-header gradient-shimmer">
-          <div class="section-title">
-            <i class="el-icon-key section-icon icon-rotate icon-delayed"></i>
-            <div class="section-info">
-              <h3>Permission Management</h3>
-              <p>Control user access and permissions</p>
-            </div>
-          </div>
-          <div class="permission-actions">
-            <el-button type="primary" size="medium" icon="el-icon-plus" @click="showAddPermissionDialog" class="add-button magical-button">
-              <span class="button-text">Add Permission</span>
-              <div class="button-ripple"></div>
-            </el-button>
-            <el-dropdown trigger="click" @command="handleBatchCommand">
-              <el-button type="success" size="medium" class="batch-button magical-button-success">
-                <span class="button-text">Batch Actions <i class="el-icon-arrow-down el-icon--right arrow-bounce"></i></span>
-                <div class="button-ripple"></div>
-              </el-button>
-              <el-dropdown-menu slot="dropdown">
-                <el-dropdown-item command="grant" icon="el-icon-check">Batch Grant</el-dropdown-item>
-                <el-dropdown-item command="revoke" icon="el-icon-close">Batch Revoke</el-dropdown-item>
-              </el-dropdown-menu>
-            </el-dropdown>
-          </div>
-        </div>
-
-        <div class="permission-content">
-          <div class="permission-filters">
-            <el-row :gutter="16">
-              <el-col :span="8">
+              <div class="header-actions">
                 <el-select 
-                  v-model="permissionFilter.userId" 
-                  placeholder="Filter by User" 
-                  clearable 
-                  filterable
-                  class="filter-select"
+                  v-model="selectedDepartment" 
+                  placeholder="Filter by Department" 
+                  clearable
+                  @change="handleDepartmentFilter"
+                  style="width: 200px; margin-right: 10px;"
                 >
-                  <el-option v-for="user in users" :key="user.UUID" :label="`${user.User_ID} (${user.User_Name})`" :value="user.UUID">
-                    <div class="user-option">
-                      <el-avatar :size="24" class="option-avatar">
-                        {{ user.User_Name ? user.User_Name.charAt(0).toUpperCase() : 'U' }}
-                      </el-avatar>
-                      <span>{{ user.User_ID }} ({{ user.User_Name }})</span>
-                    </div>
-                  </el-option>
+                  <el-option 
+                    v-for="dept in departments" 
+                    :key="dept" 
+                    :label="dept" 
+                    :value="dept"
+                  ></el-option>
                 </el-select>
-              </el-col>
-              <el-col :span="6">
-                <el-input 
-                  v-model="permissionFilter.kriId" 
-                  placeholder="Filter by KRI ID" 
-                  clearable 
-                  class="filter-input"
-                  prefix-icon="el-icon-search"
-                />
-              </el-col>
-              <el-col :span="4">
-                <el-button type="primary" @click="loadPermissions" class="filter-button" icon="el-icon-refresh">
+                <el-button 
+                  type="primary" 
+                  icon="el-icon-refresh" 
+                  @click="refreshUsers"
+                  :loading="usersLoading"
+                >
                   Refresh
                 </el-button>
-              </el-col>
-            </el-row>
-          </div>
-
-          <div class="permission-table-actions" v-if="selectedPermissions.length > 0">
-            <div class="selection-info">
-              <i class="el-icon-check"></i>
-              <span>{{ selectedPermissions.length }} permissions selected</span>
+              </div>
             </div>
-            <el-button size="small" type="danger" icon="el-icon-delete" @click="batchDeletePermissions" class="danger-button">
-              Delete Selected
-            </el-button>
-          </div>
 
-          <div class="table-container permission-table-container">
             <el-table 
-              :data="filteredPermissions" 
-              v-loading="permissionsLoading"
-              @selection-change="handlePermissionSelectionChange"
-              empty-text="No permissions found"
-              class="enhanced-table permission-table"
-              header-row-class-name="table-header"
+              :data="filteredUsers" 
+              v-loading="usersLoading"
+              stripe
+              border
               style="width: 100%"
+              :default-sort="{ prop: 'User_ID', order: 'ascending' }"
             >
-              <el-table-column type="selection" width="55" />
-              <el-table-column prop="user_id" label="User" width="140" sortable>
-                <template slot-scope="scope">
-                  <div class="user-cell">
-                    <el-avatar :size="28" class="user-avatar-small">
-                      {{ scope.row.user_id.charAt(0).toUpperCase() }}
-                    </el-avatar>
-                    <span class="user-text">{{ scope.row.user_id }}</span>
-                  </div>
-                </template>
+              <el-table-column prop="User_ID" label="User ID" sortable width="120">
               </el-table-column>
-              <el-table-column prop="kri_id" label="KRI ID" width="100" sortable>
+              
+              <el-table-column prop="User_Name" label="Display Name" sortable width="150">
+              </el-table-column>
+              
+              <el-table-column prop="Department" label="Department" sortable width="120">
+              </el-table-column>
+              
+              <el-table-column prop="user_role" label="Role" sortable width="120">
                 <template slot-scope="scope">
-                  <el-tag size="small" type="info" class="kri-tag">
-                    {{ scope.row.kri_id }}
+                  <el-tag 
+                    :type="getRoleTagType(scope.row.user_role)"
+                    size="small"
+                  >
+                    {{ getRoleDisplayName(scope.row.user_role) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="reporting_date" label="Reporting Date" width="120" sortable>
+              
+              <el-table-column label="Actions" width="200">
                 <template slot-scope="scope">
-                  <span class="date-text">{{ formatReportingDate(scope.row.reporting_date) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="actions" label="Actions" min-width="160">
-                <template slot-scope="scope">
-                  <div class="actions-tags">
-                    <el-tag 
-                      v-for="action in scope.row.actions.split(',')" 
-                      :key="action" 
-                      size="mini" 
-                      class="action-tag"
-                      :type="getActionTagType(action.trim())"
-                    >
-                      {{ formatActionText(action.trim()) }}
-                    </el-tag>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column prop="effect" label="Effect" width="80">
-                <template slot-scope="scope">
-                  <el-tag :type="scope.row.effect ? 'success' : 'danger'" size="small" class="effect-tag">
-                    <i :class="scope.row.effect ? 'el-icon-check' : 'el-icon-close'"></i>
-                    {{ scope.row.effect ? 'Allow' : 'Deny' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="Operations" width="190" align="center">
-                <template slot-scope="scope">
-                  <div class="action-buttons-container">
-                    <el-button size="small" icon="el-icon-edit" @click="editPermission(scope.row)" class="edit-btn">
-                      Edit
-                    </el-button>
-                    <el-button size="small" type="danger" icon="el-icon-delete" @click="deletePermission(scope.row)" class="delete-btn">
-                      Delete
-                    </el-button>
-                  </div>
+                  <el-button 
+                    size="mini" 
+                    type="primary" 
+                    icon="el-icon-edit"
+                    @click="openRoleEditDialog(scope.row)"
+                    :disabled="!canManageUser(scope.row)"
+                  >
+                    Edit Role
+                  </el-button>
+                  <el-button 
+                    size="mini" 
+                    type="info" 
+                    icon="el-icon-view"
+                    @click="viewUserPermissions(scope.row)"
+                  >
+                    Permissions
+                  </el-button>
                 </template>
               </el-table-column>
             </el-table>
           </div>
+        </el-tab-pane>
+
+        <!-- Role Management Tab -->
+        <el-tab-pane label="Role Management" name="roles">
+          <div class="tab-content">
+            <div class="content-header">
+              <h3>Role Management</h3>
+              <p class="tab-description">Manage user roles and their capabilities across the system.</p>
+            </div>
+
+            <div class="role-summary">
+              <el-row :gutter="20">
+                <el-col :span="8" v-for="(count, role) in roleCounts" :key="role">
+                  <el-card class="role-card">
+                    <div class="role-info">
+                      <div class="role-name">
+                        <el-tag :type="getRoleTagType(role)" size="medium">
+                          {{ getRoleDisplayName(role) }}
+                        </el-tag>
+                      </div>
+                      <div class="role-count">{{ count }} users</div>
+                      <div class="role-description">{{ getRoleDescription(role) }}</div>
+                    </div>
+                  </el-card>
+                </el-col>
+              </el-row>
+            </div>
+
+            <div class="bulk-role-actions">
+              <h4>Bulk Role Operations</h4>
+              <el-form :inline="true">
+                <el-form-item label="Select Users:">
+                  <el-select 
+                    v-model="bulkSelectedUsers" 
+                    multiple 
+                    placeholder="Choose users"
+                    style="width: 300px;"
+                  >
+                    <el-option 
+                      v-for="user in users" 
+                      :key="user.UUID" 
+                      :label="`${user.User_ID} (${user.Department})`" 
+                      :value="user.UUID"
+                      :disabled="!canManageUser(user)"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="New Role:">
+                  <el-select v-model="bulkNewRole" placeholder="Select role">
+                    <el-option 
+                      v-for="role in assignableRoles" 
+                      :key="role" 
+                      :label="getRoleDisplayName(role)" 
+                      :value="role"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button 
+                    type="warning" 
+                    @click="executeBulkRoleChange"
+                    :disabled="!bulkSelectedUsers.length || !bulkNewRole"
+                    :loading="bulkRoleLoading"
+                  >
+                    Apply Role Change
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- Department Administration Tab -->
+        <el-tab-pane label="Department Admin" name="departments">
+          <div class="tab-content">
+            <div class="content-header">
+              <h3>Department Administration</h3>
+              <p class="tab-description">Manage department administrators and oversee department operations.</p>
+            </div>
+
+            <div class="department-overview">
+              <el-row :gutter="20">
+                <el-col :span="6" v-for="dept in departmentStats" :key="dept.name">
+                  <el-card class="dept-card">
+                    <div class="dept-info">
+                      <h4>{{ dept.name }}</h4>
+                      <div class="dept-metrics">
+                        <div class="metric">
+                          <span class="metric-label">Users:</span>
+                          <span class="metric-value">{{ dept.userCount }}</span>
+                        </div>
+                        <div class="metric">
+                          <span class="metric-label">KRIs:</span>
+                          <span class="metric-value">{{ dept.kriCount }}</span>
+                        </div>
+                        <div class="metric">
+                          <span class="metric-label">Admins:</span>
+                          <span class="metric-value">{{ dept.adminCount }}</span>
+                        </div>
+                      </div>
+                      <el-button 
+                        size="small" 
+                        type="primary" 
+                        @click="viewDepartmentDetails(dept.name)"
+                        style="margin-top: 10px;"
+                      >
+                        Manage
+                      </el-button>
+                    </div>
+                  </el-card>
+                </el-col>
+              </el-row>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- Permission Management Tab -->
+        <el-tab-pane label="Permissions" name="permissions">
+          <div class="tab-content">
+            <div class="content-header">
+              <h3>Permission Management</h3>
+              <p class="tab-description">Manage user permissions across KRIs and system functions.</p>
+            </div>
+
+            <div class="permission-filters">
+              <el-form :inline="true">
+                <el-form-item label="Department:">
+                  <el-select 
+                    v-model="permissionDeptFilter" 
+                    placeholder="All Departments"
+                    clearable
+                    @change="loadPermissionData"
+                  >
+                    <el-option 
+                      v-for="dept in departments" 
+                      :key="dept" 
+                      :label="dept" 
+                      :value="dept"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="User:">
+                  <el-select 
+                    v-model="permissionUserFilter" 
+                    placeholder="All Users"
+                    clearable
+                    filterable
+                    @change="loadPermissionData"
+                  >
+                    <el-option 
+                      v-for="user in filteredUsersForPermissions" 
+                      :key="user.UUID" 
+                      :label="`${user.User_ID} (${user.Department})`" 
+                      :value="user.UUID"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button 
+                    type="primary" 
+                    @click="loadPermissionData"
+                    :loading="permissionsLoading"
+                  >
+                    Load Permissions
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+
+            <div v-if="permissionData.length > 0">
+              <el-table 
+                :data="permissionData" 
+                v-loading="permissionsLoading"
+                stripe
+                border
+                style="width: 100%"
+              >
+                <el-table-column prop="user_id" label="User" width="120">
+                </el-table-column>
+                <el-table-column prop="kri_id" label="KRI ID" width="80">
+                </el-table-column>
+                <el-table-column prop="actions" label="Permissions" min-width="200">
+                  <template slot-scope="scope">
+                    <el-tag 
+                      v-for="action in scope.row.actions.split(',')" 
+                      :key="action" 
+                      size="mini"
+                      style="margin-right: 5px;"
+                    >
+                      {{ action.trim() }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="effect" label="Status" width="80">
+                  <template slot-scope="scope">
+                    <el-tag :type="scope.row.effect ? 'success' : 'danger'" size="small">
+                      {{ scope.row.effect ? 'Active' : 'Denied' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actions" width="100">
+                  <template slot-scope="scope">
+                    <el-button 
+                      size="mini" 
+                      type="primary" 
+                      icon="el-icon-edit"
+                      @click="editPermission(scope.row)"
+                    >
+                      Edit
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+            <div v-else class="no-permission-data">
+              <el-empty description="No permission data loaded. Please select filters and click Load Permissions.">
+              </el-empty>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- System Overview Tab -->
+        <el-tab-pane label="System Overview" name="overview">
+          <div class="tab-content">
+            <div class="content-header">
+              <h3>System Overview</h3>
+              <p class="tab-description">System-wide statistics and monitoring.</p>
+            </div>
+
+            <div class="system-stats">
+              <el-row :gutter="20">
+                <el-col :span="6">
+                  <el-card class="stat-card">
+                    <div class="stat-content">
+                      <div class="stat-number">{{ systemStats.totalUsers }}</div>
+                      <div class="stat-label">Total Users</div>
+                    </div>
+                  </el-card>
+                </el-col>
+                <el-col :span="6">
+                  <el-card class="stat-card">
+                    <div class="stat-content">
+                      <div class="stat-number">{{ systemStats.totalDepartments }}</div>
+                      <div class="stat-label">Departments</div>
+                    </div>
+                  </el-card>
+                </el-col>
+                <el-col :span="6">
+                  <el-card class="stat-card">
+                    <div class="stat-content">
+                      <div class="stat-number">{{ systemStats.totalKRIs }}</div>
+                      <div class="stat-label">Active KRIs</div>
+                    </div>
+                  </el-card>
+                </el-col>
+                <el-col :span="6">
+                  <el-card class="stat-card">
+                    <div class="stat-content">
+                      <div class="stat-number">{{ systemStats.totalPermissions }}</div>
+                      <div class="stat-label">Permissions</div>
+                    </div>
+                  </el-card>
+                </el-col>
+              </el-row>
+            </div>
+
+            <div class="recent-activity">
+              <h4>Recent Administrative Activity</h4>
+              <el-table 
+                :data="recentActivity" 
+                stripe
+                style="width: 100%"
+              >
+                <el-table-column prop="timestamp" label="Time" width="180">
+                  <template slot-scope="scope">
+                    {{ formatDateTime(scope.row.timestamp) }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="action" label="Action" width="150">
+                </el-table-column>
+                <el-table-column prop="user" label="Admin User" width="120">
+                </el-table-column>
+                <el-table-column prop="target" label="Target" width="120">
+                </el-table-column>
+                <el-table-column prop="details" label="Details">
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
+    <!-- Role Edit Dialog -->
+    <el-dialog 
+      title="Edit User Role" 
+      :visible.sync="roleEditDialogVisible"
+      width="400px"
+      @close="resetRoleEditDialog"
+    >
+      <div v-if="editingUser">
+        <div class="user-info">
+          <p><strong>User:</strong> {{ editingUser.User_ID }} ({{ editingUser.User_Name }})</p>
+          <p><strong>Department:</strong> {{ editingUser.Department }}</p>
+          <p><strong>Current Role:</strong> 
+            <el-tag :type="getRoleTagType(editingUser.user_role)" size="small">
+              {{ getRoleDisplayName(editingUser.user_role) }}
+            </el-tag>
+          </p>
         </div>
-      </el-card>
-    </div>
-
-    <!-- Add/Edit User Dialog -->
-    <el-dialog :title="userDialogTitle" :visible.sync="userDialogVisible" width="500px">
-      <el-form :model="userForm" :rules="userRules" ref="userForm" label-width="120px">
-        <el-form-item label="User ID" prop="User_ID">
-          <el-input v-model="userForm.User_ID" :disabled="isEditingUser" />
-        </el-form-item>
-        <el-form-item label="Display Name" prop="User_Name">
-          <el-input v-model="userForm.User_Name" />
-        </el-form-item>
-        <el-form-item label="Department" prop="Department">
-          <el-input v-model="userForm.Department" />
-        </el-form-item>
-      </el-form>
+        
+        <el-form>
+          <el-form-item label="New Role:">
+            <el-select v-model="newUserRole" placeholder="Select new role">
+              <el-option 
+                v-for="role in assignableRoles" 
+                :key="role" 
+                :label="getRoleDisplayName(role)" 
+                :value="role"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </div>
+      
       <div slot="footer" class="dialog-footer">
-        <el-button @click="userDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="saveUser" :loading="userSaving">
-          {{ isEditingUser ? 'Update' : 'Create' }}
+        <el-button @click="roleEditDialogVisible = false">Cancel</el-button>
+        <el-button 
+          type="primary" 
+          @click="confirmRoleChange"
+          :disabled="!newUserRole || newUserRole === editingUser.user_role"
+          :loading="roleChangeLoading"
+        >
+          Update Role
         </el-button>
       </div>
     </el-dialog>
 
-    <!-- Add/Edit Permission Dialog -->
-    <el-dialog :title="permissionDialogTitle" :visible.sync="permissionDialogVisible" width="600px">
-      <el-form :model="permissionForm" :rules="permissionRules" ref="permissionForm" label-width="120px">
-        <el-form-item label="User" prop="user_uuid">
-          <el-select v-model="permissionForm.user_uuid" placeholder="Select User" :disabled="isEditingPermission">
-            <el-option v-for="user in users" :key="user.UUID" :label="`${user.User_ID} (${user.User_Name})`" :value="user.UUID" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="KRI ID" prop="kri_id">
-          <el-input-number v-model="permissionForm.kri_id" :min="1" :disabled="isEditingPermission" />
-        </el-form-item>
-        <el-form-item label="Reporting Date" prop="reporting_date">
-          <el-select 
-            v-model="permissionForm.reporting_date" 
-            placeholder="Select reporting date" 
-            :disabled="isEditingPermission || !permissionForm.kri_id"
-            filterable
-            style="width: 100%;"
-          >
-            <el-option
-              v-for="date in validReportingDates"
-              :key="date"
-              :value="date"
-              :label="formatReportingDate(date)"
-            >
-              <span>{{ formatReportingDate(date) }}</span>
-            </el-option>
-          </el-select>
-          <div v-if="!permissionForm.kri_id" class="form-help-text">
-            Please select a KRI ID first to load available reporting dates
-          </div>
-          <div v-else-if="validReportingDates.length === 0" class="form-help-text">
-            No reporting dates available for this KRI ID
-          </div>
-        </el-form-item>
-        <el-form-item label="Actions" prop="actions">
-          <el-checkbox-group v-model="permissionForm.selectedActions">
-            <div style="margin-bottom: 12px;">
-              <strong style="color: #667eea; font-size: 14px;">General Actions:</strong>
-            </div>
-            <el-checkbox label="view">View</el-checkbox>
-            <el-checkbox label="edit">Edit</el-checkbox>
-            <el-checkbox label="review">Review</el-checkbox>
-            <el-checkbox label="acknowledge">Acknowledge</el-checkbox>
-            <el-checkbox label="delete">Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 1 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic1_view">Atomic1 View</el-checkbox>
-            <el-checkbox label="atomic1_edit">Atomic1 Edit</el-checkbox>
-            <el-checkbox label="atomic1_review">Atomic1 Review</el-checkbox>
-            <el-checkbox label="atomic1_acknowledge">Atomic1 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic1_delete">Atomic1 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 2 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic2_view">Atomic2 View</el-checkbox>
-            <el-checkbox label="atomic2_edit">Atomic2 Edit</el-checkbox>
-            <el-checkbox label="atomic2_review">Atomic2 Review</el-checkbox>
-            <el-checkbox label="atomic2_acknowledge">Atomic2 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic2_delete">Atomic2 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 3 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic3_view">Atomic3 View</el-checkbox>
-            <el-checkbox label="atomic3_edit">Atomic3 Edit</el-checkbox>
-            <el-checkbox label="atomic3_review">Atomic3 Review</el-checkbox>
-            <el-checkbox label="atomic3_acknowledge">Atomic3 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic3_delete">Atomic3 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 4 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic4_view">Atomic4 View</el-checkbox>
-            <el-checkbox label="atomic4_edit">Atomic4 Edit</el-checkbox>
-            <el-checkbox label="atomic4_review">Atomic4 Review</el-checkbox>
-            <el-checkbox label="atomic4_acknowledge">Atomic4 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic4_delete">Atomic4 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Custom Action:</strong>
-            </div>
-            <el-checkbox label="other">Other</el-checkbox>
-          </el-checkbox-group>
-          <div v-if="permissionForm.selectedActions.includes('other')" style="margin-top: 8px;">
-            <el-input
-              v-model="permissionForm.otherAction"
-              placeholder="Enter custom action"
-              size="small"
-              style="width: 200px;"
-            />
-          </div>
-        </el-form-item>
-        <el-form-item label="Effect" prop="effect">
-          <el-radio-group v-model="permissionForm.effect">
-            <el-radio :label="true">Allow</el-radio>
-            <el-radio :label="false">Deny</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
+    <!-- User Permissions Dialog -->
+    <el-dialog 
+      title="User Permissions" 
+      :visible.sync="userPermissionsDialogVisible"
+      width="800px"
+    >
+      <div v-if="viewingUser">
+        <div class="user-info">
+          <p><strong>User:</strong> {{ viewingUser.User_ID }} ({{ viewingUser.User_Name }})</p>
+          <p><strong>Department:</strong> {{ viewingUser.Department }}</p>
+        </div>
+        
+        <el-table 
+          :data="userPermissions" 
+          v-loading="userPermissionsLoading"
+          stripe
+          style="width: 100%"
+        >
+          <el-table-column prop="kri_id" label="KRI ID" width="80">
+          </el-table-column>
+          <el-table-column prop="actions" label="Permissions">
+            <template slot-scope="scope">
+              <el-tag 
+                v-for="action in scope.row.actions.split(',')" 
+                :key="action" 
+                size="mini"
+                style="margin-right: 5px;"
+              >
+                {{ action.trim() }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="effect" label="Status" width="80">
+            <template slot-scope="scope">
+              <el-tag :type="scope.row.effect ? 'success' : 'danger'" size="small">
+                {{ scope.row.effect ? 'Active' : 'Denied' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      
       <div slot="footer" class="dialog-footer">
-        <el-button @click="permissionDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="savePermission" :loading="permissionSaving">
-          {{ isEditingPermission ? 'Update Permission' : 'Add Permission' }}
+        <el-button @click="userPermissionsDialogVisible = false">Close</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- Permission Edit Dialog -->
+    <el-dialog 
+      title="Edit Permission" 
+      :visible.sync="permissionEditDialogVisible"
+      width="500px"
+      @close="resetPermissionEditDialog"
+    >
+      <div v-if="editingPermission">
+        <div class="permission-info">
+          <p><strong>User:</strong> {{ editingPermission.user_id }}</p>
+          <p><strong>KRI ID:</strong> {{ editingPermission.kri_id }}</p>
+          <p><strong>Current Permissions:</strong> {{ editingPermission.actions }}</p>
+        </div>
+        
+        <el-form>
+          <el-form-item label="Actions (comma-separated):">
+            <el-input 
+              v-model="editingPermissionActions" 
+              type="textarea"
+              :rows="3"
+              placeholder="e.g., edit,view,review,acknowledge,delete,atomic1_edit,atomic1_view"
+            ></el-input>
+            <div class="permission-help">
+              <small>Available actions: edit, view, review, acknowledge, delete</small><br>
+              <small>Atomic actions: atomic1_edit, atomic1_view, atomic2_edit, etc.</small>
+            </div>
+          </el-form-item>
+        </el-form>
+      </div>
+      
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="permissionEditDialogVisible = false">Cancel</el-button>
+        <el-button 
+          type="primary" 
+          @click="confirmPermissionEdit"
+          :disabled="!editingPermissionActions"
+          :loading="permissionEditLoading"
+        >
+          Update Permission
         </el-button>
       </div>
     </el-dialog>
 
-    <!-- Batch Grant Dialog -->
-    <el-dialog title="Batch Grant Permissions" :visible.sync="batchGrantDialogVisible" width="600px">
-      <el-form :model="batchForm" :rules="batchRules" ref="batchForm" label-width="120px">
-        <el-form-item label="User" prop="user_uuid">
-          <el-select v-model="batchForm.user_uuid" placeholder="Select User">
-            <el-option v-for="user in users" :key="user.UUID" :label="`${user.User_ID} (${user.User_Name})`" :value="user.UUID" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="KRI ID" prop="kri_id">
-          <el-input-number v-model="batchForm.kri_id" :min="1" placeholder="Grant to all KRIs with this ID" />
-        </el-form-item>
-        <el-form-item label="Actions" prop="actions">
-          <el-checkbox-group v-model="batchForm.selectedActions">
-            <div style="margin-bottom: 12px;">
-              <strong style="color: #667eea; font-size: 14px;">General Actions:</strong>
-            </div>
-            <el-checkbox label="view">View</el-checkbox>
-            <el-checkbox label="edit">Edit</el-checkbox>
-            <el-checkbox label="review">Review</el-checkbox>
-            <el-checkbox label="acknowledge">Acknowledge</el-checkbox>
-            <el-checkbox label="delete">Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 1 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic1_view">Atomic1 View</el-checkbox>
-            <el-checkbox label="atomic1_edit">Atomic1 Edit</el-checkbox>
-            <el-checkbox label="atomic1_review">Atomic1 Review</el-checkbox>
-            <el-checkbox label="atomic1_acknowledge">Atomic1 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic1_delete">Atomic1 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 2 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic2_view">Atomic2 View</el-checkbox>
-            <el-checkbox label="atomic2_edit">Atomic2 Edit</el-checkbox>
-            <el-checkbox label="atomic2_review">Atomic2 Review</el-checkbox>
-            <el-checkbox label="atomic2_acknowledge">Atomic2 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic2_delete">Atomic2 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 3 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic3_view">Atomic3 View</el-checkbox>
-            <el-checkbox label="atomic3_edit">Atomic3 Edit</el-checkbox>
-            <el-checkbox label="atomic3_review">Atomic3 Review</el-checkbox>
-            <el-checkbox label="atomic3_acknowledge">Atomic3 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic3_delete">Atomic3 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Atomic 4 Actions:</strong>
-            </div>
-            <el-checkbox label="atomic4_view">Atomic4 View</el-checkbox>
-            <el-checkbox label="atomic4_edit">Atomic4 Edit</el-checkbox>
-            <el-checkbox label="atomic4_review">Atomic4 Review</el-checkbox>
-            <el-checkbox label="atomic4_acknowledge">Atomic4 Acknowledge</el-checkbox>
-            <el-checkbox label="atomic4_delete">Atomic4 Delete</el-checkbox>
-            
-            <div style="margin: 16px 0 12px 0;">
-              <strong style="color: #667eea; font-size: 14px;">Custom Action:</strong>
-            </div>
-            <el-checkbox label="other">Other</el-checkbox>
-          </el-checkbox-group>
-          <div v-if="batchForm.selectedActions.includes('other')" style="margin-top: 8px;">
-            <el-input
-              v-model="batchForm.otherAction"
-              placeholder="Enter custom action"
-              size="small"
-              style="width: 200px;"
-            />
+    <!-- Department Details Dialog -->
+    <el-dialog 
+      title="Department Management" 
+      :visible.sync="departmentDetailsDialogVisible"
+      width="900px"
+      @close="resetDepartmentDetailsDialog"
+    >
+      <div v-if="selectedDepartmentDetails" v-loading="departmentDetailsLoading">
+        <div class="dept-detail-header">
+          <h3>{{ selectedDepartmentDetails }} Department</h3>
+          <div class="dept-metrics">
+            <el-tag>{{ departmentUsers.length }} Users</el-tag>
+            <el-tag type="info">{{ departmentKRIs.length }} KRIs</el-tag>
           </div>
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="batchGrantDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="batchGrant" :loading="batchOperationLoading">Grant Permissions</el-button>
-      </div>
-    </el-dialog>
+        </div>
 
-    <!-- Batch Revoke Dialog -->
-    <el-dialog title="Batch Revoke Permissions" :visible.sync="batchRevokeDialogVisible" width="600px">
-      <el-form :model="batchRevokeForm" :rules="batchRevokeRules" ref="batchRevokeForm" label-width="120px">
-        <el-form-item label="User" prop="user_uuid">
-          <el-select v-model="batchRevokeForm.user_uuid" placeholder="Select User">
-            <el-option v-for="user in users" :key="user.UUID" :label="`${user.User_ID} (${user.User_Name})`" :value="user.UUID" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="KRI ID" prop="kri_id">
-          <el-input-number v-model="batchRevokeForm.kri_id" :min="1" placeholder="Revoke from all KRIs with this ID" />
-        </el-form-item>
-      </el-form>
+        <el-tabs>
+          <el-tab-pane label="Users" name="users">
+            <el-table :data="departmentUsers" stripe style="width: 100%">
+              <el-table-column prop="User_ID" label="User ID" width="120"></el-table-column>
+              <el-table-column prop="User_Name" label="Name" width="150"></el-table-column>
+              <el-table-column prop="user_role" label="Role" width="120">
+                <template slot-scope="scope">
+                  <el-tag :type="getRoleTagType(scope.row.user_role)" size="small">
+                    {{ getRoleDisplayName(scope.row.user_role) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="Actions" width="200">
+                <template slot-scope="scope">
+                  <el-button 
+                    v-if="scope.row.user_role === 'user'"
+                    size="mini" 
+                    type="warning"
+                    @click="promoteUserToDeptAdmin(scope.row)"
+                    :disabled="!Permission.canChangeUserRole(currentUser, scope.row, 'dept_admin')"
+                  >
+                    Promote to Dept Admin
+                  </el-button>
+                  <el-button 
+                    size="mini" 
+                    type="primary"
+                    @click="viewUserPermissions(scope.row)"
+                  >
+                    View Permissions
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
+          
+          <el-tab-pane label="KRIs" name="kris">
+            <el-table :data="departmentKRIs" stripe style="width: 100%">
+              <el-table-column prop="kri_id" label="KRI ID" width="80"></el-table-column>
+              <el-table-column prop="kri_name" label="KRI Name" min-width="200"></el-table-column>
+              <el-table-column prop="kri_owner" label="Owner" width="120"></el-table-column>
+              <el-table-column prop="data_provider" label="Data Provider" width="120"></el-table-column>
+              <el-table-column prop="l1_risk_type" label="L1 Risk Type" width="120"></el-table-column>
+              <el-table-column label="Actions" width="100">
+                <template slot-scope="scope">
+                  <el-button 
+                    size="mini" 
+                    type="info"
+                    @click="$router.push(`/kri/${scope.row.kri_id}/${scope.row.reporting_date || 20241231}`)"
+                  >
+                    View
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+      
       <div slot="footer" class="dialog-footer">
-        <el-button @click="batchRevokeDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="batchRevoke" :loading="batchOperationLoading">Revoke Permissions</el-button>
+        <el-button @click="departmentDetailsDialogVisible = false">Close</el-button>
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script>
-import { supabase } from '@/services/supabase';
+import { mapGetters } from 'vuex';
+import { kriService } from '@/services/kriService';
+import Permission from '@/utils/permission';
 
 export default {
   name: 'AdminManagement',
+  // Make Permission available in template
+  created() {
+    this.Permission = Permission;
+  },
   data() {
     return {
-      // Animation states
-      isLoaded: false,
-      animatedUserCount: 0,
-      animatedPermissionCount: 0,
+      activeTab: 'users',
       
       // User Management
       users: [],
+      departments: [],
+      selectedDepartment: '',
       usersLoading: false,
-      userDialogVisible: false,
-      userSaving: false,
-      isEditingUser: false,
-      userForm: {
-        UUID: null,
-        User_ID: '',
-        User_Name: '',
-        Department: ''
-      },
-      userRules: {
-        User_ID: [{ required: true, message: 'User ID is required', trigger: 'blur' }],
-        User_Name: [{ required: true, message: 'Display Name is required', trigger: 'blur' }]
-      },
-
+      
+      // Role Management
+      bulkSelectedUsers: [],
+      bulkNewRole: '',
+      bulkRoleLoading: false,
+      
+      // Department Management
+      departmentStats: [],
+      
       // Permission Management
-      permissions: [],
+      permissionDeptFilter: '',
+      permissionUserFilter: '',
+      permissionData: [],
       permissionsLoading: false,
-      permissionDialogVisible: false,
-      permissionSaving: false,
-      isEditingPermission: false,
-      selectedPermissions: [],
-      originalPermission: null, // Store original permission for editing
-      validReportingDates: [], // Store valid reporting dates for selected KRI ID
-      permissionForm: {
-        user_uuid: '',
-        kri_id: null,
-        reporting_date: null,
-        selectedActions: [],
-        otherAction: '',
-        effect: true
+      
+      // System Overview
+      systemStats: {
+        totalUsers: 0,
+        totalDepartments: 0,
+        totalKRIs: 0,
+        totalPermissions: 0
       },
-      permissionRules: {
-        user_uuid: [{ required: true, message: 'User is required', trigger: 'change' }],
-        kri_id: [{ required: true, message: 'KRI ID is required', trigger: 'blur' }],
-        reporting_date: [{ required: true, message: 'Reporting Date is required', trigger: 'blur' }],
-        selectedActions: [{ required: true, message: 'At least one action is required', trigger: 'change' }]
-      },
-      permissionFilter: {
-        userId: '',
-        kriId: ''
-      },
-
-      // Batch Operations
-      batchGrantDialogVisible: false,
-      batchRevokeDialogVisible: false,
-      batchOperationLoading: false,
-      batchForm: {
-        user_uuid: '',
-        kri_id: null,
-        selectedActions: [],
-        otherAction: ''
-      },
-      batchRules: {
-        user_uuid: [{ required: true, message: 'User is required', trigger: 'change' }],
-        kri_id: [{ required: true, message: 'KRI ID is required', trigger: 'blur' }],
-        selectedActions: [{ required: true, message: 'At least one action is required', trigger: 'change' }]
-      },
-      batchRevokeForm: {
-        user_uuid: '',
-        kri_id: null
-      },
-      batchRevokeRules: {
-        user_uuid: [{ required: true, message: 'User is required', trigger: 'change' }],
-        kri_id: [{ required: true, message: 'KRI ID is required', trigger: 'blur' }]
-      }
+      recentActivity: [],
+      
+      // Dialogs
+      roleEditDialogVisible: false,
+      editingUser: null,
+      newUserRole: '',
+      roleChangeLoading: false,
+      
+      userPermissionsDialogVisible: false,
+      viewingUser: null,
+      userPermissions: [],
+      userPermissionsLoading: false,
+      
+      // Permission editing dialog
+      permissionEditDialogVisible: false,
+      editingPermission: null,
+      editingPermissionActions: '',
+      permissionEditLoading: false,
+      
+      // Department details dialog
+      departmentDetailsDialogVisible: false,
+      selectedDepartmentDetails: null,
+      departmentUsers: [],
+      departmentKRIs: [],
+      departmentDetailsLoading: false
     };
   },
-  watch: {
-    users: {
-      handler() {
-        this.$nextTick(() => {
-          setTimeout(() => {
-            this.setupTableAnimations();
-          }, 100);
-        });
-      },
-      deep: true
-    },
-    permissions: {
-      handler() {
-        this.$nextTick(() => {
-          setTimeout(() => {
-            this.setupTableAnimations();
-          }, 100);
-        });
-      },
-      deep: true
-    },
-    'permissionForm.kri_id': {
-      async handler(newKriId) {
-        if (newKriId && !this.isEditingPermission) {
-          // Load valid reporting dates for the selected KRI ID
-          this.validReportingDates = await this.getValidReportingDates(newKriId);
-          // Reset reporting date when KRI ID changes
-          this.permissionForm.reporting_date = null;
-        }
-      }
-    }
-  },
   computed: {
-    userDialogTitle() {
-      return this.isEditingUser ? 'Edit User' : 'Add User';
-    },
-    permissionDialogTitle() {
-      return this.isEditingPermission ? 'Edit Permission' : 'Add Permission';
-    },
-    filteredPermissions() {
-      let filtered = [...this.permissions];
-      
-      if (this.permissionFilter.userId) {
-        filtered = filtered.filter(p => p.user_uuid === this.permissionFilter.userId);
-      }
-      
-      if (this.permissionFilter.kriId) {
-        filtered = filtered.filter(p => String(p.kri_id).includes(this.permissionFilter.kriId));
-      }
-      
-      return filtered;
-    }
-  },
-  async created() {
-    try {
-      await this.loadUsers();
-      await this.loadPermissions();
-      
-      // Trigger animations after data loads
-      this.$nextTick(() => {
-        setTimeout(() => {
-          this.isLoaded = true;
-          this.animateCounters();
-        }, 300);
-      });
-    } catch (error) {
-      console.error('Failed to initialize admin management:', error);
-      this.isLoaded = true; // Still show UI even if data loading fails
-    }
-  },
-  
-  mounted() {
-    // Initialize particles
-    this.initializeParticles();
+    ...mapGetters('kri', ['currentUser']),
     
-    // Set up intersection observer for table row animations if needed
-    this.setupTableAnimations();
+    filteredUsers() {
+      if (!this.selectedDepartment) {
+        return this.users;
+      }
+      return this.users.filter(user => user.Department === this.selectedDepartment);
+    },
+    
+    filteredUsersForPermissions() {
+      if (!this.permissionDeptFilter) {
+        return this.users;
+      }
+      return this.users.filter(user => user.Department === this.permissionDeptFilter);
+    },
+    
+    roleCounts() {
+      return this.users.reduce((acc, user) => {
+        const role = user.user_role || 'user';
+        acc[role] = (acc[role] || 0) + 1;
+        return acc;
+      }, {});
+    },
+    
+    assignableRoles() {
+      return Permission.getAssignableRoles(this.currentUser);
+    }
+  },
+  async mounted() {
+    // Verify admin access
+    if (!Permission.isSystemAdmin(this.currentUser)) {
+      this.$message.error('Access denied. System administrator privileges required.');
+      this.$router.push('/');
+      return;
+    }
+    
+    await this.loadInitialData();
   },
   methods: {
-    // User Management Methods
+    async loadInitialData() {
+      try {
+        await Promise.all([
+          this.loadUsers(),
+          this.loadDepartments(),
+          this.loadSystemStats()
+        ]);
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+        this.$message.error('Failed to load admin data');
+      }
+    },
+    
     async loadUsers() {
       this.usersLoading = true;
       try {
-        const { data, error } = await supabase
-          .from('kri_user')
-          .select('*')
-          .order('User_ID');
-        
-        if (error) throw error;
-        this.users = data || [];
-        
-        // Update counter animation if page is already loaded
-        if (this.isLoaded) {
-          this.animateCounter(this.animatedUserCount, this.users.length, 800, (value) => {
-            this.animatedUserCount = value;
-          });
-        }
+        this.users = await kriService.getAllUsers();
       } catch (error) {
-        this.$message.error('Failed to load users: ' + error.message);
+        console.error('Error loading users:', error);
+        this.$message.error('Failed to load users');
       } finally {
         this.usersLoading = false;
       }
     },
-
-    showAddUserDialog() {
-      this.isEditingUser = false;
-      this.userForm = {
-        UUID: null,
-        User_ID: '',
-        User_Name: '',
-        Department: ''
-      };
-      this.userDialogVisible = true;
-    },
-
-    editUser(user) {
-      this.isEditingUser = true;
-      this.userForm = { ...user };
-      this.userDialogVisible = true;
-    },
-
-    async saveUser() {
-      this.$refs.userForm.validate(async (valid) => {
-        if (!valid) return;
-        
-        this.userSaving = true;
-        try {
-          let result;
-          if (this.isEditingUser) {
-            result = await supabase
-              .from('kri_user')
-              .update({
-                User_Name: this.userForm.User_Name,
-                Department: this.userForm.Department
-              })
-              .eq('UUID', this.userForm.UUID);
-          } else {
-            result = await supabase
-              .from('kri_user')
-              .insert({
-                User_ID: this.userForm.User_ID,
-                User_Name: this.userForm.User_Name,
-                Department: this.userForm.Department
-              });
-          }
-          
-          if (result.error) throw result.error;
-          
-          this.$message.success(this.isEditingUser ? 'User updated successfully' : 'User created successfully');
-          this.userDialogVisible = false;
-          await this.loadUsers();
-        } catch (error) {
-          this.$message.error('Failed to save user: ' + error.message);
-        } finally {
-          this.userSaving = false;
-        }
-      });
-    },
-
-    async deleteUser(user) {
+    
+    async loadDepartments() {
       try {
-        await this.$confirm('Are you sure you want to delete this user? This will also delete all their permissions.', 'Confirm Delete', {
-          type: 'warning'
-        });
-        
-        // First delete all permissions for this user
-        await supabase
-          .from('kri_user_permission')
-          .delete()
-          .eq('user_uuid', user.UUID);
-        
-        // Then delete the user
-        const { error } = await supabase
-          .from('kri_user')
-          .delete()
-          .eq('UUID', user.UUID);
-        
-        if (error) throw error;
-        
-        this.$message.success('User deleted successfully');
-        await this.loadUsers();
-        await this.loadPermissions();
+        this.departments = await kriService.getAllDepartments();
+        await this.loadDepartmentStats();
       } catch (error) {
-        if (error !== 'cancel') {
-          this.$message.error('Failed to delete user: ' + error.message);
-        }
+        console.error('Error loading departments:', error);
+        this.$message.error('Failed to load departments');
       }
     },
-
-    // Permission Management Methods
-    async loadPermissions() {
+    
+    async loadDepartmentStats() {
+      try {
+        const stats = [];
+        for (const dept of this.departments) {
+          const deptUsers = this.users.filter(u => u.Department === dept);
+          const deptKRIs = await kriService.getDepartmentKRIs(dept);
+          const adminCount = deptUsers.filter(u => 
+            Permission.isSystemAdmin(u) || Permission.isDepartmentAdmin(u)
+          ).length;
+          
+          stats.push({
+            name: dept,
+            userCount: deptUsers.length,
+            kriCount: deptKRIs.length,
+            adminCount
+          });
+        }
+        this.departmentStats = stats;
+      } catch (error) {
+        console.error('Error loading department stats:', error);
+      }
+    },
+    
+    async loadSystemStats() {
+      try {
+        const permissions = await kriService.getUserPermissionsSummary();
+        this.systemStats = {
+          totalUsers: this.users.length,
+          totalDepartments: this.departments.length,
+          totalKRIs: 0, // Would need additional query
+          totalPermissions: permissions.length
+        };
+        
+        // Mock recent activity
+        this.recentActivity = [
+          { 
+            timestamp: new Date().toISOString(), 
+            action: 'Role Change', 
+            user: 'Steven', 
+            target: 'User123', 
+            details: 'Promoted to dept_admin' 
+          }
+        ];
+      } catch (error) {
+        console.error('Error loading system stats:', error);
+      }
+    },
+    
+    async handleTabClick(tab) {
+      if (tab.name === 'permissions' && this.permissionData.length === 0) {
+        // Load initial permission data if needed
+      }
+    },
+    
+    handleDepartmentFilter() {
+      // Filter is handled by computed property
+    },
+    
+    async refreshUsers() {
+      await this.loadUsers();
+      await this.loadDepartmentStats();
+      this.$message.success('User data refreshed');
+    },
+    
+    canManageUser(user) {
+      return Permission.canManageUser(this.currentUser, user);
+    },
+    
+    openRoleEditDialog(user) {
+      this.editingUser = user;
+      this.newUserRole = user.user_role;
+      this.roleEditDialogVisible = true;
+    },
+    
+    resetRoleEditDialog() {
+      this.editingUser = null;
+      this.newUserRole = '';
+      this.roleChangeLoading = false;
+    },
+    
+    async confirmRoleChange() {
+      if (!this.editingUser || !this.newUserRole) return;
+      
+      this.roleChangeLoading = true;
+      try {
+        await kriService.updateUserRole(
+          this.editingUser.UUID, 
+          this.newUserRole, 
+          this.currentUser.User_ID
+        );
+        
+        // Update local data
+        const userIndex = this.users.findIndex(u => u.UUID === this.editingUser.UUID);
+        if (userIndex !== -1) {
+          this.users[userIndex].user_role = this.newUserRole;
+        }
+        
+        this.$message.success(`Role updated successfully for ${this.editingUser.User_ID}`);
+        this.roleEditDialogVisible = false;
+        await this.loadDepartmentStats(); // Refresh stats
+      } catch (error) {
+        console.error('Error updating user role:', error);
+        this.$message.error('Failed to update user role');
+      } finally {
+        this.roleChangeLoading = false;
+      }
+    },
+    
+    async viewUserPermissions(user) {
+      this.viewingUser = user;
+      this.userPermissionsLoading = true;
+      this.userPermissionsDialogVisible = true;
+      
+      try {
+        this.userPermissions = await kriService.getUserPermissionsSummary(user.UUID);
+      } catch (error) {
+        console.error('Error loading user permissions:', error);
+        this.$message.error('Failed to load user permissions');
+      } finally {
+        this.userPermissionsLoading = false;
+      }
+    },
+    
+    async executeBulkRoleChange() {
+      if (!this.bulkSelectedUsers.length || !this.bulkNewRole) return;
+      
+      this.bulkRoleLoading = true;
+      try {
+        for (const userUuid of this.bulkSelectedUsers) {
+          await kriService.updateUserRole(userUuid, this.bulkNewRole, this.currentUser.User_ID);
+          
+          // Update local data
+          const userIndex = this.users.findIndex(u => u.UUID === userUuid);
+          if (userIndex !== -1) {
+            this.users[userIndex].user_role = this.bulkNewRole;
+          }
+        }
+        
+        this.$message.success(`Bulk role change completed for ${this.bulkSelectedUsers.length} users`);
+        this.bulkSelectedUsers = [];
+        this.bulkNewRole = '';
+        await this.loadDepartmentStats();
+      } catch (error) {
+        console.error('Error executing bulk role change:', error);
+        this.$message.error('Failed to execute bulk role change');
+      } finally {
+        this.bulkRoleLoading = false;
+      }
+    },
+    
+    async loadPermissionData() {
       this.permissionsLoading = true;
       try {
-        const { data, error } = await supabase
-          .from('kri_user_permission')
-          .select(`
-            *,
-            kri_user!inner(User_ID)
-          `)
-          .order('kri_id')
-          .order('reporting_date');
+        let userUuid = this.permissionUserFilter || null;
+        this.permissionData = await kriService.getUserPermissionsSummary(userUuid);
         
-        if (error) throw error;
-        
-        // Add user_id for display
-        this.permissions = (data || []).map(permission => ({
-          ...permission,
-          user_id: permission.kri_user.User_ID
-        }));
-        
-        // Update counter animation if page is already loaded
-        if (this.isLoaded) {
-          this.animateCounter(this.animatedPermissionCount, this.permissions.length, 800, (value) => {
-            this.animatedPermissionCount = value;
-          });
+        // If department filter is set, filter the results
+        if (this.permissionDeptFilter) {
+          this.permissionData = this.permissionData.filter(perm => 
+            perm.kri_user && perm.kri_user.Department === this.permissionDeptFilter
+          );
         }
+        
+        // Flatten the data for display
+        this.permissionData = this.permissionData.map(perm => ({
+          ...perm,
+          user_id: perm.kri_user ? perm.kri_user.User_ID : 'Unknown'
+        }));
       } catch (error) {
-        this.$message.error('Failed to load permissions: ' + error.message);
+        console.error('Error loading permission data:', error);
+        this.$message.error('Failed to load permission data');
       } finally {
         this.permissionsLoading = false;
-        
-        // Setup table animations after data loads
-        this.$nextTick(() => {
-          this.setupTableAnimations();
-        });
       }
     },
-
-    showAddPermissionDialog() {
-      this.isEditingPermission = false;
-      this.originalPermission = null;
-      this.validReportingDates = [];
-      this.permissionForm = {
-        user_uuid: '',
-        kri_id: null,
-        reporting_date: null,
-        selectedActions: [],
-        otherAction: '',
-        effect: true
-      };
-      this.permissionDialogVisible = true;
-    },
-
+    
     async editPermission(permission) {
-      this.isEditingPermission = true;
-      this.originalPermission = { ...permission };
-      
-      // Load valid reporting dates for the selected KRI ID
-      this.validReportingDates = await this.getValidReportingDates(permission.kri_id);
-      
-      // Parse actions back into array for the form
-      const actions = permission.actions.split(',').map(action => action.trim());
-      const predefinedActions = ['view', 'edit', 'review', 'acknowledge', 'delete', 'atomic1_view', 'atomic1_edit', 'atomic1_review', 'atomic1_acknowledge', 'atomic1_delete', 'atomic2_view', 'atomic2_edit', 'atomic2_review', 'atomic2_acknowledge', 'atomic2_delete', 'atomic3_view', 'atomic3_edit', 'atomic3_review', 'atomic3_acknowledge', 'atomic3_delete', 'atomic4_view', 'atomic4_edit', 'atomic4_review', 'atomic4_acknowledge', 'atomic4_delete'];
-      const selectedActions = [];
-      let otherAction = '';
-      
-      actions.forEach(action => {
-        if (predefinedActions.includes(action)) {
-          selectedActions.push(action);
-        } else {
-          // Only add 'other' once, even if there are multiple custom actions
-          if (!selectedActions.includes('other')) {
-            selectedActions.push('other');
-          }
-          // Use the first custom action, or combine them
-          otherAction = otherAction ? `${otherAction},${action}` : action;
-        }
-      });
-      
-      this.permissionForm = {
-        user_uuid: permission.user_uuid,
-        kri_id: permission.kri_id,
-        reporting_date: permission.reporting_date,
-        selectedActions: selectedActions,
-        otherAction: otherAction,
-        effect: permission.effect
-      };
-      this.permissionDialogVisible = true;
+      this.editingPermission = { ...permission };
+      this.editingPermissionActions = permission.actions || '';
+      this.permissionEditDialogVisible = true;
     },
-
-    // Helper method to process actions including custom "other" action
-    processActions(selectedActions, otherAction) {
-      let actions = [...selectedActions];
+    
+    async confirmPermissionEdit() {
+      if (!this.editingPermission || !this.editingPermissionActions) return;
       
-      // If "other" is selected and there's a custom action, replace "other" with the custom action
-      if (actions.includes('other') && otherAction && otherAction.trim()) {
-        const otherIndex = actions.indexOf('other');
-        actions[otherIndex] = otherAction.trim();
-      } else if (actions.includes('other')) {
-        // Remove "other" if no custom action is provided
-        actions = actions.filter(action => action !== 'other');
-      }
-      
-      return actions.join(',');
-    },
-
-    async savePermission() {
-      this.$refs.permissionForm.validate(async (valid) => {
-        if (!valid) return;
-        
-        // Validate that if "other" is selected, a custom action is provided
-        if (this.permissionForm.selectedActions.includes('other') && !this.permissionForm.otherAction.trim()) {
-          this.$message.error('Please enter a custom action for "Other"');
-          return;
-        }
-        
-        this.permissionSaving = true;
-        try {
-          const actions = this.processActions(this.permissionForm.selectedActions, this.permissionForm.otherAction);
-          
-          if (!actions) {
-            this.$message.error('Please select at least one action');
-            return;
-          }
-
-          // Validate that the KRI item exists before creating permission
-          const kriExists = await this.validateKriItemExists(
-            this.permissionForm.kri_id, 
-            this.permissionForm.reporting_date
-          );
-          
-          if (!kriExists) {
-            this.$message.error(
-              `KRI with ID ${this.permissionForm.kri_id} and reporting date ${this.formatReportingDate(this.permissionForm.reporting_date)} does not exist. Please ensure the KRI item is created first.`
-            );
-            return;
-          }
-          
-          let result;
-          
-          if (this.isEditingPermission) {
-            // Delete the old permission first (since primary key might change)
-            await supabase
-              .from('kri_user_permission')
-              .delete()
-              .eq('user_uuid', this.originalPermission.user_uuid)
-              .eq('kri_id', this.originalPermission.kri_id)
-              .eq('reporting_date', this.originalPermission.reporting_date)
-              .eq('actions', this.originalPermission.actions);
-          }
-          
-          // Insert/update the permission
-          result = await supabase
-            .from('kri_user_permission')
-            .upsert({
-              user_uuid: this.permissionForm.user_uuid,
-              kri_id: this.permissionForm.kri_id,
-              reporting_date: this.permissionForm.reporting_date,
-              actions: actions,
-              effect: this.permissionForm.effect
-            });
-          
-          const { error } = result;
-          
-          if (error) throw error;
-          
-          this.$message.success(this.isEditingPermission ? 'Permission updated successfully' : 'Permission added successfully');
-          this.permissionDialogVisible = false;
-          await this.loadPermissions();
-        } catch (error) {
-          console.error('Permission save error:', error);
-          if (error.code === '23503') {
-            this.$message.error('Cannot create permission: The specified KRI ID and reporting date combination does not exist in the system.');
-          } else if (error.message.includes('violates foreign key constraint')) {
-            this.$message.error('Foreign key constraint violation: Please ensure the KRI item exists before creating permissions.');
-          } else {
-            this.$message.error('Failed to save permission: ' + error.message);
-          }
-        } finally {
-          this.permissionSaving = false;
-        }
-      });
-    },
-
-    async deletePermission(permission) {
+      this.permissionEditLoading = true;
       try {
-        await this.$confirm('Are you sure you want to delete this permission?', 'Confirm Delete', {
-          type: 'warning'
-        });
+        // Update permission using bulk update method
+        const permissionUpdate = {
+          user_uuid: this.editingPermission.user_uuid,
+          kri_id: this.editingPermission.kri_id,
+          actions: this.editingPermissionActions,
+          effect: true // Keep permission active
+        };
         
-        const { error } = await supabase
-          .from('kri_user_permission')
-          .delete()
-          .eq('user_uuid', permission.user_uuid)
-          .eq('kri_id', permission.kri_id)
-          .eq('reporting_date', permission.reporting_date)
-          .eq('actions', permission.actions);
+        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
         
-        if (error) throw error;
-        
-        this.$message.success('Permission deleted successfully');
-        await this.loadPermissions();
-      } catch (error) {
-        if (error !== 'cancel') {
-          this.$message.error('Failed to delete permission: ' + error.message);
-        }
-      }
-    },
-
-    // Batch Operations
-    showBatchGrantDialog() {
-      this.batchForm = {
-        user_uuid: '',
-        kri_id: null,
-        selectedActions: [],
-        otherAction: ''
-      };
-      this.batchGrantDialogVisible = true;
-    },
-
-    showBatchRevokeDialog() {
-      this.batchRevokeForm = {
-        user_uuid: '',
-        kri_id: null
-      };
-      this.batchRevokeDialogVisible = true;
-    },
-
-    async batchGrant() {
-      this.$refs.batchForm.validate(async (valid) => {
-        if (!valid) return;
-        
-        // Validate that if "other" is selected, a custom action is provided
-        if (this.batchForm.selectedActions.includes('other') && !this.batchForm.otherAction.trim()) {
-          this.$message.error('Please enter a custom action for "Other"');
-          return;
-        }
-        
-        this.batchOperationLoading = true;
-        try {
-          // Get all reporting dates for the specified KRI ID
-          const { data: kriItems, error: kriError } = await supabase
-            .from('kri_item')
-            .select('reporting_date')
-            .eq('kri_id', this.batchForm.kri_id)
-            .order('reporting_date', { ascending: false });
-          
-          if (kriError) throw kriError;
-          
-          if (!kriItems || kriItems.length === 0) {
-            this.$message.warning(
-              `No KRI items found with ID ${this.batchForm.kri_id}. Please ensure KRI items exist before granting permissions.`
-            );
-            return;
-          }
-          
-          const actions = this.processActions(this.batchForm.selectedActions, this.batchForm.otherAction);
-          
-          if (!actions) {
-            this.$message.error('Please select at least one action');
-            return;
-          }
-          
-          // Create permissions for each valid KRI item
-          const permissions = kriItems.map(item => ({
-            user_uuid: this.batchForm.user_uuid,
-            kri_id: this.batchForm.kri_id,
-            reporting_date: item.reporting_date,
-            actions: actions,
-            effect: true
-          }));
-          
-          // Use upsert to handle conflicts gracefully
-          const { error } = await supabase
-            .from('kri_user_permission')
-            .upsert(permissions, { 
-              onConflict: 'user_uuid,kri_id,reporting_date' 
-            });
-          
-          if (error) throw error;
-          
-          const dateRange = kriItems.length > 0 ? 
-            `from ${this.formatReportingDate(kriItems[kriItems.length - 1].reporting_date)} to ${this.formatReportingDate(kriItems[0].reporting_date)}` :
-            '';
-          
-          this.$message.success(
-            `Successfully granted ${permissions.length} permissions for KRI ${this.batchForm.kri_id} ${dateRange}`
-          );
-          this.batchGrantDialogVisible = false;
-          await this.loadPermissions();
-        } catch (error) {
-          console.error('Batch grant error:', error);
-          if (error.code === '23503') {
-            this.$message.error('Cannot grant permissions: Some KRI items may not exist in the system. Please verify all KRI records are properly created.');
-          } else if (error.message.includes('violates foreign key constraint')) {
-            this.$message.error('Foreign key constraint violation during batch grant: Please ensure all KRI items exist before granting permissions.');
-          } else {
-            this.$message.error('Failed to batch grant permissions: ' + error.message);
-          }
-        } finally {
-          this.batchOperationLoading = false;
-        }
-      });
-    },
-
-    async batchRevoke() {
-      this.$refs.batchRevokeForm.validate(async (valid) => {
-        if (!valid) return;
-        
-        this.batchOperationLoading = true;
-        try {
-          const { error } = await supabase
-            .from('kri_user_permission')
-            .delete()
-            .eq('user_uuid', this.batchRevokeForm.user_uuid)
-            .eq('kri_id', this.batchRevokeForm.kri_id);
-          
-          if (error) throw error;
-          
-          this.$message.success('Batch revoked permissions successfully');
-          this.batchRevokeDialogVisible = false;
-          await this.loadPermissions();
-        } catch (error) {
-          this.$message.error('Failed to batch revoke permissions: ' + error.message);
-        } finally {
-          this.batchOperationLoading = false;
-        }
-      });
-    },
-
-    // Validation Helper Methods
-    async validateKriItemExists(kriId, reportingDate) {
-      try {
-        const { data, error } = await supabase
-          .from('kri_item')
-          .select('kri_id, reporting_date')
-          .eq('kri_id', kriId)
-          .eq('reporting_date', reportingDate)
-          .single();
-        
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // No rows returned
-            return false;
-          }
-          throw error;
-        }
-        
-        return !!data;
-      } catch (error) {
-        console.error('Error validating KRI item existence:', error);
-        return false;
-      }
-    },
-
-    async getValidReportingDates(kriId) {
-      try {
-        const { data, error } = await supabase
-          .from('kri_item')
-          .select('reporting_date')
-          .eq('kri_id', kriId)
-          .order('reporting_date', { ascending: false });
-        
-        if (error) throw error;
-        
-        return (data || []).map(item => item.reporting_date);
-      } catch (error) {
-        console.error('Error fetching valid reporting dates:', error);
-        return [];
-      }
-    },
-
-    // UI Helper Methods
-    generateAvatar(_name) {
-      // Simple avatar generation - could be enhanced with a service
-      return null; // Let Element UI generate default avatar
-    },
-
-    formatReportingDate(dateInt) {
-      if (!dateInt) return '';
-      const dateString = dateInt.toString();
-      const year = dateString.substring(0, 4);
-      const month = dateString.substring(4, 6);
-      const day = dateString.substring(6, 8);
-      return `${year}-${month}-${day}`;
-    },
-
-    formatActionText(action) {
-      const actionMap = {
-        'view': 'View',
-        'edit': 'Edit',
-        'review': 'Review',
-        'acknowledge': 'Acknowledge',
-        'delete': 'Delete'
-      };
-      return actionMap[action] || action.charAt(0).toUpperCase() + action.slice(1);
-    },
-
-    getActionTagType(action) {
-      const typeMap = {
-        'view': '',
-        'edit': 'warning',
-        'review': 'info',
-        'acknowledge': 'success',
-        'delete': 'danger'
-      };
-      return typeMap[action] || 'info';
-    },
-
-    handleBatchCommand(command) {
-      if (command === 'grant') {
-        this.showBatchGrantDialog();
-      } else if (command === 'revoke') {
-        this.showBatchRevokeDialog();
-      }
-    },
-
-    // Permission selection and batch operations
-    handlePermissionSelectionChange(selection) {
-      this.selectedPermissions = selection;
-    },
-
-    async batchDeletePermissions() {
-      if (this.selectedPermissions.length === 0) {
-        this.$message.warning('Please select permissions to delete');
-        return;
-      }
-
-      try {
-        await this.$confirm(`Are you sure you want to delete ${this.selectedPermissions.length} selected permissions?`, 'Confirm Batch Delete', {
-          type: 'warning'
-        });
-
-        const deletePromises = this.selectedPermissions.map(permission =>
-          supabase
-            .from('kri_user_permission')
-            .delete()
-            .eq('user_uuid', permission.user_uuid)
-            .eq('kri_id', permission.kri_id)
-            .eq('reporting_date', permission.reporting_date)
-            .eq('actions', permission.actions)
+        // Update local data
+        const permIndex = this.permissionData.findIndex(p => 
+          p.user_uuid === this.editingPermission.user_uuid && 
+          p.kri_id === this.editingPermission.kri_id
         );
-
-        await Promise.all(deletePromises);
-
-        this.$message.success(`Successfully deleted ${this.selectedPermissions.length} permissions`);
-        this.selectedPermissions = [];
-        await this.loadPermissions();
-      } catch (error) {
-        if (error !== 'cancel') {
-          this.$message.error('Failed to delete permissions: ' + error.message);
+        if (permIndex !== -1) {
+          this.permissionData[permIndex].actions = this.editingPermissionActions;
         }
+        
+        this.$message.success('Permission updated successfully');
+        this.permissionEditDialogVisible = false;
+      } catch (error) {
+        console.error('Error updating permission:', error);
+        this.$message.error('Failed to update permission');
+      } finally {
+        this.permissionEditLoading = false;
       }
     },
     
-    // Animation Methods
-    animateCounters() {
+    resetPermissionEditDialog() {
+      this.editingPermission = null;
+      this.editingPermissionActions = '';
+      this.permissionEditLoading = false;
+    },
+    
+    async viewDepartmentDetails(department) {
+      this.selectedDepartmentDetails = department;
+      this.departmentDetailsLoading = true;
+      this.departmentDetailsDialogVisible = true;
+      
       try {
-        // Safely animate user count
-        const userCount = Array.isArray(this.users) ? this.users.length : 0;
-        this.animateCounter(0, userCount, 1500, (value) => {
-          this.animatedUserCount = value;
-        });
+        // Load department users and KRIs in parallel
+        const [users, kris] = await Promise.all([
+          kriService.getUsersByDepartment(department),
+          kriService.getDepartmentKRIs(department)
+        ]);
         
-        // Delay permission count animation
-        setTimeout(() => {
-          const permissionCount = Array.isArray(this.permissions) ? this.permissions.length : 0;
-          this.animateCounter(0, permissionCount, 1500, (value) => {
-            this.animatedPermissionCount = value;
-          });
-        }, 200);
+        this.departmentUsers = users;
+        this.departmentKRIs = kris;
       } catch (error) {
-        console.warn('Counter animation failed:', error);
-        // Fallback to immediate values
-        this.animatedUserCount = Array.isArray(this.users) ? this.users.length : 0;
-        this.animatedPermissionCount = Array.isArray(this.permissions) ? this.permissions.length : 0;
+        console.error('Error loading department details:', error);
+        this.$message.error('Failed to load department details');
+      } finally {
+        this.departmentDetailsLoading = false;
       }
     },
     
-    animateCounter(start, end, duration, callback) {
-      // Prevent animation if values are the same or invalid
-      if (start === end || typeof start !== 'number' || typeof end !== 'number') {
-        callback(end);
-        return;
-      }
-      
-      const startTime = performance.now();
-      const range = end - start;
-      
-      const updateCounter = (currentTime) => {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing function for smooth animation
-        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-        const currentValue = Math.floor(start + (range * easeOutQuart));
-        
-        if (typeof callback === 'function') {
-          callback(currentValue);
-        }
-        
-        if (progress < 1) {
-          requestAnimationFrame(updateCounter);
-        }
-      };
-      
-      requestAnimationFrame(updateCounter);
+    resetDepartmentDetailsDialog() {
+      this.selectedDepartmentDetails = null;
+      this.departmentUsers = [];
+      this.departmentKRIs = [];
+      this.departmentDetailsLoading = false;
     },
     
-    getParticleStyle(_index) {
+    async promoteUserToDeptAdmin(user) {
       try {
-        const size = Math.max(2, Math.random() * 4 + 2); // Ensure minimum size
-        const duration = Math.max(10, Math.random() * 20 + 10); // Ensure minimum duration
-        const delay = Math.max(0, Math.random() * 5); // Ensure non-negative delay
-        const left = Math.max(0, Math.min(100, Math.random() * 100)); // Clamp between 0-100
-        const opacity = Math.max(0.1, Math.min(0.7, Math.random() * 0.5 + 0.2)); // Clamp opacity
+        await kriService.updateUserRole(user.UUID, 'dept_admin', this.currentUser.User_ID);
         
-        return {
-          width: `${size}px`,
-          height: `${size}px`,
-          left: `${left}%`,
-          animationDuration: `${duration}s`,
-          animationDelay: `${delay}s`,
-          opacity: opacity
-        };
-      } catch (error) {
-        console.warn('Particle style generation failed:', error);
-        return {
-          width: '3px',
-          height: '3px',
-          left: '50%',
-          animationDuration: '15s',
-          animationDelay: '0s',
-          opacity: 0.3
-        };
-      }
-    },
-    
-    initializeParticles() {
-      // Additional particle initialization if needed
-      // Could add dynamic particle generation here if needed
-    },
-    
-    setupTableAnimations() {
-      // Setup table row stagger animations and hover effects
-      this.$nextTick(() => {
-        try {
-          // Use a more aggressive selector to find all table rows
-          const tables = document.querySelectorAll('.admin-management .enhanced-table');
-          tables.forEach(table => {
-            const rows = table.querySelectorAll('tbody tr');
-            if (rows && rows.length > 0) {
-              rows.forEach((row, index) => {
-                if (row && row.style) {
-                  row.style.animationDelay = `${index * 0.1}s`;
-                  row.classList.add('table-row-animate');
-                  
-                  // Remove existing listeners to prevent duplicates
-                  row.removeEventListener('mouseenter', this.handleRowHover);
-                  row.removeEventListener('mouseleave', this.handleRowLeave);
-                  
-                  // Add JavaScript hover effects as primary method
-                  row.addEventListener('mouseenter', this.handleRowHover);
-                  row.addEventListener('mouseleave', this.handleRowLeave);
-                }
-              });
-            }
-          });
-        } catch (error) {
-          console.warn('Table animation setup failed:', error);
+        // Update local data
+        const userIndex = this.departmentUsers.findIndex(u => u.UUID === user.UUID);
+        if (userIndex !== -1) {
+          this.departmentUsers[userIndex].user_role = 'dept_admin';
         }
-      });
-    },
-    
-    handleRowHover(e) {
-      const row = e.currentTarget;
-      row.style.background = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
-      row.style.transform = 'translateX(8px)';
-      row.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.2)';
-      row.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-      row.style.position = 'relative';
-      row.style.zIndex = '10';
-      
-      // Add left border accent
-      if (!row.querySelector('.hover-accent')) {
-        const accent = document.createElement('div');
-        accent.className = 'hover-accent';
-        accent.style.cssText = `
-          position: absolute;
-          left: 0;
-          top: 0;
-          height: 100%;
-          width: 5px;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          border-radius: 0 3px 3px 0;
-          z-index: 11;
-          pointer-events: none;
-        `;
-        row.appendChild(accent);
+        
+        // Also update main users array
+        const mainUserIndex = this.users.findIndex(u => u.UUID === user.UUID);
+        if (mainUserIndex !== -1) {
+          this.users[mainUserIndex].user_role = 'dept_admin';
+        }
+        
+        this.$message.success(`${user.User_ID} promoted to Department Administrator`);
+        await this.loadDepartmentStats(); // Refresh stats
+      } catch (error) {
+        console.error('Error promoting user:', error);
+        this.$message.error('Failed to promote user');
       }
     },
     
-    handleRowLeave(e) {
-      const row = e.currentTarget;
-      row.style.background = '';
-      row.style.transform = '';
-      row.style.boxShadow = '';
-      row.style.zIndex = '';
-      
-      // Remove accent border
-      const accent = row.querySelector('.hover-accent');
-      if (accent) {
-        accent.remove();
+    // Utility methods
+    getRoleTagType(role) {
+      switch (role) {
+        case 'admin': return 'danger';
+        case 'dept_admin': return 'warning';
+        case 'user': return 'info';
+        default: return 'info';
       }
+    },
+    
+    getRoleDisplayName(role) {
+      switch (role) {
+        case 'admin': return 'System Admin';
+        case 'dept_admin': return 'Dept Admin';
+        case 'user': return 'User';
+        default: return role || 'User';
+      }
+    },
+    
+    getRoleDescription(role) {
+      switch (role) {
+        case 'admin': return 'Full system access and user management';
+        case 'dept_admin': return 'Department-level administration';
+        case 'user': return 'Standard user with limited permissions';
+        default: return 'Standard user permissions';
+      }
+    },
+    
+    formatDateTime(timestamp) {
+      return new Date(timestamp).toLocaleString();
     }
   }
 };
@@ -1388,1271 +1062,236 @@ export default {
 
 <style scoped>
 .admin-management {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  background-size: 400% 400%;
-  animation: gradientShift 8s ease infinite;
-  padding: 0;
-  position: relative;
-  overflow-x: hidden;
-}
-
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Floating Particles */
-.particles-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.particle {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 50%;
-  animation: float linear infinite;
-}
-
-@keyframes float {
-  0% {
-    transform: translateY(100vh) rotate(0deg);
-  }
-  100% {
-    transform: translateY(-100px) rotate(360deg);
-  }
-}
-
-/* Floating Orbs */
-.floating-orbs {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(1px);
-  animation: floatOrb 15s ease-in-out infinite;
-}
-
-.orb-1 {
-  width: 80px;
-  height: 80px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 70%, transparent 100%);
-  top: 20%;
-  left: 10%;
-  animation-delay: 0s;
-}
-
-.orb-2 {
-  width: 120px;
-  height: 120px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 70%, transparent 100%);
-  top: 60%;
-  right: 15%;
-  animation-delay: -5s;
-}
-
-.orb-3 {
-  width: 60px;
-  height: 60px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 70%, transparent 100%);
-  bottom: 30%;
-  left: 20%;
-  animation-delay: -10s;
-}
-
-@keyframes floatOrb {
-  0%, 100% {
-    transform: translateY(0px) translateX(0px) scale(1);
-  }
-  25% {
-    transform: translateY(-20px) translateX(10px) scale(1.1);
-  }
-  50% {
-    transform: translateY(0px) translateX(20px) scale(0.9);
-  }
-  75% {
-    transform: translateY(10px) translateX(-10px) scale(1.05);
-  }
-}
-
-/* Page Entrance Animations */
-.animate-slide-down {
-  animation: slideDown 0.8s ease-out forwards;
-}
-
-@keyframes slideDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 1s ease-out 0.3s forwards;
-  opacity: 0;
-}
-
-@keyframes fadeInUp {
-  from {
-    transform: translateY(30px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.animate-fade-in-right {
-  animation: fadeInRight 1s ease-out 0.6s forwards;
-  opacity: 0;
-}
-
-@keyframes fadeInRight {
-  from {
-    transform: translateX(50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.animate-stagger-up {
-  animation: staggerUp 0.8s ease-out 0.9s forwards;
-  opacity: 0;
-}
-
-@keyframes staggerUp {
-  from {
-    transform: translateY(50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Card Animations */
-.magical-card {
-  transform: translateY(50px);
-  opacity: 0;
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.magical-card.card-loaded {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.magical-card.card-delayed {
-  transition-delay: 0.3s;
-}
-
-.animate-bounce-in {
-  animation: bounceIn 1s ease-out 1.2s forwards;
-  opacity: 0;
-}
-
-.animate-bounce-in-delayed {
-  animation: bounceIn 1s ease-out 1.4s forwards;
-  opacity: 0;
-}
-
-@keyframes bounceIn {
-  0% {
-    transform: scale(0.3);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 0.8;
-  }
-  70% {
-    transform: scale(0.95);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Text Animations */
-.animated-title {
-  background: linear-gradient(45deg, #667eea, #764ba2, #667eea);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: titleGradient 3s ease infinite;
-}
-
-@keyframes titleGradient {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.spinning-gear {
-  animation: spin 3s linear infinite;
-  transform-origin: center;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.typing-effect {
-  overflow: hidden;
-  border-right: 2px solid #667eea;
-  animation: typing 2s steps(40) 1s forwards, blink 1s infinite;
-  white-space: nowrap;
-  width: 0;
-}
-
-@keyframes typing {
-  from { width: 0 }
-  to { width: 100% }
-}
-
-@keyframes blink {
-  0%, 50% { border-color: #667eea }
-  51%, 100% { border-color: transparent }
-}
-
-/* Icon Animations */
-.icon-float {
-  animation: iconFloat 2s ease-in-out infinite;
-}
-
-.icon-delayed {
-  animation-delay: 0.5s;
-}
-
-@keyframes iconFloat {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.icon-rotate {
-  animation: rotateY 4s ease-in-out infinite;
-}
-
-@keyframes rotateY {
-  0%, 100% {
-    transform: rotateY(0deg);
-  }
-  50% {
-    transform: rotateY(180deg);
-  }
-}
-
-/* Counter Animation */
-.counter-animation {
-  font-weight: 700;
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
-.glow-text {
-  animation: glow 2s ease-in-out infinite alternate;
-}
-
-@keyframes glow {
-  from {
-    text-shadow: 0 0 5px rgba(102, 126, 234, 0.5);
-  }
-  to {
-    text-shadow: 0 0 20px rgba(102, 126, 234, 0.8), 0 0 30px rgba(102, 126, 234, 0.6);
-  }
-}
-
-/* Button Animations */
-.magical-button {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  border: none;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.admin-management .magical-button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
-  background: linear-gradient(45deg, #5a67d8, #6b46c1);
-}
-
-.magical-button:active {
-  transform: translateY(-1px);
-}
-
-.magical-button-success {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(45deg, #48bb78, #38a169);
-  border: none;
-  box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.admin-management .magical-button-success:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(72, 187, 120, 0.5);
-  background: linear-gradient(45deg, #38a169, #2f855a);
-}
-
-.button-ripple {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.magical-button:active .button-ripple,
-.magical-button-success:active .button-ripple {
-  width: 300px;
-  height: 300px;
-}
-
-.button-text {
-  position: relative;
-  z-index: 2;
-}
-
-.arrow-bounce {
-  animation: arrowBounce 1s ease-in-out infinite;
-}
-
-@keyframes arrowBounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-/* Hover Effects */
-.pulse-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.admin-management .pulse-hover:hover {
-  transform: translateY(-5px) scale(1.02);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-}
-
-/* Gradient Shimmer Effect */
-.gradient-shimmer {
-  position: relative;
-  overflow: hidden;
-}
-
-.gradient-shimmer::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  animation: shimmer 3s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-/* Table Row Animations */
-.table-row-animate {
-  animation: slideInRow 0.6s ease-out forwards;
-  opacity: 0;
-  transform: translateX(-20px);
-}
-
-@keyframes slideInRow {
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Loading State Animations */
-.enhanced-table.is-loading {
-  position: relative;
-}
-
-.enhanced-table.is-loading::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  animation: loadingBar 2s ease-in-out infinite;
-}
-
-@keyframes loadingBar {
-  0% {
-    transform: translateX(-100%);
-  }
-  50% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* Form Input Enhancements */
-.el-form-item :deep(.el-input__inner) {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.el-form-item :deep(.el-input__inner:focus) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-}
-
-.el-form-item :deep(.el-select .el-input__inner) {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.el-form-item :deep(.el-select:hover .el-input__inner) {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
-}
-
-/* Enhanced Header */
-.page-header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 32px 0;
-  margin-bottom: 32px;
-  position: relative;
-  z-index: 10;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px;
-}
-
-.header-text h1 {
-  font-size: 32px;
-  color: #2c3e50;
-  margin: 0 0 8px 0;
-  font-weight: 700;
-}
-
-.header-text h1 i {
-  margin-right: 12px;
-  color: #667eea;
-}
-
-.header-text p {
-  color: #7f8c8d;
-  margin: 0;
-  font-size: 16px;
-}
-
-.header-stats {
-  display: flex;
-  gap: 16px;
-}
-
-.stat-card {
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  position: relative;
-  overflow: hidden;
-}
-
-.stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 15px 40px rgba(102, 126, 234, 0.3);
-}
-
-.stat-card:hover::before {
-  transform: scaleX(1);
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-}
-
-.stat-icon {
-  font-size: 24px;
-  color: #667eea;
-  margin-right: 12px;
-}
-
-.stat-text {
-  text-align: left;
-}
-
-.stat-number {
-  font-size: 24px;
-  font-weight: 700;
-  color: #2c3e50;
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #7f8c8d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.management-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px 32px;
-}
-
-.section-card {
-  border: none;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-  position: relative;
-}
-
-.section-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.section-card:hover {
-  transform: translateY(-8px) scale(1.01);
-  box-shadow: 0 20px 60px rgba(102, 126, 234, 0.2);
-}
-
-.section-card:hover::before {
-  opacity: 1;
-}
-
-.enhanced-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.section-icon {
-  font-size: 28px;
-  color: #667eea;
-  background: rgba(102, 126, 234, 0.1);
-  padding: 12px;
-  border-radius: 12px;
-}
-
-.section-info h3 {
-  margin: 0 0 4px 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.section-info p {
-  margin: 0;
-  font-size: 14px;
-  color: #64748b;
-}
-
-.add-button, .batch-button {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.admin-management .add-button:hover, 
-.admin-management .batch-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* Permission Content */
-.permission-content {
-  padding: 24px;
-}
-
-.permission-filters {
-  margin-bottom: 24px;
   padding: 20px;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  background-color: #f5f5f5;
+  min-height: 100vh;
 }
 
-.filter-select,
-.filter-input {
-  width: 100%;
-}
-
-.filter-button {
-  width: 100%;
-  border-radius: 8px;
-}
-
-.user-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.option-avatar {
-  flex-shrink: 0;
-}
-
-/* Table Container */
-.table-container {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  margin-top: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  width: 100%;
-}
-
-.enhanced-table {
-  border: none;
-  border-spacing: 0;
-  width: 100%;
-  table-layout: fixed;
-}
-
-.enhanced-table :deep(.el-table__header) {
-  background: #f8fafc;
-}
-
-.admin-management .enhanced-table :deep(.el-table__header th) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-  border: none;
-  padding: var(--space-3) var(--space-4);
-  height: 48px;
-}
-
-/* Table Row Styles with Maximum Specificity */
-.admin-management .enhanced-table table tbody tr {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  height: 60px !important;
-  position: relative !important;
-  cursor: pointer !important;
-}
-
-.admin-management .enhanced-table table tbody tr:hover {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
-  transform: translateX(8px) !important;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2) !important;
-  z-index: 10 !important;
-}
-
-.admin-management .enhanced-table table tbody tr:hover::before {
-  content: '' !important;
-  position: absolute !important;
-  left: 0 !important;
-  top: 0 !important;
-  height: 100% !important;
-  width: 5px !important;
-  background: linear-gradient(135deg, #667eea, #764ba2) !important;
-  border-radius: 0 3px 3px 0 !important;
-  z-index: 11 !important;
-}
-
-/* Alternative approach using CSS variables and direct targeting */
-.admin-management .section-card .el-table .el-table__body-wrapper .el-table__body tbody tr:hover {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
-  transform: translateX(8px) !important;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2) !important;
-}
-
-/* Nuclear option - highest specificity possible */
-.admin-management .management-sections .section-card .table-container .enhanced-table .el-table__body-wrapper .el-table__body tbody tr:hover,
-.admin-management .user-section .table-container .enhanced-table tbody tr:hover,
-.admin-management .permission-section .table-container .enhanced-table tbody tr:hover,
-html body .admin-management .enhanced-table tbody tr:hover {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
-  transform: translateX(8px) !important;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2) !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  position: relative !important;
-  z-index: 10 !important;
-}
-
-/* For the hover accent border */
-html body .admin-management .enhanced-table tbody tr:hover::before {
-  content: '' !important;
-  position: absolute !important;
-  left: 0 !important;
-  top: 0 !important;
-  height: 100% !important;
-  width: 5px !important;
-  background: linear-gradient(135deg, #667eea, #764ba2) !important;
-  border-radius: 0 3px 3px 0 !important;
-  z-index: 11 !important;
-}
-
-.enhanced-table :deep(.el-table__body td) {
-  border: none;
-  padding: 12px 16px;
-  vertical-align: middle;
-}
-
-.enhanced-table :deep(.el-table__body tr + tr td) {
-  border-top: 1px solid #f1f5f9;
-}
-
-/* User Table Specific Styling */
-.user-table-container {
-  margin-top: 24px;
-}
-
-.user-section .enhanced-table :deep(.el-table__body td) {
-  padding: 14px 16px;
-}
-
-.user-section .enhanced-table :deep(.el-table__header th) {
-  padding: 16px 16px;
-  height: 52px;
-}
-
-.user-section .enhanced-table :deep(.el-table__body tr) {
-  height: 64px;
-}
-
-/* Permission Table Specific Styling */
-.permission-table-container {
-  margin-top: 16px;
-}
-
-.permission-section .enhanced-table :deep(.el-table__body td) {
-  padding: 10px 14px;
-}
-
-.permission-section .enhanced-table :deep(.el-table__header th) {
-  padding: 12px 14px;
-  height: 46px;
-}
-
-.permission-section .enhanced-table :deep(.el-table__body tr) {
-  height: 56px;
-}
-
-/* User Table Cells */
-.user-id-cell,
-.user-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.user-avatar,
-.user-avatar-small {
-  flex-shrink: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-weight: 600;
-}
-
-.user-id-text,
-.user-name,
-.user-text {
-  font-weight: 500;
-  color: #374151;
-}
-
-.department-tag {
-  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-  color: #0369a1;
-  border: none;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.department-tag::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  transition: left 0.5s;
-}
-
-.department-tag:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(3, 105, 161, 0.3);
-}
-
-.department-tag:hover::before {
-  left: 100%;
-}
-
-.uuid-text {
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 12px;
-  color: #6b7280;
-  background: #f3f4f6;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-/* Permission Table Specific */
-.kri-tag {
-  background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-  color: #7c3aed;
-  border: none;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.kri-tag::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  transition: left 0.5s;
-}
-
-.kri-tag:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
-}
-
-.kri-tag:hover::before {
-  left: 100%;
-}
-
-.date-text {
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 13px;
-  color: #374151;
-}
-
-.actions-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  max-width: 100%;
-}
-
-.action-tag {
-  border: none;
-  font-weight: 500;
-  font-size: 11px;
-  padding: 2px 6px;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.action-tag::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s;
-}
-
-.action-tag:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.action-tag:hover::before {
-  left: 100%;
-}
-
-.effect-tag {
-  border: none;
-  font-weight: 500;
-  font-size: 11px;
-}
-
-.effect-tag i {
-  margin-right: 4px;
-}
-
-/* Action Buttons */
-.action-buttons-container {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  flex-wrap: nowrap;
-}
-
-.edit-btn {
-  background: linear-gradient(135deg, #f0f9ff 0%, #dbeafe 100%);
-  color: #0369a1;
-  border: 1px solid #bae6fd;
-  padding: 5px 12px;
-  font-size: 12px;
-  min-width: 60px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.edit-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s;
-}
-
-.edit-btn:hover {
-  background: linear-gradient(135deg, #0369a1, #1e40af);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(3, 105, 161, 0.3);
-}
-
-.edit-btn:hover::before {
-  left: 100%;
-}
-
-.delete-btn {
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  color: #dc2626;
-  border: 1px solid #fecaca;
-  padding: 5px 12px;
-  font-size: 12px;
-  min-width: 60px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.delete-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s;
-}
-
-.delete-btn:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-}
-
-.delete-btn:hover::before {
-  left: 100%;
-}
-
-/* Permission table actions */
-.permission-table-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  margin: 20px 0 12px 0;
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  border: 1px solid #bbf7d0;
-  border-radius: 12px;
-}
-
-.selection-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #065f46;
-  font-weight: 500;
-}
-
-.selection-info i {
-  color: #10b981;
-}
-
-.danger-button {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-}
-
-.danger-button:hover {
-  background: #dc2626;
-  color: white;
-}
-
-/* Dialog Enhancements */
-.dialog-footer {
-  text-align: right;
-  padding-top: 16px;
-}
-
-/* Form styling */
-.el-form-item {
+.admin-header {
   margin-bottom: 20px;
 }
 
-.el-form-item :deep(.el-form-item__label) {
-  font-weight: 500;
-  color: #374151;
+.admin-title {
+  margin: 0 0 10px 0;
+  font-size: 28px;
+  color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-container {
+  background: white;
+  border-radius: 8px;
+}
+
+.tab-content {
+  padding: 20px 0;
+}
+
+.content-header {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.content-header h3 {
+  margin: 0;
+  color: #303133;
+}
+
+.tab-description {
+  color: #909399;
+  margin: 5px 0 0 0;
+  font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.role-summary {
+  margin-bottom: 30px;
+}
+
+.role-card {
+  text-align: center;
+}
+
+.role-info {
+  padding: 10px;
+}
+
+.role-name {
+  margin-bottom: 10px;
+}
+
+.role-count {
+  font-size: 24px;
+  font-weight: bold;
+  color: #409eff;
+  margin-bottom: 5px;
+}
+
+.role-description {
+  font-size: 12px;
+  color: #909399;
+}
+
+.bulk-role-actions {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.bulk-role-actions h4 {
+  margin: 0 0 15px 0;
+  color: #303133;
+}
+
+.department-overview {
+  margin-bottom: 30px;
+}
+
+.dept-card {
+  text-align: center;
+}
+
+.dept-info h4 {
+  margin: 0 0 15px 0;
+  color: #303133;
+}
+
+.dept-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-label {
+  font-size: 14px;
+  color: #606266;
+}
+
+.metric-value {
+  font-weight: bold;
+  color: #409eff;
+}
+
+.permission-filters {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.no-permission-data {
+  text-align: center;
+  padding: 40px;
+}
+
+.system-stats {
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  text-align: center;
+}
+
+.stat-content {
+  padding: 20px;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: bold;
+  color: #409eff;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #909399;
+}
+
+.recent-activity h4 {
+  margin: 0 0 15px 0;
+  color: #303133;
+}
+
+.user-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.user-info p {
+  margin: 5px 0;
+}
+
+.dialog-footer {
+  text-align: right;
+}
+
+.permission-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.permission-info p {
+  margin: 5px 0;
+}
+
+.permission-help {
+  margin-top: 8px;
+  color: #909399;
+}
+
+.dept-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.dept-detail-header h3 {
+  margin: 0;
+  color: #303133;
+}
+
+.dept-metrics .el-tag {
+  margin-left: 10px;
 }
 
 /* Responsive design */
-@media (max-width: 1024px) {
-  .header-content {
-    flex-direction: column;
-    gap: 24px;
-    text-align: center;
-  }
-
-  .header-stats {
-    justify-content: center;
-  }
-}
-
 @media (max-width: 768px) {
   .admin-management {
-    padding: 0;
-  }
-
-  .management-sections {
-    padding: 0 16px 24px;
-  }
-
-  .enhanced-section-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-    text-align: center;
-  }
-  
-  .section-title {
-    justify-content: center;
-  }
-
-  .permission-actions {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .add-button,
-  .batch-button {
-    width: 100%;
-  }
-  
-  .permission-filters .el-row {
-    flex-direction: column;
-  }
-  
-  .permission-filters .el-col {
-    width: 100% !important;
-    margin-bottom: 12px;
-  }
-
-  .permission-table-actions {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-    text-align: center;
-  }
-
-  .danger-button {
-    width: 100%;
-  }
-
-  .action-buttons-container {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .edit-btn,
-  .delete-btn {
-    width: 100%;
-  }
-
-      .user-section .enhanced-table :deep(.el-table__body td) {
-      padding: 12px 10px;
-    }
-    
-    .user-section .enhanced-table :deep(.el-table__header th) {
-      padding: 14px 10px;
-      height: 48px;
-    }
-    
-    .user-section .enhanced-table :deep(.el-table__body tr) {
-      height: 58px;
-    }
-    
-    .permission-section .enhanced-table :deep(.el-table__body td) {
-      padding: 8px 10px;
-    }
-    
-    .permission-section .enhanced-table :deep(.el-table__header th) {
-      padding: 10px 10px;
-      height: 42px;
-    }
-    
-    .permission-section .enhanced-table :deep(.el-table__body tr) {
-      height: 50px;
-    }
-
-  .user-id-cell,
-  .user-cell {
-    flex-direction: column;
-    gap: 8px;
-    text-align: center;
-  }
-
-  .actions-tags {
-    justify-content: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .header-text h1 {
-    font-size: 24px;
-  }
-
-  .header-stats {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .stat-card {
-    width: 100%;
-  }
-
-  .section-info h3 {
-    font-size: 18px;
-  }
-
-  .section-icon {
-    font-size: 24px;
     padding: 10px;
   }
-}
-
-/* Form help text */
-.form-help-text {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-  line-height: 1.4;
+  
+  .content-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

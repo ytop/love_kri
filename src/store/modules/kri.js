@@ -20,7 +20,11 @@ const state = {
   currentUser: {
     uuid: null, // uuid
     name: '', // user_id
-    department: '', // Ddepartment, for display
+    department: '', // Department, for display
+    user_role: '', // user role (user, dept_admin, admin)
+    User_ID: '', // Original User_ID field for compatibility
+    User_Name: '', // Original User_Name field for compatibility  
+    Department: '', // Original Department field for compatibility
     permissions: [], // look up in permission table
     authenticated: false
   },
@@ -117,7 +121,12 @@ const mutations = {
       uuid: null,
       name: '',
       department: '',
-      permissions: []
+      user_role: '',
+      User_ID: '',
+      User_Name: '',
+      Department: '',
+      permissions: [],
+      authenticated: false
     };
     // Clear all KRI data to prevent access after logout
     state.kriItems = [];
@@ -326,12 +335,37 @@ const actions = {
         throw new Error('Invalid user data: missing required fields');
       }
 
-      commit('SET_CURRENT_USER', userData);
+      // Fetch complete user data from database including user_role
+      let completeUserData = userData;
+      try {
+        const dbUserData = await kriService.fetchUser(userData.name);
+        if (dbUserData && dbUserData.length > 0) {
+          const dbUser = dbUserData[0];
+          completeUserData = {
+            ...userData,
+            user_role: dbUser.user_role || 'user',
+            User_ID: dbUser.User_ID,
+            User_Name: dbUser.User_Name,
+            Department: dbUser.Department,
+            department: dbUser.Department, // Keep both for compatibility
+            authenticated: true
+          };
+        }
+      } catch (dbError) {
+        console.warn('Could not fetch user role from database, using default:', dbError);
+        completeUserData = {
+          ...userData,
+          user_role: 'user', // Default role if database fetch fails
+          authenticated: true
+        };
+      }
+
+      commit('SET_CURRENT_USER', completeUserData);
       
       // Initialize permissions for the authenticated user
       await dispatch('initPermission');
       
-      return userData;
+      return completeUserData;
     } catch (error) {
       console.error('Error setting current user:', error);
       throw error;

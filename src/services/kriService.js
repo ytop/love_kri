@@ -804,6 +804,275 @@ export const kriService = {
     return data || [];
   },
 
+  // ---------------------------------- ADMIN MANAGEMENT FUNCTIONS ---------------------------
+
+  /**
+   * Get all users in the system (admin function)
+   * @returns {Promise<Array>} Array of all users
+   */
+  async getAllUsers() {
+    const { data, error } = await supabase
+      .from('kri_user')
+      .select('UUID, "User_ID", "User_Name", "Department", user_role, "OTHER_INFO"')
+      .order('"User_ID"', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get users by department
+   * @param {string} department - Department name
+   * @returns {Promise<Array>} Array of users in the department
+   */
+  async getUsersByDepartment(department) {
+    if (!department) throw new Error('Department is required');
+    
+    const { data, error } = await supabase
+      .from('kri_user')
+      .select('UUID, "User_ID", "User_Name", "Department", user_role, "OTHER_INFO"')
+      .eq('"Department"', department)
+      .order('"User_ID"', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Update user role
+   * @param {string} userUuid - User UUID
+   * @param {string} newRole - New role ('user', 'dept_admin', 'admin')
+   * @param {string} changedBy - User making the change
+   * @returns {Promise<Object>} Updated user record
+   */
+  async updateUserRole(userUuid, newRole, changedBy) {
+    if (!userUuid || !newRole || !changedBy) {
+      throw new Error('userUuid, newRole, and changedBy are required');
+    }
+
+    const validRoles = ['user', 'dept_admin', 'admin'];
+    if (!validRoles.includes(newRole)) {
+      throw new Error(`Invalid role: ${newRole}. Valid roles: ${validRoles.join(', ')}`);
+    }
+
+    const { data, error } = await supabase
+      .from('kri_user')
+      .update({ user_role: newRole })
+      .eq('UUID', userUuid)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log the role change in audit trail (if needed for compliance)
+    await this.logUserRoleChange(userUuid, newRole, changedBy);
+
+    return data;
+  },
+
+  /**
+   * Get all departments in the system
+   * @returns {Promise<Array>} Array of unique departments
+   */
+  async getAllDepartments() {
+    const { data, error } = await supabase
+      .from('kri_user')
+      .select('"Department"')
+      .not('"Department"', 'is', null)
+      .not('"Department"', 'eq', '');
+    
+    if (error) throw error;
+    
+    // Extract unique departments
+    const departments = [...new Set(data.map(row => row.Department))].filter(dept => dept);
+    return departments.sort();
+  },
+
+  /**
+   * Get KRIs owned by a specific department
+   * @param {string} department - Department name
+   * @returns {Promise<Array>} Array of KRI metadata for the department
+   */
+  async getDepartmentKRIs(department) {
+    if (!department) throw new Error('Department is required');
+    
+    const { data, error } = await supabase
+      .from('kri_metadata')
+      .select('*')
+      .eq('owner', department)
+      .order('kri_code', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Bulk update user permissions
+   * @param {Array} permissionUpdates - Array of permission update objects
+   * @param {string} changedBy - User making the changes
+   * @returns {Promise<Array>} Array of updated permission records
+   */
+  async bulkUpdatePermissions(permissionUpdates, changedBy) {
+    if (!Array.isArray(permissionUpdates) || permissionUpdates.length === 0) {
+      throw new Error('permissionUpdates must be a non-empty array');
+    }
+    if (!changedBy) {
+      throw new Error('changedBy is required');
+    }
+
+    const results = [];
+    
+    for (const update of permissionUpdates) {
+      const { user_uuid, kri_id, reporting_date, actions, effect = true } = update;
+      
+      if (!user_uuid || !kri_id || !reporting_date || !actions) {
+        throw new Error('Each permission update must have user_uuid, kri_id, reporting_date, and actions');
+      }
+
+      try {
+        // Try to update existing permission first
+        let { data, error } = await supabase
+          .from('kri_user_permission')
+          .update({
+            actions,
+            effect,
+            update_date: new Date().toISOString()
+          })
+          .eq('user_uuid', user_uuid)
+          .eq('kri_id', kri_id)
+          .eq('reporting_date', reporting_date)
+          .select()
+          .single();
+
+        // If no existing permission, insert new one
+        if (error && error.code === 'PGRST116') {
+          const insertResult = await supabase
+            .from('kri_user_permission')
+            .insert({
+              user_uuid,
+              kri_id,
+              reporting_date,
+              actions,
+              effect,
+              created_date: new Date().toISOString(),
+              update_date: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+          if (insertResult.error) throw insertResult.error;
+          data = insertResult.data;
+        } else if (error) {
+          throw error;
+        }
+
+        results.push(data);
+      } catch (err) {
+        console.error(`Error updating permission for user ${user_uuid}, KRI ${kri_id}:`, err);
+        throw err;
+      }
+    }
+
+    return results;
+  },
+
+  /**
+   * Get department statistics
+   * @param {string} department - Department name
+   * @returns {Promise<Object>} Department statistics
+   */
+  async getDepartmentStatistics(department) {
+    if (!department) throw new Error('Department is required');
+
+    // Get user count in department
+    const { data: users, error: usersError } = await supabase
+      .from('kri_user')
+      .select('UUID, user_role')
+      .eq('"Department"', department);
+
+    if (usersError) throw usersError;
+
+    // Get KRI count owned by department
+    const { data: kris, error: krisError } = await supabase
+      .from('kri_metadata')
+      .select('kri_code')
+      .eq('owner', department);
+
+    if (krisError) throw krisError;
+
+    // Count users by role
+    const roleCounts = users.reduce((acc, user) => {
+      const role = user.user_role || 'user';
+      acc[role] = (acc[role] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      department,
+      totalUsers: users.length,
+      totalKRIs: kris.length,
+      usersByRole: roleCounts,
+      users: users || [],
+      kris: kris || []
+    };
+  },
+
+  /**
+   * Log user role changes for audit purposes
+   * @param {string} userUuid - User UUID
+   * @param {string} newRole - New role assigned
+   * @param {string} changedBy - User making the change
+   * @returns {Promise<void>}
+   * @private
+   */
+  async logUserRoleChange(userUuid, newRole, changedBy) {
+    try {
+      // This could be expanded to use a dedicated audit table for user changes
+      // For now, we'll use console logging and could store in a separate audit system
+      console.log(`User role change: ${userUuid} -> ${newRole} by ${changedBy} at ${new Date().toISOString()}`);
+      
+      // Future implementation could store in dedicated audit table:
+      // await supabase.from('user_audit_trail').insert({
+      //   user_uuid: userUuid,
+      //   action: 'role_change',
+      //   old_value: oldRole,
+      //   new_value: newRole,
+      //   changed_by: changedBy,
+      //   changed_at: new Date().toISOString()
+      // });
+    } catch (error) {
+      console.error('Error logging user role change:', error);
+      // Don't throw error as this is just logging
+    }
+  },
+
+  /**
+   * Get user permissions summary for admin interface
+   * @param {string} userUuid - User UUID (optional, if not provided returns all users)
+   * @returns {Promise<Array>} Array of user permission summaries
+   */
+  async getUserPermissionsSummary(userUuid = null) {
+    let query = supabase
+      .from('kri_user_permission')
+      .select(`
+        user_uuid,
+        kri_id,
+        reporting_date,
+        actions,
+        effect,
+        kri_user!inner("User_ID", "User_Name", "Department", user_role)
+      `);
+
+    if (userUuid) {
+      query = query.eq('user_uuid', userUuid);
+    }
+
+    const { data, error } = await query.order('user_uuid', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
 
 };
 

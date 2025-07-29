@@ -364,6 +364,257 @@ class Permission {
 
     return null; // No validation error
   }
+
+  // ================================== ROLE-BASED PERMISSION METHODS ==================================
+
+  /**
+   * Check if user is a system administrator
+   * System admins have access to all functions and can manage all users
+   * 
+   * @param {Object} user - User object with role information
+   * @returns {boolean} True if user is system admin
+   * @static
+   */
+  static isSystemAdmin(user) {
+    if (!user || !user.user_role) {
+      return false;
+    }
+    return user.user_role === 'admin';
+  }
+
+  /**
+   * Check if user is a department administrator
+   * Department admins can manage users and permissions within their department
+   * 
+   * @param {Object} user - User object with role information
+   * @returns {boolean} True if user is department admin
+   * @static
+   */
+  static isDepartmentAdmin(user) {
+    if (!user || !user.user_role) {
+      return false;
+    }
+    return user.user_role === 'dept_admin';
+  }
+
+  /**
+   * Check if user can manage a specific department
+   * System admins can manage all departments
+   * Department admins can only manage their own department
+   * 
+   * @param {Object} currentUser - Current user object
+   * @param {string} targetDepartment - Department to check access for
+   * @returns {boolean} True if user can manage the department
+   * @static
+   */
+  static canManageDepartment(currentUser, targetDepartment) {
+    if (!currentUser || !targetDepartment) {
+      return false;
+    }
+
+    // System admins can manage all departments
+    if (Permission.isSystemAdmin(currentUser)) {
+      return true;
+    }
+
+    // Department admins can only manage their own department
+    if (Permission.isDepartmentAdmin(currentUser)) {
+      return currentUser.Department === targetDepartment;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if current user can manage another user
+   * System admins can manage all users
+   * Department admins can manage users in their department (except other admins)
+   * Regular users cannot manage other users
+   * 
+   * @param {Object} currentUser - Current user object
+   * @param {Object} targetUser - User to be managed
+   * @returns {boolean} True if current user can manage target user
+   * @static
+   */
+  static canManageUser(currentUser, targetUser) {
+    if (!currentUser || !targetUser) {
+      return false;
+    }
+
+    // System admins can manage all users
+    if (Permission.isSystemAdmin(currentUser)) {
+      return true;
+    }
+
+    // Department admins can manage users in their department
+    if (Permission.isDepartmentAdmin(currentUser)) {
+      // Cannot manage users from other departments
+      if (currentUser.Department !== targetUser.Department) {
+        return false;
+      }
+      
+      // Cannot manage other admins or department admins
+      if (Permission.isSystemAdmin(targetUser) || Permission.isDepartmentAdmin(targetUser)) {
+        return false;
+      }
+      
+      return true;
+    }
+
+    // Regular users cannot manage other users
+    return false;
+  }
+
+  /**
+   * Check if user can assign permissions for a specific KRI
+   * System admins can assign permissions for all KRIs
+   * Department admins can assign permissions for KRIs owned by their department
+   * 
+   * @param {Object} currentUser - Current user object
+   * @param {Object} kriMetadata - KRI metadata with owner information
+   * @returns {boolean} True if user can assign permissions for this KRI
+   * @static
+   */
+  static canAssignPermissions(currentUser, kriMetadata) {
+    if (!currentUser || !kriMetadata) {
+      return false;
+    }
+
+    // System admins can assign permissions for all KRIs
+    if (Permission.isSystemAdmin(currentUser)) {
+      return true;
+    }
+
+    // Department admins can assign permissions for KRIs owned by their department
+    if (Permission.isDepartmentAdmin(currentUser)) {
+      // Check if current user's department matches KRI owner
+      return currentUser.Department === kriMetadata.owner;
+    }
+
+    return false;
+  }
+
+  /**
+   * Get all KRIs that a user can manage permissions for
+   * This method would typically be used with database queries
+   * 
+   * @param {Object} currentUser - Current user object
+   * @param {Array} allKRIs - Array of all KRI metadata objects
+   * @returns {Array} Array of KRIs the user can manage
+   * @static
+   */
+  static getManageableKRIs(currentUser, allKRIs) {
+    if (!currentUser || !Array.isArray(allKRIs)) {
+      return [];
+    }
+
+    // System admins can manage all KRIs
+    if (Permission.isSystemAdmin(currentUser)) {
+      return allKRIs;
+    }
+
+    // Department admins can manage KRIs owned by their department
+    if (Permission.isDepartmentAdmin(currentUser)) {
+      return allKRIs.filter(kri => kri.owner === currentUser.Department);
+    }
+
+    // Regular users cannot manage KRI permissions
+    return [];
+  }
+
+  /**
+   * Check if user can promote/demote another user's role
+   * System admins can change any user's role (except other system admins)
+   * Department admins can promote users in their department to dept_admin (but not to admin)
+   * 
+   * @param {Object} currentUser - Current user object
+   * @param {Object} targetUser - User whose role would be changed
+   * @param {string} newRole - New role to assign ('user', 'dept_admin', 'admin')
+   * @returns {boolean} True if role change is allowed
+   * @static
+   */
+  static canChangeUserRole(currentUser, targetUser, newRole) {
+    if (!currentUser || !targetUser || !newRole) {
+      return false;
+    }
+
+    const validRoles = ['user', 'dept_admin', 'admin'];
+    if (!validRoles.includes(newRole)) {
+      return false;
+    }
+
+    // System admins can change any user's role
+    if (Permission.isSystemAdmin(currentUser)) {
+      // Cannot demote other system admins
+      if (Permission.isSystemAdmin(targetUser) && targetUser.UUID !== currentUser.UUID) {
+        return false;
+      }
+      return true;
+    }
+
+    // Department admins have limited role change abilities
+    if (Permission.isDepartmentAdmin(currentUser)) {
+      // Can only manage users in their department
+      if (currentUser.Department !== targetUser.Department) {
+        return false;
+      }
+      
+      // Cannot promote to system admin
+      if (newRole === 'admin') {
+        return false;
+      }
+      
+      // Cannot manage other admins or dept admins
+      if (Permission.isSystemAdmin(targetUser) || 
+          (Permission.isDepartmentAdmin(targetUser) && targetUser.UUID !== currentUser.UUID)) {
+        return false;
+      }
+      
+      return true;
+    }
+
+    // Regular users cannot change roles
+    return false;
+  }
+
+  /**
+   * Get the highest role a user can assign to others
+   * Used for UI role selection dropdowns
+   * 
+   * @param {Object} currentUser - Current user object
+   * @returns {string[]} Array of roles the user can assign
+   * @static
+   */
+  static getAssignableRoles(currentUser) {
+    if (!currentUser) {
+      return [];
+    }
+
+    // System admins can assign all roles
+    if (Permission.isSystemAdmin(currentUser)) {
+      return ['user', 'dept_admin', 'admin'];
+    }
+
+    // Department admins can assign user and dept_admin roles
+    if (Permission.isDepartmentAdmin(currentUser)) {
+      return ['user', 'dept_admin'];
+    }
+
+    // Regular users cannot assign roles
+    return [];
+  }
+
+  /**
+   * Check if user needs admin interface access
+   * Used for navigation and UI rendering decisions
+   * 
+   * @param {Object} user - User object
+   * @returns {boolean} True if user should have admin interface access
+   * @static
+   */
+  static needsAdminInterface(user) {
+    return Permission.isSystemAdmin(user) || Permission.isDepartmentAdmin(user);
+  }
 }
 
 export default Permission;

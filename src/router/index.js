@@ -5,8 +5,10 @@ import KRIPending from '../views/KRIPending.vue';
 import KRIDetail from '../views/KRIDetail.vue';
 import Login from '../views/Login.vue';
 import AdminManagement from '../views/AdminManagement.vue';
+import DepartmentAdmin from '../views/DepartmentAdmin.vue';
 import NotFound from '../views/NotFound.vue';
 import store from '../store';
+import Permission from '../utils/permission';
 
 Vue.use(Router);
 
@@ -45,7 +47,19 @@ const router = new Router({
       path: '/admin',
       name: 'AdminManagement',
       component: AdminManagement,
-      meta: { requiresAuth: true }
+      meta: { 
+        requiresAuth: true,
+        requiresRole: 'admin'
+      }
+    },
+    {
+      path: '/dept-admin',
+      name: 'DepartmentAdmin',
+      component: DepartmentAdmin,
+      meta: { 
+        requiresAuth: true,
+        requiresRole: 'dept_admin'
+      }
     },
     {
       path: '*',
@@ -104,10 +118,24 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Additional security check for sensitive routes
-  if (to.name === 'AdminManagement' && isAuthenticated) {
-    // Admin route requires additional validation - could add role-based checks here
-    if (!currentUser || !currentUser.department) {
+  // Role-based access control for admin routes
+  const requiredRole = to.matched.find(record => record.meta.requiresRole)?.meta.requiresRole;
+  if (requiredRole && isAuthenticated && currentUser) {
+    let hasRequiredRole = false;
+    
+    switch (requiredRole) {
+    case 'admin':
+      hasRequiredRole = Permission.isSystemAdmin(currentUser);
+      break;
+    case 'dept_admin':
+      hasRequiredRole = Permission.isDepartmentAdmin(currentUser) || Permission.isSystemAdmin(currentUser);
+      break;
+    default:
+      hasRequiredRole = false;
+    }
+    
+    if (!hasRequiredRole) {
+      console.warn(`Access denied to ${to.path}: User ${currentUser.User_ID} lacks required role: ${requiredRole}`);
       next({
         name: 'Dashboard',
         query: { error: 'insufficient_permissions' }
