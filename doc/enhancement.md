@@ -1,114 +1,261 @@
-1. button too close,
-2. KRI Status
+# Department Admin and Enhanced Admin Panel Implementation Plan
 
-in helper.js,
+## Current State Analysis
 
-export const mapKriStatus = (status) => {
-  if (status === null || status === undefined) return 'Pending';
-  switch (status) {
-    case 0:
-      return 'Pending';
-    case 1:
-      return 'Submitted';
-    case 2:
-      return 'Finalized';
-    default:
-      return `Unknown (${status})`;
+**Existing Infrastructure:**
+- Database schema with `kri_user` table containing `Department` field
+- Current `AdminManagement.vue` view with basic user and permission management
+- Permission system via `kri_user_permission` table with KRI-level access control
+- Relationship-based access through `owner` and `data_provider` fields in `kri_metadata`
+
+## Core Changes Required
+
+### 1. Database Schema Enhancements
+**Add new user role field to `kri_user` table:**
+- Add `user_role` column with values: `user`, `dept_admin`, `admin`
+- Maintain backward compatibility with existing records (default to `user`)
+
+### 2. Permission Logic Extensions
+**Extend `src/utils/permission.js`:**
+- Add department-level permission checking methods
+- Add role-based permission validation for department admins
+- Add methods to check if user can manage department members' permissions
+
+### 3. Enhanced Admin Panel Features
+**Upgrade `src/views/AdminManagement.vue`:**
+- Add role management section with role assignment UI
+- Add department-specific user filtering and management
+- Add bulk permission management for department members
+- Add department admin delegation interface
+
+### 4. Department Admin Dashboard
+**Create new view `src/views/DepartmentAdmin.vue`:**
+- Department-specific KRI overview and statistics
+- Department member permission management interface
+- Bulk permission operations for KRIs owned by their department
+
+### 5. Access Control Implementation
+**Router and service-level restrictions:**
+- Update router guards to check user roles
+- Add department-based filtering in services
+- Implement permission inheritance for department admins
+
+### 6. UI/UX Enhancements
+**Add role-based UI elements:**
+- Role indicators in user tables and profiles
+- Department admin action buttons
+- Filtered views based on user role and department
+
+## Implementation Strategy
+
+**Phase 1: Core Infrastructure**
+1. Database schema updates and migration
+2. Permission system extensions
+3. Service layer enhancements
+
+**Phase 2: Admin Panel Enhancement**
+1. Upgrade existing AdminManagement view
+2. Add role management functionality
+3. Implement department-specific filtering
+
+**Phase 3: Department Admin Features**
+1. Create DepartmentAdmin view
+2. Add department member management
+3. Implement bulk permission operations
+
+**Phase 4: Integration & Polish**
+1. Update routing and navigation
+2. Add role-based UI elements
+3. Testing and validation
+
+## Detailed Implementation Plan
+
+### Database Changes
+
+#### 1. Add user_role column to kri_user table
+```sql
+ALTER TABLE kri_user ADD COLUMN user_role VARCHAR(20) DEFAULT 'user' CHECK (user_role IN ('user', 'dept_admin', 'admin'));
+```
+
+#### 2. Update existing records
+```sql
+-- Set admin role for admin department users
+UPDATE kri_user SET user_role = 'admin' WHERE Department = 'admin';
+```
+
+### Permission System Enhancements
+
+#### 1. Extend Permission class (`src/utils/permission.js`)
+
+Add new methods:
+- `canManageDepartmentUsers(currentUser, targetUser)` - Check if user can manage another user
+- `canAssignPermissions(currentUser, targetKRI)` - Check if user can assign permissions for specific KRIs
+- `getDepartmentKRIs(department)` - Get all KRIs owned by a department
+- `getUserRole(user)` - Get user role with proper validation
+
+#### 2. Role-based Access Logic
+
+**Admin (department == 'admin'):**
+- Full system access
+- Can manage all users and permissions
+- Can view all KRIs regardless of department
+
+**Department Admin (user_role == 'dept_admin'):**
+- Can manage users within their own department
+- Can modify permissions for KRIs where their department is the owner
+- Cannot modify permissions for KRIs where their department is only data_provider
+
+**Regular User (user_role == 'user'):**
+- Current permission system unchanged
+- Individual KRI-level permissions only
+
+### Service Layer Changes
+
+#### 1. Update kriService.js
+Add methods:
+- `getUsersByDepartment(department)` - Get all users in a department
+- `getDepartmentKRIs(department)` - Get KRIs owned by department
+- `updateUserRole(userId, newRole)` - Update user role with validation
+- `bulkUpdatePermissions(permissions)` - Batch permission updates
+
+#### 2. Add Department Admin Service
+Create `src/services/departmentAdminService.js`:
+- Handle department-specific operations
+- Bulk permission management
+- Department statistics and reporting
+
+### UI Components
+
+#### 1. Enhanced AdminManagement.vue
+**Add new sections:**
+- Role management tab with role assignment interface
+- Department filter for user management
+- Bulk permission operations
+- Department admin promotion/demotion interface
+
+**Key features:**
+- Visual role indicators (badges/tags)
+- Department-based user filtering
+- Bulk select for permission changes
+- Role change confirmation dialogs
+
+#### 2. New DepartmentAdmin.vue
+**Main sections:**
+- Department KRI dashboard with statistics
+- Team member management interface
+- Permission bulk operations for department KRIs
+- Department-specific audit trail
+
+**Key features:**
+- Department KRI overview charts
+- Permission matrix for team members
+- Quick permission templates
+- Bulk approve/reject workflows
+
+### Router Updates
+
+#### 1. Add new routes
+```javascript
+{
+  path: '/dept-admin',
+  name: 'DepartmentAdmin',
+  component: DepartmentAdmin,
+  meta: { 
+    requiresAuth: true,
+    requiresRole: 'dept_admin'
   }
-};
+}
+```
 
-New status
+#### 2. Enhanced route guards
+- Add role-based route protection
+- Department admin access validation
+- Redirect logic for insufficient permissions
 
-Public Const gStatusPendingInput As String = "Pending Input" ' 10
-Public Const gStatusPendingAdjust As String = "Adjusting" ' 20
-Public Const gStatusPendingDPApprove As String = "Pending Data Provider Approval" ' 30
-Public Const gStatusPendingSubmit As String = "Ready for submission" ' 40
-Public Const gStatusPendingAcknowledg As String = "Submitted" ' 50
-Public Const gStatusFinalized As String = "Finalized" ' 60
+### Access Control Logic
 
-case 1, if data provide = kri owner, 10 --> 40 --> 50 --> 60
-  Action 10 --> 40, kri inputer submit data
-        40 --> 50, kri acknowledger approve kri
+#### 1. Department Admin Permissions
+**Can manage:**
+- Users in their own department
+- Permissions for KRIs owned by their department (where department appears in kri_metadata.owner field)
+- View department-specific audit trails
 
-case 2, if data provide <> kri owner, 10 --> 30 -- > 40 --> 50 --> 60
-  Action 10 --> 30, data provider appover
+**Cannot manage:**
+- Users in other departments
+- KRIs owned by other departments
+- System-wide settings
+- Admin users
 
-case 3,  in case 1, 40 --> 50 approve, if reject, 40 --> 20
-         in case 2, 30 --> 40 , if reject, 30 --> 20
-                    40 --> 50, if reject, 40 --> 20
+#### 2. Permission Inheritance
+**Department Admin inherits:**
+- View access to all KRIs owned by their department
+- Edit permissions for department team management
+- Audit trail access for department activities
 
-# New rules
+### Validation & Security
 
-Public Const gStatusPendingInput As String = "Pending Input" ' 1
-Public Const gStatusPendingSubmit As String = "Saved" ' 2
-Public Const gStatusPendingAdjust As String = "Adjusting" ' 3
-Public Const gStatusPendingAcknowledg As String = "Submitted" ' 4
-Public Const gStatusFinalized As String = "Finalized" ' 5
+#### 1. Business Logic Validation
+- Prevent department admins from escalating their own privileges
+- Ensure department admins cannot modify permissions for KRIs they don't own
+- Validate that permission changes maintain workflow integrity
 
-"Pending Input" ' 10 --> previous 1
-"Under Rework" ' 20 --> previous 3
-"Saved" ' 30 --> previous 2 Saved
-"Submitted to Data Provider Approver" ' 40 --> previous 2 Saved
-"Submitted to KRI Owner Approver" ' 50 --> previous 4
-"Finalized" ' 60 --> previous 5
+#### 2. Audit Trail Enhancement
+- Log all role changes with admin approval
+- Track department admin permission modifications
+- Maintain separation of duties in audit logs
 
-Function GetNextStatus(tabName As String, iPrevStatus As Integer) As Integer
-    If InStr(tabName, "Acknowledge") <> 0 Then
-        GetNextStatus = IIf(iPrevStatus = 4 Or iPrevStatus = -1, 5, 0)
-    ElseIf InStr(tabName, "ReturnForWork") <> 0 Then
-        GetNextStatus = IIf(iPrevStatus = 4 Or iPrevStatus = -1, 3, 0)
-    ElseIf InStr(tabName, "Submit") <> 0 Then
-        GetNextStatus = IIf(iPrevStatus <= 3 Or iPrevStatus = -1, 4, 0)
-    ElseIf InStr(tabName, "Save") <> 0 Then
-        GetNextStatus = IIf(iPrevStatus <= 3 Or iPrevStatus = -1, 2, 0)
-    ElseIf InStr(tabName, "Data Provider") <> 0 Then
-        GetNextStatus = IIf(iPrevStatus <= 3 Or iPrevStatus = -1, 4, 0)
-    ElseIf InStr(tabName, "ReturnForWorkDP") <> 0 Then
-        GetNextStatus = IIf(iPrevStatus = 4 Or iPrevStatus = -1, 3, 0)
-    Else
-        GetNextStatus = -1
-    End If
+### Migration Strategy
 
-case 1: 10 "Pending Input" OR 20 "Under Rework"
-  User can input data if have proper permission
-    -> subcase 1: user clicked save button
-      -> change to "Saved"
-    -> subcase 2: user clicked submit button
-      IF KRI_OWNER == DATA_PROVIDER (in kri record)
-      -> change to "Submitted to KRI Owner Approver"
-      ELSE KRI_OWNER <> DATA_PROVIDER
-      -> change to "Submitted to Data Provider Approver"
-  
-case 2: 30 "Saved"
-  User can input data if have proper permission
-    -> subcase 1: user clicked save button
-      -> remain at state "Saved" but update value
-    -> subcase 2: user clicked submit button
-      IF KRI_OWNER == DATA_PROVIDER (in kri record)
-      -> change to "Submitted to KRI Owner Approver"
-      ELSE KRI_OWNER <> DATA_PROVIDER
-      -> change to "Submitted to Data Provider Approver"
+#### 1. Database Migration
+- Add user_role column with default values
+- Update existing admin users
+- Add indexes for performance
 
-case 3: 40 "Submitted to Data Provider Approver" OR 50 "Submitted to KRI Owner Approver"
-  User can approve data if have proper permission
-    -> subcase 1: user clicked approve button
-      IF KRI_OWNER == DATA_PROVIDER AND STATUS = 50
-      -> change to 60 "Finalized"
-      ELSE KRI_OWNER <> DATA_PROVIDER AND STATUS = 40
-      -> change to 60 "Finalized"
-      ELSE:
-      SHOULD NOT HAPPEN
-    -> subcase 2: user clicked reject button
-      PROVIDE REJECT REASON
-      -> change to 20 "Under Rework"
+#### 2. Backward Compatibility
+- Existing permission system continues to work
+- Gradual rollout of department admin features
+- Fallback to current admin panel if needed
 
+#### 3. Data Validation
+- Ensure all users have valid departments
+- Validate KRI ownership data in metadata
+- Check permission consistency
 
+## Benefits
 
-=============== task 2 ===================================
+**For System Administrators:**
+- Reduced administrative overhead
+- Better scalability as organization grows
+- Maintained control over system-wide settings
 
-Union view,
-in KRITableCollectData.vue, merge kri data element / atomic into the list view,
+**For Department Administrators:**
+- Autonomous management of team permissions
+- Department-specific KRI insights
+- Streamlined workflow for team coordination
 
-================ task 3 ====================
-split  KRITableCollectData.vue into 'input' & 'approve',  update button name
-add rework comments in 'approve' panel
+**For Regular Users:**
+- No change to existing workflows
+- Better support through department admins
+- More responsive permission updates
+
+**For the System:**
+- Better separation of concerns
+- Improved audit trail granularity
+- More scalable permission management
+
+## Risk Mitigation
+
+**Security Risks:**
+- Department admins cannot escalate to system admin
+- Strict validation of permission scope
+- Audit trail for all administrative actions
+
+**Operational Risks:**
+- Fallback to current admin system if needed
+- Gradual feature rollout
+- Comprehensive testing of permission logic
+
+**Data Integrity:**
+- Validation of department ownership data
+- Permission consistency checks
+- Backup and recovery procedures for role changes

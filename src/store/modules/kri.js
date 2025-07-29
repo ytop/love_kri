@@ -86,6 +86,8 @@ const mutations = {
     state.filters = { ...state.filters, ...filters };
   },
   RESET_FILTERS(state) {
+    // Preserve user's department when resetting filters
+    const userDepartment = state.currentUser?.department || '';
     state.filters = {
       kriOwner: '',
       collectionStatus: '',
@@ -98,7 +100,7 @@ const mutations = {
       kriType: '',
       breachType: '',
       dataProvider: '',
-      department: ''
+      department: userDepartment
     };
   },
   // User management mutations
@@ -117,6 +119,15 @@ const mutations = {
       department: '',
       permissions: []
     };
+    // Clear all KRI data to prevent access after logout
+    state.kriItems = [];
+    state.pendingKRIItems = [];
+    state.kriDetail = null;
+    state.atomicData = [];
+    state.evidenceData = [];
+    state.auditTrailData = [];
+    state.historicalData = [];
+    state.metadataHistoryData = [];
     sessionStorageUtil.clear();
   },
   RESTORE_USER_FROM_STORAGE(state) {
@@ -124,6 +135,10 @@ const mutations = {
     const storedPermissions = sessionStorageUtil.getPermissions();
     if (storedUser && storedUser.uuid) {
       state.currentUser = { ...storedUser, permissions: storedPermissions };
+      // Sync department filter with restored user
+      if (storedUser.department) {
+        state.filters.department = storedUser.department;
+      }
     }
   },
   // Table column preference mutations
@@ -161,7 +176,9 @@ const actions = {
     commit('SET_ERROR', null);
     
     try {
-      const data = await kriService.fetchKRIItems(reportingDate);
+      // Pass user's department for database-level filtering
+      const userDepartment = state.currentUser?.department || null;
+      const data = await kriService.fetchKRIItems(reportingDate, userDepartment);
       const transformedData = transformKRIData(data, mapStatus);
       commit('SET_KRI_ITEMS', transformedData);
       

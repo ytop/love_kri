@@ -488,7 +488,12 @@ export const kriService = {
   // A place to store all the functions that are used to fetch data from the database
   // Just passing same parameters to the baseKRIService
   // ---------------------------------- fetch ---------------------------
-  async fetchKRIItems(reportingDate = null) {
+  async fetchKRIItems(reportingDate = null, userDepartment = null) {
+    // Return empty array immediately for unauthenticated users
+    if (!userDepartment || userDepartment.trim() === '') {
+      return [];
+    }
+    
     // Use kri_with_metadata view to get complete KRI data including metadata
     let query = supabase.from('kri_with_metadata').select('*');
     
@@ -501,9 +506,12 @@ export const kriService = {
       }
     }
     
+    // Apply department filtering at database level - only show KRIs where user's department matches owner or data provider
+    query = query.or(`kri_owner.ilike.%${userDepartment}%,data_provider.ilike.%${userDepartment}%`);
+    
     const { data, error } = await query.order('kri_id', { ascending: true });
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
   async fetchKRIDetail(kriId, reportingDate) {

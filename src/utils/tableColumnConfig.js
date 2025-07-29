@@ -78,7 +78,7 @@ class TableColumnManager {
     kriValue: {
       key: 'kriValue',
       label: 'KRI Value',
-      minWidth: 240,
+      minWidth: 120,
       required: true,
       sortType: 'numeric',
       sortable: true,

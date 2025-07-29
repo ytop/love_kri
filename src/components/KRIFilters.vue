@@ -5,28 +5,6 @@
       <el-form :model="filters" :inline="true" class="filter-form compact-form">
         <div class="filters-container">
           <div class="filters-left">
-            <el-form-item label="Department" class="compact-item">
-              <el-select
-                v-model="localFilters.department"
-                placeholder="Select Department"
-                clearable
-                @change="onFilterChange"
-                size="small"
-                style="width: 200px;"
-              >
-                <el-option
-                  key="all"
-                  label="All Departments"
-                  value="">
-                </el-option>
-                <el-option
-                  v-for="department in availableDepartments"
-                  :key="department"
-                  :label="department"
-                  :value="department">
-                </el-option>
-              </el-select>
-            </el-form-item>
             
             <el-form-item label="Collection Status" class="compact-item">
               <el-select
@@ -223,12 +201,16 @@ export default {
     },
     
     hasActiveFilters() {
-      const defaultFilters = ['reportingDate'];
+      const defaultFilters = ['reportingDate', 'department'];
       return Object.keys(this.localFilters).some(key => {
         if (defaultFilters.includes(key)) return false;
         const value = this.localFilters[key];
         return value && value !== '' && value !== null && value !== undefined;
       });
+    },
+
+    currentUser() {
+      return this.$store.getters['kri/currentUser'];
     }
   },
   methods: {
@@ -255,6 +237,11 @@ export default {
     // Initialize local filters from props
     this.localFilters = { ...this.filters };
     
+    // Auto-apply user's department to filters
+    if (this.currentUser && this.currentUser.department) {
+      this.localFilters.department = this.currentUser.department;
+    }
+    
     // Convert reporting date from integer to string for date picker
     if (this.filters.reportingDate) {
       if (typeof this.filters.reportingDate === 'number') {
@@ -269,6 +256,11 @@ export default {
       handler(newFilters) {
         this.localFilters = { ...newFilters };
         
+        // Auto-apply user's department to filters
+        if (this.currentUser && this.currentUser.department) {
+          this.localFilters.department = this.currentUser.department;
+        }
+        
         // Update date picker value when filters change
         if (newFilters.reportingDate) {
           if (typeof newFilters.reportingDate === 'number') {
@@ -280,6 +272,17 @@ export default {
       },
       deep: true,
       immediate: false
+    },
+    
+    currentUser: {
+      handler(newUser) {
+        // Update department filter when user changes
+        if (newUser && newUser.department) {
+          this.localFilters.department = newUser.department;
+          this.onFilterChange();
+        }
+      },
+      deep: true
     }
   }
 };

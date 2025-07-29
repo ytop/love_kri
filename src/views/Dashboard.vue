@@ -12,7 +12,7 @@
         </div>
         <div class="header-actions">
           <el-badge
-            v-if="showPendingButton"
+            v-if="isAuthenticated"
             :value="totalPendingKRIsCount"
             class="item"
             type="danger"
@@ -239,8 +239,10 @@ export default {
       }
     }
     
-    // Load initial data
-    await this.refreshData();
+    // Only load data if user is authenticated - prevents loading all data for anonymous users
+    if (this.isAuthenticated) {
+      await this.refreshData();
+    }
   },
   async mounted() {
     // Additional initialization if needed when component is mounted

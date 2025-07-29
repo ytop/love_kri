@@ -156,13 +156,12 @@ export default {
       return 'No pending KRI items found. All items have been processed or you do not have permissions to modify any KRI items.';
     },
     
-    // Check if any filters are active
+    // Check if any filters are active (excluding department since it's auto-applied)
     hasActiveFilters() {
       const filters = this.filters;
       return !!(
         filters.kriOwner ||
         filters.dataProvider ||
-        filters.department ||
         filters.collectionStatus ||
         filters.l1RiskType ||
         filters.l2RiskType ||

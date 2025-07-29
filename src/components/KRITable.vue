@@ -23,6 +23,7 @@
       @row-click="handleRowClick"
       @selection-change="handleSelectionChange"
       :row-class-name="getRowClassName"
+      :empty-text="emptyTableText"
     >
       <!-- Dynamic column rendering -->
       <template v-for="column in visibleColumns">
@@ -326,7 +327,7 @@ export default {
     };
   },
   computed: {
-    ...mapGetters('kri', ['getVisibleColumnsForTable', 'getColumnOrderForTable']),
+    ...mapGetters('kri', ['getVisibleColumnsForTable', 'getColumnOrderForTable', 'isAuthenticated']),
 
     visibleColumns() {
       const visibleColumnKeys = this.getVisibleColumnsForTable(this.tableType);
@@ -360,6 +361,13 @@ export default {
           };
         }
       });
+    },
+
+    emptyTableText() {
+      if (!this.isAuthenticated) {
+        return 'Please login to view KRI data';
+      }
+      return 'No data available';
     }
   },
   mounted() {

@@ -456,6 +456,15 @@ export default {
       const columnOrder = this.getColumnOrderForTable(this.tableType);
       let columns = TableColumnManager.getVisibleColumns(this.tableType, visibleColumnKeys, columnOrder);
       
+      // Dynamically adjust kriValue column width for better editing experience
+      const kriValueIndex = columns.findIndex(col => col.key === 'kriValue');
+      if (kriValueIndex !== -1) {
+        columns[kriValueIndex] = {
+          ...columns[kriValueIndex],
+          minWidth: 240
+        };
+      }
+      
       // Ensure actions column is always visible for inline editing
       const hasActions = columns.some(col => col.key === 'actions');
       if (!hasActions) {
