@@ -27,7 +27,7 @@
 }
 
 .status-icon {
-  margin-right: 4px;
+  margin-right: var(--spacing-xs);
 }
 
 /* Status-specific styling */

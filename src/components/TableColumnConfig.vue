@@ -295,12 +295,12 @@ export default {
 
 <style scoped>
 .config-trigger {
-  color: #909399;
-  padding: 4px 8px;
+  color: var(--text-secondary);
+  padding: var(--spacing-xs) var(--spacing-sm);
 }
 
 .config-trigger:hover {
-  color: #409EFF;
+  color: var(--color-primary);
 }
 
 .config-content {
@@ -309,27 +309,27 @@ export default {
 }
 
 .section {
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
 }
 
 .section h4 {
-  margin: 0 0 8px 0;
-  color: #303133;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .section-desc {
-  margin: 0 0 12px 0;
-  color: #606266;
-  font-size: 12px;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
 }
 
 .column-list {
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  background: #fafafa;
-  padding: 8px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  padding: var(--spacing-sm);
   min-height: 200px;
 }
 
@@ -340,18 +340,18 @@ export default {
 .column-item {
   display: flex;
   align-items: center;
-  background: white;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
   cursor: grab;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .column-item:hover {
-  border-color: #c0c4cc;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-sm);
 }
 
 .column-item:last-child {
@@ -360,56 +360,56 @@ export default {
 
 .disabled-column {
   opacity: 0.6;
-  background: #f5f7fa;
+  background: var(--bg-tertiary);
 }
 
 .drag-handle {
-  color: #c0c4cc;
-  margin-right: 12px;
+  color: var(--border-medium);
+  margin-right: var(--spacing-md);
   cursor: grab;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   min-width: 16px;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-md);
+  transition: var(--transition-fast);
 }
 
 .drag-handle:hover {
-  color: #909399;
-  background-color: #f5f7fa;
+  color: var(--text-secondary);
+  background-color: var(--bg-tertiary);
 }
 
 .drag-handle:active {
   cursor: grabbing;
-  background-color: #e4e7ed;
+  background-color: var(--border-light);
 }
 
 .column-info {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .column-label {
-  font-size: 14px;
-  color: #303133;
-  font-weight: 500;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 .required-tag {
-  margin-left: 8px;
+  margin-left: var(--spacing-sm);
 }
 
 .column-toggle {
-  margin-left: 12px;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  margin-left: var(--spacing-md);
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-md);
+  transition: var(--transition-fast);
 }
 
 .column-toggle:hover {
-  background-color: #f5f7fa;
+  background-color: var(--bg-tertiary);
 }
 
 .toggle-switch {
@@ -420,30 +420,30 @@ export default {
 .dragging-item {
   opacity: 0.7;
   transform: rotate(3deg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border: 2px solid #409eff;
-  background: #f0f9ff;
+  box-shadow: var(--shadow-lg);
+  border: 2px solid var(--color-primary);
+  background: var(--color-primary-light);
   cursor: grabbing;
-  z-index: 1000;
+  z-index: var(--z-tooltip);
 }
 
 .drag-over {
-  border: 2px dashed #409eff;
-  background: #f0f9ff;
+  border: 2px dashed var(--color-primary);
+  background: var(--color-primary-light);
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.2);
+  box-shadow: var(--shadow-xl);
 }
 
 /* Legacy dragging states (kept for compatibility) */
 .ghost-item {
   opacity: 0.5;
-  background: #f0f9ff;
-  border: 2px dashed #409eff;
+  background: var(--color-primary-light);
+  border: 2px dashed var(--color-primary);
 }
 
 .chosen-item {
   transform: rotate(5deg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .drag-item {
@@ -463,7 +463,7 @@ export default {
 
 .footer-right {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 /* Responsive adjustments */
@@ -477,11 +477,11 @@ export default {
   }
   
   .column-item {
-    padding: 8px;
+    padding: var(--spacing-sm);
   }
   
   .column-label {
-    font-size: 13px;
+    font-size: var(--font-size-xs);
   }
 }
 </style>

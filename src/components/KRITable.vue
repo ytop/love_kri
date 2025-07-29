@@ -529,42 +529,42 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  background-color: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
   margin-bottom: 0;
 }
 
 .table-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .table-info-icon {
-  color: #909399;
+  color: var(--text-secondary);
   cursor: help;
 }
 
 .table-info-icon:hover {
-  color: #409EFF;
+  color: var(--color-primary);
 }
 
 /* Minimal table overrides - let Element UI handle most styling */
 .kri-table :deep(.el-table th) {
-  background-color: #f8fafc;
-  color: #374151;
-  font-weight: 600;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .kri-table :deep(.el-table td) {
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .kri-name-link {
@@ -585,14 +585,14 @@ export default {
 }
 
 .expand-button {
-  padding: 0 4px !important;
-  font-size: 14px;
-  color: #64748b;
+  padding: 0 var(--spacing-xs) !important;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
   min-width: 20px;
 }
 
 .expand-button:hover {
-  color: #3b82f6;
+  color: var(--color-primary);
 }
 
 .kri-name-link.with-expand-button {
@@ -620,18 +620,18 @@ export default {
 }
 
 .kri-table :deep(.atomic-sub-row td) {
-  padding: 8px 12px !important;
-  font-size: 12px;
-  color: #64748b;
-  border-bottom: 1px solid #f1f5f9 !important;
+  padding: var(--spacing-sm) var(--spacing-md) !important;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-light) !important;
 }
 
 /* Atomic name display styling */
 .atomic-name-display {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: 16px;
+  gap: var(--spacing-sm);
+  margin-left: var(--spacing-md);
 }
 
 .atomic-indent {
@@ -699,13 +699,13 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
+  padding: var(--spacing-xs) var(--spacing-sm);
 }
 
 .warning-bar-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   width: 100%;
 }
 

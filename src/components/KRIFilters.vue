@@ -327,7 +327,7 @@ export default {
   color: #374151;
   font-size: 0.875rem;
   line-height: 32px;
-  padding: 0 8px 0 0;
+  padding: 0 var(--spacing-sm) 0 0;
   min-width: auto;
   height: 32px;
   display: flex;

@@ -1,7 +1,13 @@
 <template>
   <div class="kri-detail">
     <div v-if="loading || !kriDetail" class="loading-container">
-      <el-skeleton :rows="8" animated />
+      <loading-state 
+        variant="card" 
+        :rows="3" 
+        message="Loading KRI details..."
+        message-type="loading"
+        show-icon
+      />
     </div>
     
     <div v-else-if="error" class="error-container">
@@ -103,6 +109,7 @@
 <script>
 import { mapState, mapActions } from 'vuex';
 import NotFound from './NotFound.vue';
+import LoadingState from '@/components/shared/LoadingState.vue';
 import KRIGeneralInfo from '@/components/detail/KRIGeneralInfo.vue';
 import KRIOverview from '@/components/detail/KRIOverview.vue';
 import KRIDataElements from '@/components/detail/KRIDataElements.vue';
@@ -115,6 +122,7 @@ export default {
   name: 'KRIDetail',
   components: {
     NotFound,
+    LoadingState,
     KRIGeneralInfo,
     KRIOverview,
     KRIDataElements,

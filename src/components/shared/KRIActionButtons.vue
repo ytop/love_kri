@@ -63,7 +63,7 @@
 <style scoped>
 .kri-action-buttons {
   display: flex;
-  gap: 8px;
+  gap: var(--button-gap);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -74,12 +74,12 @@
 }
 
 .kri-action-buttons.compact {
-  gap: 4px;
+  gap: var(--button-gap-compact);
 }
 
 .button-group {
   display: flex;
-  gap: 8px;
+  gap: var(--button-gap);
   align-items: center;
 }
 
@@ -89,23 +89,44 @@
 }
 
 .selection-info {
-  font-size: 12px;
-  color: #606266;
-  margin-right: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-right: var(--spacing-sm);
 }
 
 .bulk-actions {
-  border-left: 1px solid #dcdfe6;
-  padding-left: 12px;
-  margin-left: 8px;
+  border-left: 1px solid var(--border-light);
+  padding-left: var(--spacing-md);
+  margin-left: var(--spacing-sm);
 }
 
 .kri-action-buttons.vertical .bulk-actions {
   border-left: none;
-  border-top: 1px solid #dcdfe6;
+  border-top: 1px solid var(--border-light);
   padding-left: 0;
-  padding-top: 8px;
+  padding-top: var(--spacing-sm);
   margin-left: 0;
-  margin-top: 8px;
+  margin-top: var(--spacing-sm);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .kri-action-buttons {
+    gap: var(--spacing-xs);
+  }
+  
+  .button-group {
+    gap: var(--spacing-xs);
+  }
+  
+  .bulk-actions {
+    padding-left: var(--spacing-sm);
+    margin-left: var(--spacing-xs);
+  }
+  
+  .kri-action-buttons.vertical .bulk-actions {
+    padding-top: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+  }
 }
 </style>

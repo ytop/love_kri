@@ -440,9 +440,9 @@ export default {
 <style scoped>
 .kri-bulk-actions-toolbar {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: var(--spacing-md);
   animation: slideInDown 0.3s ease-out;
 }
 
@@ -461,34 +461,34 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: var(--spacing-md) var(--spacing-lg);
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--button-gap-loose);
 }
 
 /* Selection Summary */
 .selection-summary {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
   color: white;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .selection-icon {
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   color: #a7f3d0;
 }
 
 .selection-text {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
 }
 
 .clear-selection {
   color: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
-  padding: 4px 8px;
-  transition: all 0.2s ease;
+  font-size: var(--font-size-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  transition: var(--transition-fast);
 }
 
 .clear-selection:hover {
@@ -499,21 +499,21 @@ export default {
 /* Bulk Actions */
 .bulk-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-md);
   flex-wrap: wrap;
   align-items: center;
 }
 
 .bulk-actions .el-button {
   border: none;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 
 .bulk-actions .el-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
 }
 
 .bulk-actions .el-button[disabled] {
@@ -526,7 +526,7 @@ export default {
 .action-progress {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
   color: white;
   min-width: 200px;
 }
@@ -536,8 +536,8 @@ export default {
 }
 
 .progress-text {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
 
@@ -552,7 +552,7 @@ export default {
 
 .action-progress :deep(.el-progress__text) {
   color: white !important;
-  font-size: 12px !important;
+  font-size: var(--font-size-xs) !important;
 }
 
 /* Responsive Design */
@@ -560,7 +560,7 @@ export default {
   .toolbar-content {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: var(--spacing-md);
   }
   
   .selection-summary {
@@ -578,7 +578,7 @@ export default {
 
 @media (max-width: 768px) {
   .toolbar-content {
-    padding: 12px 16px;
+    padding: var(--spacing-md) var(--spacing-md);
   }
   
   .bulk-actions {
@@ -592,11 +592,11 @@ export default {
   }
   
   .selection-summary {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
   }
   
   .selection-text {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
   }
 }
 
