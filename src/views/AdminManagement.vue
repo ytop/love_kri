@@ -216,7 +216,7 @@ export default {
     AdminSystemOverview,
     AdminUserPermissionsDialog,
     AdminUserDetailsDialog,
-    AdminKRIPermissionsDialog,
+    // AdminKRIPermissionsDialog,
     AdminBulkPermissionTemplateDialog
   },
   
