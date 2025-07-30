@@ -6,7 +6,6 @@
  * Follows patterns established in expandableTableMixin.js
  */
 
-import { kriService } from '@/services/kriService';
 import Permission from '@/utils/permission';
 
 export default {
@@ -67,6 +66,14 @@ export default {
     hasChanges() {
       if (!this.currentItem || !this.originalItem) return false;
       return JSON.stringify(this.currentItem) !== JSON.stringify(this.originalItem);
+    },
+    
+    /**
+     * Entity name for messages and titles
+     * Should be overridden by child components
+     */
+    entityName() {
+      return 'Item';
     }
   },
   
@@ -314,7 +321,7 @@ export default {
      * @param {Object} item - Item to create
      * @returns {Promise<Object>} Created item
      */
-    async createItem(item) {
+    async createItem(_item) {
       throw new Error('createItem() must be implemented by child component');
     },
     
@@ -323,7 +330,7 @@ export default {
      * @param {Object} item - Item to update
      * @returns {Promise<Object>} Updated item
      */
-    async updateItem(item) {
+    async updateItem(_item) {
       throw new Error('updateItem() must be implemented by child component');
     },
     
@@ -332,18 +339,8 @@ export default {
      * @param {Object} item - Item to delete
      * @returns {Promise}
      */
-    async deleteItem(item) {
+    async deleteItem(_item) {
       throw new Error('deleteItem() must be implemented by child component');
-    }
-  },
-  
-  /**
-   * Entity name for messages and titles
-   * Should be overridden by child components
-   */
-  computed: {
-    entityName() {
-      return 'Item';
     }
   }
 };

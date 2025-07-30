@@ -1178,7 +1178,58 @@ export const kriService = {
       console.error('Error logging user creation:', error);
       // Don't throw error as this is just logging
     }
-  }
+  },
+
+  /**
+ * Get recent audit trail activity for all KRIs owned by a department
+ * @param {string} department - Department name
+ * @param {number} [limit=20] - Max number of records
+ * @returns {Promise<Array>}
+ */
+  async getDepartmentRecentActivity(department, limit = 20) {
+    const { data: kris, error: kriError } = await supabase
+      .from('kri_metadata')
+      .select('kri_id')
+      .eq('owner', department);
+    if (kriError) throw kriError;
+    const kriIds = (kris || []).map(k => k.kri_id);
+    if (!kriIds.length) return [];
+    const { data, error } = await supabase
+      .from('kri_audit_trail')
+      .select('*')
+      .in('kri_id', kriIds)
+      .order('changed_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+ * Get pending items summary for a department
+ * @param {string} department - Department name
+ * @returns {Promise<Object>}
+ */
+  async getDepartmentPendingItems(department) {
+    const { data: kris, error: kriError } = await supabase
+      .from('kri_metadata')
+      .select('kri_id')
+      .eq('owner', department);
+    if (kriError) throw kriError;
+    const kriIds = (kris || []).map(k => k.kri_id);
+    if (!kriIds.length) return { pendingApprovals: 0, pendingInputs: 0, overdueTasks: 0 };
+    const { data, error } = await supabase
+      .from('kri_item')
+      .select('status')
+      .in('kri_id', kriIds);
+    if (error) throw error;
+    let pendingApprovals = 0, pendingInputs = 0, overdueTasks = 0;
+    (data || []).forEach(item => {
+      if (item.status === 40) pendingInputs++;
+      else if (item.status === 50) pendingApprovals++;
+      else if (item.status === 60) overdueTasks++;
+    });
+    return { pendingApprovals, pendingInputs, overdueTasks };
+  },
 
 
 };

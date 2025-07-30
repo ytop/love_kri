@@ -389,41 +389,41 @@ export default {
     // Utility methods
     getRoleTagType(role) {
       switch (role) {
-        case 'admin': return 'danger';
-        case 'dept_admin': return 'warning';
-        case 'user': return 'info';
-        default: return 'info';
+      case 'admin': return 'danger';
+      case 'dept_admin': return 'warning';
+      case 'user': return 'info';
+      default: return 'info';
       }
     },
     
     getRoleDisplayName(role) {
       switch (role) {
-        case 'admin': return 'System Admin';
-        case 'dept_admin': return 'Dept Admin';
-        case 'user': return 'User';
-        default: return role || 'User';
+      case 'admin': return 'System Admin';
+      case 'dept_admin': return 'Dept Admin';
+      case 'user': return 'User';
+      default: return role || 'User';
       }
     },
     
     getRoleDescription(role) {
       switch (role) {
-        case 'admin': return 'Full system access and user management';
-        case 'dept_admin': return 'Department-level administration';
-        case 'user': return 'Standard user with limited permissions';
-        default: return 'Standard user permissions';
+      case 'admin': return 'Full system access and user management';
+      case 'dept_admin': return 'Department-level administration';
+      case 'user': return 'Standard user with limited permissions';
+      default: return 'Standard user permissions';
       }
     },
     
     getRoleCapabilities(role) {
       switch (role) {
-        case 'admin':
-          return ['Manage all users', 'System configuration', 'View all departments', 'Manage permissions'];
-        case 'dept_admin':
-          return ['Manage department users', 'Department KRI oversight', 'Assign permissions'];
-        case 'user':
-          return ['View assigned KRIs', 'Input data', 'Submit reports'];
-        default:
-          return ['Basic user access'];
+      case 'admin':
+        return ['Manage all users', 'System configuration', 'View all departments', 'Manage permissions'];
+      case 'dept_admin':
+        return ['Manage department users', 'Department KRI oversight', 'Assign permissions'];
+      case 'user':
+        return ['View assigned KRIs', 'Input data', 'Submit reports'];
+      default:
+        return ['Basic user access'];
       }
     },
     

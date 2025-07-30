@@ -269,6 +269,27 @@
           </template>
         </el-table-column>
         
+        <!-- Actions column for permission management -->
+        <el-table-column
+          v-else-if="column.key === 'actions' && showPermissionActions"
+          :key="column.key"
+          :label="column.label"
+          :width="column.width"
+          :min-width="column.minWidth"
+          :fixed="column.fixed"
+        >
+          <template slot-scope="scope">
+            <el-button 
+              size="mini" 
+              type="primary" 
+              icon="el-icon-edit"
+              @click="handlePermissionEdit(scope.row)"
+            >
+              Edit Permissions
+            </el-button>
+          </template>
+        </el-table-column>
+        
         <!-- Standard columns -->
         <el-table-column
           v-else
@@ -323,20 +344,28 @@ export default {
     showPermissionActions: {
       type: Boolean,
       default: false
+    },
+    tableType: {
+      type: String,
+      default: null
     }
   },
   data() {
     return {
-      tableType: TABLE_TYPES.KRI_TABLE
+      defaultTableType: TABLE_TYPES.KRI_TABLE
     };
   },
   computed: {
     ...mapGetters('kri', ['getVisibleColumnsForTable', 'getColumnOrderForTable', 'isAuthenticated']),
 
+    currentTableType() {
+      return this.tableType || this.defaultTableType;
+    },
+
     visibleColumns() {
-      const visibleColumnKeys = this.getVisibleColumnsForTable(this.tableType);
-      const columnOrder = this.getColumnOrderForTable(this.tableType);
-      const columns = TableColumnManager.getVisibleColumns(this.tableType, visibleColumnKeys, columnOrder);
+      const visibleColumnKeys = this.getVisibleColumnsForTable(this.currentTableType);
+      const columnOrder = this.getColumnOrderForTable(this.currentTableType);
+      const columns = TableColumnManager.getVisibleColumns(this.currentTableType, visibleColumnKeys, columnOrder);
       
       // Add position-aware keys to force Vue re-rendering when order changes
       return columns.map((column, index) => ({
@@ -391,6 +420,10 @@ export default {
       this.$emit('row-click', { kriId, reportingDate });
     },
     
+    handlePermissionEdit(row) {
+      this.$emit('permission-edit', row);
+    },
+    
     // UI helper methods using extracted utilities
     getStatusTagType(status) {
       return StatusManager.getStatusTagType(status);
@@ -433,11 +466,11 @@ export default {
     },
 
     loadColumnPreferencesFromStorage() {
-      const stored = loadTablePreferencesFromStorage(this.tableType);
+      const stored = loadTablePreferencesFromStorage(this.currentTableType);
       if (stored && (stored.visibleColumns || stored.columnOrder)) {
         // Update Vuex store with loaded preferences
         this.updateTableColumnPreferences({
-          tableType: this.tableType,
+          tableType: this.currentTableType,
           preferences: stored
         });
       }

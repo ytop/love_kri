@@ -271,20 +271,20 @@ class KRIWorkflowService {
         let result;
         
         switch (operation) {
-          case 'save':
-            result = await this.saveKRI(item, options.updateData || {}, currentUser, options.comment);
-            break;
-          case 'submit':
-            result = await this.submitKRI(item, options.updateData || {}, currentUser, options.comment);
-            break;
-          case 'approve':
-            result = await this.approveKRI(item, currentUser, options.comment);
-            break;
-          case 'reject':
-            result = await this.rejectKRI(item, currentUser, options.rejectReason);
-            break;
-          default:
-            throw new Error(`Unknown operation: ${operation}`);
+        case 'save':
+          result = await this.saveKRI(item, options.updateData || {}, currentUser, options.comment);
+          break;
+        case 'submit':
+          result = await this.submitKRI(item, options.updateData || {}, currentUser, options.comment);
+          break;
+        case 'approve':
+          result = await this.approveKRI(item, currentUser, options.comment);
+          break;
+        case 'reject':
+          result = await this.rejectKRI(item, currentUser, options.rejectReason);
+          break;
+        default:
+          throw new Error(`Unknown operation: ${operation}`);
         }
         
         results.push({
@@ -315,12 +315,7 @@ class KRIWorkflowService {
    * @returns {number} Next status code
    */
   static getSubmitStatus(kriItem) {
-    const owner = kriItem.kri_owner || kriItem.owner;
-    const provider = kriItem.data_provider || kriItem.dataProvider;
-    
-    return this.isSameOwnerProvider(kriItem) ? 
-      this.STATUS.SUBMITTED_TO_KRI_OWNER : 
-      this.STATUS.SUBMITTED_TO_DATA_PROVIDER;
+    return this.isSameOwnerProvider(kriItem) ? this.STATUS.SUBMITTED_TO_KRI_OWNER : this.STATUS.SUBMITTED_TO_DATA_PROVIDER;
   }
 
   /**
@@ -330,10 +325,7 @@ class KRIWorkflowService {
    * @returns {boolean} True if owner and provider are the same
    */
   static isSameOwnerProvider(kriItem) {
-    const owner = kriItem.kri_owner || kriItem.owner;
-    const provider = kriItem.data_provider || kriItem.dataProvider;
-    
-    return owner === provider;
+    return kriItem.kri_owner === kriItem.data_provider;
   }
 
   /**
@@ -344,17 +336,16 @@ class KRIWorkflowService {
    * @returns {boolean} True if operation is allowed
    */
   static canPerformOperation(kriItem, operation) {
-    const currentStatus = kriItem.kri_status || kriItem.kriStatus;
-    
+    const currentStatus = kriItem.kri_status;
     switch (operation) {
-      case 'save':
-      case 'submit':
-        return [10, 20, 30].includes(currentStatus);
-      case 'approve':
-      case 'reject':
-        return [40, 50].includes(currentStatus);
-      default:
-        return false;
+    case 'save':
+    case 'submit':
+      return [10, 20, 30].includes(currentStatus);
+    case 'approve':
+    case 'reject':
+      return [40, 50].includes(currentStatus);
+    default:
+      return false;
     }
   }
 
@@ -369,21 +360,21 @@ class KRIWorkflowService {
     const currentStatus = kriItem.kri_status || kriItem.kriStatus;
     
     switch (operation) {
-      case 'save':
-        return [10, 20, 30].includes(currentStatus) ? this.STATUS.SAVED : null;
-      case 'submit':
-        return [10, 20, 30].includes(currentStatus) ? this.getSubmitStatus(kriItem) : null;
-      case 'approve':
-        if (currentStatus === 40) {
-          return this.isSameOwnerProvider(kriItem) ? this.STATUS.FINALIZED : this.STATUS.SUBMITTED_TO_KRI_OWNER;
-        } else if (currentStatus === 50) {
-          return this.STATUS.FINALIZED;
-        }
-        return null;
-      case 'reject':
-        return [40, 50].includes(currentStatus) ? this.STATUS.UNDER_REWORK : null;
-      default:
-        return null;
+    case 'save':
+      return [10, 20, 30].includes(currentStatus) ? this.STATUS.SAVED : null;
+    case 'submit':
+      return [10, 20, 30].includes(currentStatus) ? this.getSubmitStatus(kriItem) : null;
+    case 'approve':
+      if (currentStatus === 40) {
+        return this.isSameOwnerProvider(kriItem) ? this.STATUS.FINALIZED : this.STATUS.SUBMITTED_TO_KRI_OWNER;
+      } else if (currentStatus === 50) {
+        return this.STATUS.FINALIZED;
+      }
+      return null;
+    case 'reject':
+      return [40, 50].includes(currentStatus) ? this.STATUS.UNDER_REWORK : null;
+    default:
+      return null;
     }
   }
 

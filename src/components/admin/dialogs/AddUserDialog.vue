@@ -225,10 +225,10 @@ export default {
     
     getRoleDisplayName(role) {
       switch (role) {
-        case 'admin': return 'System Admin';
-        case 'dept_admin': return 'Dept Admin';
-        case 'user': return 'User';
-        default: return role || 'User';
+      case 'admin': return 'System Admin';
+      case 'dept_admin': return 'Dept Admin';
+      case 'user': return 'User';
+      default: return role || 'User';
       }
     }
   }

@@ -1005,21 +1005,21 @@ export default {
     
     async handleTabClick(tab) {
       switch (tab.name) {
-        case 'team':
-          if (this.teamMembers.length === 0) {
-            await this.refreshTeamData();
-          }
-          break;
-        case 'kris':
-          if (this.departmentKRIs.length === 0) {
-            await this.refreshKRIData();
-          }
-          break;
-        case 'audit':
-          if (this.auditTrailData.length === 0) {
-            await this.loadAuditData();
-          }
-          break;
+      case 'team':
+        if (this.teamMembers.length === 0) {
+          await this.refreshTeamData();
+        }
+        break;
+      case 'kris':
+        if (this.departmentKRIs.length === 0) {
+          await this.refreshKRIData();
+        }
+        break;
+      case 'audit':
+        if (this.auditTrailData.length === 0) {
+          await this.loadAuditData();
+        }
+        break;
       }
     },
     
@@ -1266,19 +1266,19 @@ export default {
     },
     getRoleTagType(role) {
       switch (role) {
-        case 'admin': return 'danger';
-        case 'dept_admin': return 'warning';
-        case 'user': return 'info';
-        default: return 'info';
+      case 'admin': return 'danger';
+      case 'dept_admin': return 'warning';
+      case 'user': return 'info';
+      default: return 'info';
       }
     },
     
     getRoleDisplayName(role) {
       switch (role) {
-        case 'admin': return 'System Admin';
-        case 'dept_admin': return 'Dept Admin';
-        case 'user': return 'User';
-        default: return role || 'User';
+      case 'admin': return 'System Admin';
+      case 'dept_admin': return 'Dept Admin';
+      case 'user': return 'User';
+      default: return role || 'User';
       }
     },
     

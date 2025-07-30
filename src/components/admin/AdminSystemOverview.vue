@@ -394,29 +394,29 @@ export default {
     // Utility methods
     getRoleTagType(role) {
       switch (role) {
-        case 'admin': return 'danger';
-        case 'dept_admin': return 'warning';
-        case 'user': return 'info';
-        default: return 'info';
+      case 'admin': return 'danger';
+      case 'dept_admin': return 'warning';
+      case 'user': return 'info';
+      default: return 'info';
       }
     },
     
     getRoleDisplayName(role) {
       switch (role) {
-        case 'admin': return 'System Admin';
-        case 'dept_admin': return 'Dept Admin';
-        case 'user': return 'User';
-        default: return role || 'User';
+      case 'admin': return 'System Admin';
+      case 'dept_admin': return 'Dept Admin';
+      case 'user': return 'User';
+      default: return role || 'User';
       }
     },
     
     getActionTagType(action) {
       switch (action) {
-        case 'Role Change': return 'warning';
-        case 'Permission Update': return 'primary';
-        case 'User Creation': return 'success';
-        case 'User Deletion': return 'danger';
-        default: return 'info';
+      case 'Role Change': return 'warning';
+      case 'Permission Update': return 'primary';
+      case 'User Creation': return 'success';
+      case 'User Deletion': return 'danger';
+      default: return 'info';
       }
     },
     

@@ -6,7 +6,7 @@
  */
 
 import { kriService } from './kriService';
-import { departmentAdminService } from './departmentAdminService';
+// import { departmentAdminService } from './departmentAdminService'; // will used in future
 import Permission from '@/utils/permission';
 
 class AdminService {
@@ -283,12 +283,12 @@ class AdminService {
     // Department admin has limited operations
     if (Permission.isDepartmentAdmin(currentUser)) {
       switch (operation) {
-        case 'manage_department_users':
-          return target && target.Department === currentUser.Department;
-        case 'assign_department_permissions':
-          return target && target.department === currentUser.Department;
-        default:
-          return false;
+      case 'manage_department_users':
+        return target && target.Department === currentUser.Department;
+      case 'assign_department_permissions':
+        return target && target.department === currentUser.Department;
+      default:
+        return false;
       }
     }
 
@@ -414,20 +414,20 @@ class AdminService {
       };
 
       switch (exportType) {
-        case 'users':
-          exportData.users = await kriService.getAllUsers();
-          break;
-        case 'permissions':
-          exportData.permissions = await kriService.getUserPermissionsSummary();
-          break;
-        case 'full':
-          exportData.users = await kriService.getAllUsers();
-          exportData.permissions = await kriService.getUserPermissionsSummary();
-          exportData.departments = await kriService.getAllDepartments();
-          exportData.kris = await this.safeGetKRIMetadata();
-          break;
-        default:
-          throw new Error(`Invalid export type: ${exportType}`);
+      case 'users':
+        exportData.users = await kriService.getAllUsers();
+        break;
+      case 'permissions':
+        exportData.permissions = await kriService.getUserPermissionsSummary();
+        break;
+      case 'full':
+        exportData.users = await kriService.getAllUsers();
+        exportData.permissions = await kriService.getUserPermissionsSummary();
+        exportData.departments = await kriService.getAllDepartments();
+        exportData.kris = await this.safeGetKRIMetadata();
+        break;
+      default:
+        throw new Error(`Invalid export type: ${exportType}`);
       }
 
       // Log the export action

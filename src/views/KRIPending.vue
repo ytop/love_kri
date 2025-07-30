@@ -301,44 +301,44 @@ export default {
         let result;
         
         switch (operation) {
-          case 'save':
-            result = await KRIWorkflowService.saveKRI(
-              item, 
-              updateData, 
-              this.currentUser, 
-              `Bulk save operation`
-            );
-            break;
+        case 'save':
+          result = await KRIWorkflowService.saveKRI(
+            item, 
+            updateData, 
+            this.currentUser, 
+            `Bulk save operation`
+          );
+          break;
             
-          case 'submit':
-            result = await KRIWorkflowService.submitKRI(
-              item, 
-              updateData, 
-              this.currentUser, 
-              `Bulk submit operation`
-            );
-            break;
+        case 'submit':
+          result = await KRIWorkflowService.submitKRI(
+            item, 
+            updateData, 
+            this.currentUser, 
+            `Bulk submit operation`
+          );
+          break;
             
-          case 'approve':
-            result = await KRIWorkflowService.approveKRI(
-              item, 
-              this.currentUser, 
-              `Bulk approve operation`
-            );
-            break;
+        case 'approve':
+          result = await KRIWorkflowService.approveKRI(
+            item, 
+            this.currentUser, 
+            `Bulk approve operation`
+          );
+          break;
             
-          case 'reject':
-            // For bulk reject, we'll use a generic reason
-            // In a real implementation, you might want to collect reasons
-            result = await KRIWorkflowService.rejectKRI(
-              item, 
-              this.currentUser, 
-              `Bulk reject operation - requires further review`
-            );
-            break;
+        case 'reject':
+          // For bulk reject, we'll use a generic reason
+          // In a real implementation, you might want to collect reasons
+          result = await KRIWorkflowService.rejectKRI(
+            item, 
+            this.currentUser, 
+            `Bulk reject operation - requires further review`
+          );
+          break;
             
-          default:
-            throw new Error(`Unknown bulk operation: ${operation}`);
+        default:
+          throw new Error(`Unknown bulk operation: ${operation}`);
         }
         
         // Return result to the bulk toolbar

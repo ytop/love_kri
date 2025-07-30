@@ -10,7 +10,8 @@ class TableColumnManager {
   // Table type constants
   static TABLE_TYPES = {
     KRI_TABLE: 'kriTable',
-    KRI_COLLECT_TABLE: 'kriCollectTable'
+    KRI_COLLECT_TABLE: 'kriCollectTable',
+    ADMIN_PERMISSION_TABLE: 'adminPermissionTable'
   };
 
   // Base column definitions with default ordering
@@ -241,6 +242,20 @@ class TableColumnManager {
         'selection', 'id', 'name', 'owner', 'dataProvider',
         'collectionStatus', 'breachType', 'kriValue',
         'reportingCycle', 'reportingDate', 'actions'
+      ]
+    },
+    [TableColumnManager.TABLE_TYPES.ADMIN_PERMISSION_TABLE]: {
+      availableColumns: [
+        'selection', 'id', 'name', 'owner', 'dataProvider',
+        'collectionStatus', 'kriValue', 'isCalculatedKri', 'actions'
+      ],
+      defaultVisible: [
+        'selection', 'id', 'name', 'owner', 'dataProvider',
+        'collectionStatus', 'kriValue', 'isCalculatedKri', 'actions'
+      ],
+      defaultOrder: [
+        'selection', 'id', 'name', 'owner', 'dataProvider',
+        'collectionStatus', 'kriValue', 'isCalculatedKri', 'actions'
       ]
     }
   };

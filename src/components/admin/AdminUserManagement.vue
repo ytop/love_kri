@@ -448,19 +448,19 @@ export default {
     // Utility methods
     getRoleTagType(role) {
       switch (role) {
-        case 'admin': return 'danger';
-        case 'dept_admin': return 'warning';
-        case 'user': return 'info';
-        default: return 'info';
+      case 'admin': return 'danger';
+      case 'dept_admin': return 'warning';
+      case 'user': return 'info';
+      default: return 'info';
       }
     },
     
     getRoleDisplayName(role) {
       switch (role) {
-        case 'admin': return 'System Admin';
-        case 'dept_admin': return 'Dept Admin';
-        case 'user': return 'User';
-        default: return role || 'User';
+      case 'admin': return 'System Admin';
+      case 'dept_admin': return 'Dept Admin';
+      case 'user': return 'User';
+      default: return role || 'User';
       }
     }
   }

@@ -164,10 +164,7 @@ class DepartmentAdminService {
    */
   async getDepartmentRecentActivity(department) {
     try {
-      // This would typically query audit trails for department KRIs
-      // For now, return empty array as this requires more complex queries
-      // In a full implementation, this would join audit trails with KRI metadata
-      return [];
+      return await kriService.getDepartmentRecentActivity(department);
     } catch (error) {
       console.error('Error getting department recent activity:', error);
       return [];
@@ -182,21 +179,10 @@ class DepartmentAdminService {
    */
   async getDepartmentPendingItems(department) {
     try {
-      // This would query for KRIs owned by the department that need attention
-      // Status 40 (submitted to data provider) or 50 (submitted to KRI owner)
-      // For now, return empty structure
-      return {
-        pendingApprovals: 0,
-        pendingInputs: 0,
-        overdueTasks: 0
-      };
+      return await kriService.getDepartmentPendingItems(department);
     } catch (error) {
       console.error('Error getting department pending items:', error);
-      return {
-        pendingApprovals: 0,
-        pendingInputs: 0,
-        overdueTasks: 0
-      };
+      return { pendingApprovals: 0, pendingInputs: 0, overdueTasks: 0 };
     }
   }
 
@@ -255,7 +241,7 @@ class DepartmentAdminService {
    * @param {string} department - Department name
    * @returns {Object} Permission templates
    */
-  getPermissionTemplates(department) {
+  getPermissionTemplates(_department) {
     return {
       viewOnly: {
         name: 'View Only',

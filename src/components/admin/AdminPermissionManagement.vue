@@ -64,56 +64,13 @@
     </div>
 
     <div v-if="permissionData.length > 0">
-      <el-table 
-        :data="permissionData" 
-        v-loading="loading"
-        stripe
-        border
-        class="admin-full-width"
+      <KRITable
+        :data="formattedPermissionData"
+        :loading="loading"
+        :show-permission-actions="true"
         @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="55"></el-table-column>
-        
-        <el-table-column prop="user_id" label="User" width="120">
-        </el-table-column>
-        
-        <el-table-column prop="kri_id" label="KRI ID" width="80">
-        </el-table-column>
-        
-        <el-table-column prop="actions" label="Permissions" min-width="200">
-          <template slot-scope="scope">
-            <el-tag 
-              v-for="action in scope.row.actions.split(',')" 
-              :key="action" 
-              size="mini"
-              style="margin-right: 5px;"
-            >
-              {{ action.trim() }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="effect" label="Status" width="80">
-          <template slot-scope="scope">
-            <el-tag :type="scope.row.effect ? 'success' : 'danger'" size="small">
-              {{ scope.row.effect ? 'Active' : 'Denied' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="Actions" width="100">
-          <template slot-scope="scope">
-            <el-button 
-              size="mini" 
-              type="primary" 
-              icon="el-icon-edit"
-              @click="editPermission(scope.row)"
-            >
-              Edit
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        @permission-edit="handlePermissionEdit"
+      />
     </div>
     
     <div v-else class="admin-no-data">
@@ -199,11 +156,13 @@ import { mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
 import adminCrudMixin from '@/mixins/adminCrudMixin';
 import AddPermissionDialog from './dialogs/AddPermissionDialog.vue';
+import KRITable from '@/components/KRITable.vue';
 
 export default {
   name: 'AdminPermissionManagement',
   components: {
-    AddPermissionDialog
+    AddPermissionDialog,
+    KRITable
   },
   mixins: [adminCrudMixin],
   
@@ -238,6 +197,22 @@ export default {
         return this.users;
       }
       return this.users.filter(user => user.Department === this.permissionDeptFilter);
+    },
+    
+    formattedPermissionData() {
+      return this.permissionData.map(perm => ({
+        id: perm.kri_id,
+        name: `KRI ${perm.kri_id}`,
+        owner: perm.user_id,
+        dataProvider: perm.user_id,  
+        collectionStatus: perm.effect ? 'Active' : 'Denied',
+        kriValue: perm.actions || 'No permissions',
+        reportingDate: perm.reporting_date,
+        kriId: perm.kri_id,
+        isCalculatedKri: false, // Will be enhanced later for calculated KRIs
+        // Keep original permission data for editing
+        _permissionData: perm
+      }));
     }
   },
   
@@ -377,6 +352,12 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    
+    handlePermissionEdit(row) {
+      // Extract original permission data from the formatted row
+      const permission = row._permissionData;
+      this.editPermission(permission);
     },
     
     async editPermission(permission) {
