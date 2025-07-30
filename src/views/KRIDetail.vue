@@ -117,6 +117,7 @@ import KRIEvidenceAudit from '@/components/detail/KRIEvidenceAudit.vue';
 import KRISidebar from '@/components/detail/KRISidebar.vue';
 import { formatReportingDate, createGoBackHandler, isCalculatedKRI } from '@/utils/helpers';
 import { mapStatus, getStatusTagType } from '@/utils/types';
+import Permission from '@/utils/permission';
 
 export default {
   name: 'KRIDetail',
@@ -234,8 +235,20 @@ export default {
     // Data fetching using existing store action
     async fetchData() {
       try {
+        const kriId = parseInt(this.id, 10);
+        const currentUser = this.$store.getters['kri/currentUser'];
+        const userPermissions = currentUser ? currentUser.permissions || [] : [];
+        
+        // Check view permission before fetching data
+        if (currentUser && !Permission.canView(kriId, null, userPermissions)) {
+          console.warn(`User ${currentUser.User_ID} lacks view permission for KRI ${kriId}`);
+          this.$message.error('You do not have permission to view this KRI');
+          this.$router.push({ name: 'Dashboard', query: { error: 'kri_access_denied' } });
+          return;
+        }
+        
         await this.fetchKRIDetail({
-          kriId: parseInt(this.id, 10),
+          kriId: kriId,
           reportingDate: parseInt(this.date, 10)
         });
       } catch (error) {

@@ -8,18 +8,18 @@ Completed:
   - test if it works with supabase
   - test local storage
   Current: Implemented service, need to test with frontend
+filter by department display and permissions
+Fix element display not working for calculated KRIs.
 
 Marked Not Fixed:
 16. Atomic sub-row styling, specifically the action buttons, requires CSS mathing
 Sorting Order is in String Order, not in Int Order
   state: sort of implemented, but not working, seems sorted in random order???
-Fix element display not working for calculated KRIs.
 new tabele for formula calculation?
 
 
 Working:
 Add unit and adaption to DB
-filter by department display and permissions
 Negative warining and limit value (4 limits)
 add department display in formula
 

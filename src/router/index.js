@@ -143,6 +143,54 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  // KRI-level permission check for KRI detail routes
+  if (to.name === 'KRIDetail' && isAuthenticated && currentUser) {
+    const kriId = to.params.id;
+    const userPermissions = currentUser.permissions || [];
+    
+    // Prevent redirect loops - if we're already coming from a permission error, allow navigation
+    if (from.name === 'Dashboard' && from.query.error === 'kri_access_denied' && from.query.kriId === kriId) {
+      console.warn(`Permission check loop detected for KRI ${kriId}, allowing navigation to prevent infinite loop`);
+      next();
+      return;
+    }
+    
+    // Only check permissions if permissions are loaded (non-empty array with valid structure)
+    if (userPermissions.length > 0 && userPermissions[0] && userPermissions[0].actionsArray) {
+      // Check if user has view permission for this specific KRI
+      if (!Permission.canView(kriId, null, userPermissions)) {
+        console.warn(`Access denied to KRI ${kriId}: User ${currentUser.User_ID} lacks view permission`);
+        next({
+          name: 'Dashboard',
+          query: { error: 'kri_access_denied', kriId: kriId }
+        });
+        return;
+      }
+    } else {
+      // Permissions not fully loaded yet - try to initialize them
+      console.log(`Permissions not loaded for KRI ${kriId} access check, attempting to initialize...`);
+      try {
+        await store.dispatch('kri/initPermission');
+        const updatedUser = store.getters['kri/currentUser'];
+        const updatedPermissions = updatedUser.permissions || [];
+        
+        // Re-check with loaded permissions
+        if (updatedPermissions.length > 0 && !Permission.canView(kriId, null, updatedPermissions)) {
+          console.warn(`Access denied to KRI ${kriId}: User ${currentUser.User_ID} lacks view permission after permission load`);
+          next({
+            name: 'Dashboard',
+            query: { error: 'kri_access_denied', kriId: kriId }
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error initializing permissions in router guard:', error);
+        // Allow navigation but log warning - component-level checks will handle it
+        console.warn(`Allowing navigation to KRI ${kriId} due to permission initialization error`);
+      }
+    }
+  }
+
   next();
 });
 

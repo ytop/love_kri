@@ -497,7 +497,8 @@ const actions = {
 
 const getters = {
   filteredKRIItems: (state) => {
-    return applyKRIFilters(state.kriItems, state.filters);
+    const userPermissions = state.currentUser ? state.currentUser.permissions || [] : [];
+    return applyKRIFilters(state.kriItems, state.filters, userPermissions);
   },
 
   // Get current user permissions
@@ -551,7 +552,8 @@ const getters = {
 
   // Get filtered pending KRIs for display in pending page  
   filteredPendingKRIItems: (state) => {
-    return applyKRIFilters(state.pendingKRIItems, state.filters);
+    const userPermissions = state.currentUser ? state.currentUser.permissions || [] : [];
+    return applyKRIFilters(state.pendingKRIItems, state.filters, userPermissions);
   },
 
   // Count of pending KRIs (simplified - just returns length from state)

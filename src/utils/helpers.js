@@ -605,14 +605,24 @@ export const getAvailableEvidenceForAtomic = (evidenceData, currentAtomicId, all
 // ---------------------------------- Filter Utilities ----------------------------------
 
 /**
- * Apply standard KRI filters to a list of items
+ * Apply standard KRI filters to a list of items including permission-based filtering
  * Reusable filtering logic for both filteredKRIItems and filteredPendingKRIItems
  * @param {Array} items - Array of KRI items to filter
  * @param {Object} filters - Filter object from store state
+ * @param {Array} userPermissions - User permissions array for permission-based filtering
  * @returns {Array} Filtered array of KRI items
  */
-export const applyKRIFilters = (items, filters) => {
+export const applyKRIFilters = (items, filters, userPermissions = []) => {
   let filtered = [...items];
+  
+  // Apply permission-based filtering first - only show KRIs user has any permission for
+  if (userPermissions && userPermissions.length > 0) {
+    const Permission = require('@/utils/permission').default;
+    filtered = filtered.filter(item => {
+      const kriId = item.kriId || item.kri_id;
+      return Permission.hasAnyPermission(kriId, userPermissions);
+    });
+  }
   
   if (filters.kriOwner) {
     filtered = filtered.filter(item => 

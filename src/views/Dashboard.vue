@@ -153,6 +153,18 @@ export default {
     ]),
     
     handleKRIClick(row) {
+      // Double-check view permission before navigating (redundant safety check)
+      const currentUser = this.$store.getters['kri/currentUser'];
+      const userPermissions = currentUser ? currentUser.permissions || [] : [];
+      
+      // Import Permission class for runtime check
+      const Permission = require('@/utils/permission').default;
+      
+      if (currentUser && userPermissions.length > 0 && !Permission.canView(row.kriId, null, userPermissions)) {
+        this.$message.warning(`You don't have permission to view KRI ${row.kriId}`);
+        return;
+      }
+      
       this.$router.push({
         name: 'KRIDetail',
         params: {
@@ -252,6 +264,21 @@ export default {
       } catch (error) {
         console.error('Error initializing permissions on mount:', error);
       }
+    }
+    
+    // Handle error query parameters from router redirects
+    if (this.$route.query.error) {
+      if (this.$route.query.error === 'kri_access_denied') {
+        const kriId = this.$route.query.kriId;
+        this.$message.error(
+          kriId ? `Access denied: You don't have permission to view KRI ${kriId}` : 'Access denied: Insufficient permissions'
+        );
+      } else if (this.$route.query.error === 'insufficient_permissions') {
+        this.$message.error('Access denied: Insufficient permissions for this page');
+      }
+      
+      // Clear error parameters from URL without triggering navigation
+      this.$router.replace({ query: {} });
     }
   }
 };
