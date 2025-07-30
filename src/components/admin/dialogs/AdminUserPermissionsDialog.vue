@@ -83,7 +83,7 @@
 
 <script>
 export default {
-  name: 'UserPermissionsDialog',
+  name: 'AdminUserPermissionsDialog',
   
   props: {
     visible: {

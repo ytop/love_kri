@@ -907,6 +907,34 @@ export const kriService = {
   },
 
   /**
+   * Bulk delete permissions
+   * @param {Array} permissionIds - Array of permission IDs to delete
+   * @param {string} changedBy - User making the changes
+   * @returns {Promise<void>}
+   */
+  async bulkDeletePermissions(permissionIds, changedBy) {
+    if (!Array.isArray(permissionIds) || permissionIds.length === 0) {
+      throw new Error('permissionIds must be a non-empty array');
+    }
+    if (!changedBy) {
+      throw new Error('changedBy is required');
+    }
+
+    const { data, error } = await supabase
+      .from('kri_user_permission')
+      .delete()
+      .in('id', permissionIds)
+      .select();
+
+    if (error) throw error;
+
+    // Log the deletion for audit purposes
+    console.log(`Bulk deleted ${permissionIds.length} permissions by ${changedBy} at ${new Date().toISOString()}`);
+
+    return data;
+  },
+
+  /**
    * Bulk update user permissions
    * @param {Array} permissionUpdates - Array of permission update objects
    * @param {string} changedBy - User making the changes
@@ -1049,28 +1077,40 @@ export const kriService = {
   /**
    * Get user permissions summary for admin interface
    * @param {string} userUuid - User UUID (optional, if not provided returns all users)
+   * @param {Object} filters - Additional filters (department, kri_id, etc.)
    * @returns {Promise<Array>} Array of user permission summaries
    */
-  async getUserPermissionsSummary(userUuid = null) {
+  async getUserPermissionsSummary(userUuid = null, filters = {}) {
     let query = supabase
       .from('kri_user_permission')
       .select(`
-        user_uuid,
-        kri_id,
-        reporting_date,
-        actions,
-        effect,
+        *,
         kri_user!inner("User_ID", "User_Name", "Department", user_role)
       `);
 
+    // Apply filters
     if (userUuid) {
       query = query.eq('user_uuid', userUuid);
     }
+    if (filters.department) {
+      query = query.eq('kri_user.Department', filters.department);
+    }
+    if (filters.kri_id) {
+      query = query.eq('kri_id', filters.kri_id);
+    }
 
-    const { data, error } = await query.order('user_uuid', { ascending: true });
+    query = query.order('kri_id', { ascending: true });
 
+    const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    
+    // Format data for admin interfaces (maintaining backward compatibility)
+    return (data || []).map(permission => ({
+      ...permission,
+      user_id: permission.kri_user?.User_ID || 'Unknown',
+      user_name: permission.kri_user?.User_Name || 'Unknown',
+      department: permission.kri_user?.Department || 'Unknown'
+    }));
   },
 
   /**

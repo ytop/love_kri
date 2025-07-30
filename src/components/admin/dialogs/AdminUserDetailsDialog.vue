@@ -103,7 +103,7 @@
 
 <script>
 export default {
-  name: 'UserDetailsDialog',
+  name: 'AdminUserDetailsDialog',
   
   props: {
     visible: {

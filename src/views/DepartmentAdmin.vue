@@ -114,11 +114,9 @@ import Permission from '@/utils/permission';
 import DepartmentDashboard from '@/components/departmentAdmin/DepartmentDashboard.vue';
 import DepartmentTeamManagement from '@/components/departmentAdmin/DepartmentTeamManagement.vue';
 import DepartmentPermissionManagement from '@/components/departmentAdmin/DepartmentPermissionManagement.vue';
-import DepartmentKRIManagement from '@/components/departmentAdmin/DepartmentKRIManagement.vue';
 import DepartmentActivityAudit from '@/components/departmentAdmin/DepartmentActivityAudit.vue';
 import UserPermissionsDialog from '@/components/departmentAdmin/dialogs/UserPermissionsDialog.vue';
 import UserDetailsDialog from '@/components/departmentAdmin/dialogs/UserDetailsDialog.vue';
-import KRIPermissionsDialog from '@/components/departmentAdmin/dialogs/KRIPermissionsDialog.vue';
 import BulkPermissionTemplateDialog from '@/components/departmentAdmin/dialogs/BulkPermissionTemplateDialog.vue';
 import '@/assets/styles/admin.css';
 
@@ -129,11 +127,9 @@ export default {
     DepartmentDashboard,
     DepartmentTeamManagement,
     DepartmentPermissionManagement,
-    DepartmentKRIManagement,
     DepartmentActivityAudit,
     UserPermissionsDialog,
     UserDetailsDialog,
-    KRIPermissionsDialog,
     BulkPermissionTemplateDialog
   },
   

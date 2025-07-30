@@ -1,299 +1,122 @@
 <template>
-  <div class="admin-section">
-    <div class="admin-content-header">
-      <div>
-        <h3>Permission Management</h3>
-        <p class="admin-tab-description">Manage user permissions across KRIs and system functions.</p>
-      </div>
-    </div>
-
-    <div class="admin-filters">
-      <el-form :inline="true" class="admin-filter-form">
-        <el-form-item label="Department:">
-          <el-select 
-            v-model="permissionDeptFilter" 
-            placeholder="All Departments"
-            clearable
-            @change="handleFilterChange"
-            class="admin-filter-select"
-          >
-            <el-option 
-              v-for="dept in departments" 
-              :key="dept" 
-              :label="dept" 
-              :value="dept"
-            ></el-option>
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="User:">
-          <el-select 
-            v-model="permissionUserFilter" 
-            placeholder="All Users"
-            clearable
-            filterable
-            @change="handleFilterChange"
-            class="admin-filter-select wide"
-          >
-            <el-option 
-              v-for="user in filteredUsersForPermissions" 
-              :key="user.UUID" 
-              :label="`${user.User_ID} (${user.Department})`" 
-              :value="user.UUID"
-            ></el-option>
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item>
-          <el-button 
-            type="primary" 
-            @click="loadPermissionData"
-            :loading="loading"
-          >
-            Load Permissions
-          </el-button>
-          <el-button 
-            type="success" 
-            icon="el-icon-plus"
-            @click="openAddDialog"
-          >
-            Add New Permission
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-
-    <div v-if="permissionData.length > 0">
-      <KRITable
-        :data="formattedPermissionData"
-        :loading="loading"
-        :show-permission-actions="true"
-        @selection-change="handleSelectionChange"
-        @permission-edit="handlePermissionEdit"
-      />
-    </div>
-    
-    <div v-else class="admin-no-data">
-      <el-empty description="No permission data loaded. Please select filters and click Load Permissions.">
-      </el-empty>
-    </div>
-
-    <!-- Bulk Actions -->
-    <div v-if="selectedItems.length > 0" class="admin-bulk-actions" style="margin-top: 16px;">
-      <h4>Bulk Permission Operations</h4>
-      <el-form :inline="true">
-        <el-form-item label="Selected Permissions:">
-          <span>{{ selectedItems.length }} permissions selected</span>
-        </el-form-item>
-        <el-form-item>
-          <el-button 
-            type="warning" 
-            @click="handleBulkDelete"
-            :loading="deleteLoading"
-          >
-            Delete Selected
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </div>
+  <div>
+    <admin-base-permission-management
+      :permission-data="permissionData"
+      :available-users="users"
+      :available-k-r-is="kris"
+      :departments="departments"
+      :loading="loading"
+      :delete-loading="deleteLoading"
+      @apply-template="handleApplyTemplate"
+      @filter-changed="handleFilterChange"
+      @load-permissions="loadPermissionData"
+      @add-permission="openAddDialog"
+      @edit-permission="handlePermissionEdit"
+      @permission-selection-changed="handleSelectionChange"
+      @bulk-delete-permissions="handleBulkDelete"
+      @bulk-assignment-completed="loadPermissionData"
+    >
+      <!-- Use KRITable component for permission display -->
+      <template #permission-table="{ loading }">
+        <KRITable
+          :data="formattedPermissionData"
+          :loading="loading"
+          :show-permission-actions="true"
+          @selection-change="handleSelectionChange"
+          @permission-edit="handlePermissionEdit"
+        />
+      </template>
+    </admin-base-permission-management>
 
     <!-- Permission Edit Dialog -->
-    <el-dialog 
-      title="Edit Permission" 
-      :visible.sync="permissionEditDialogVisible"
-      width="500px"
-      @close="resetPermissionEditDialog"
-    >
-      <div v-if="editingPermission" class="admin-dialog-content">
-        <div class="admin-permission-info">
-          <p><strong>User:</strong> {{ editingPermission.user_id }}</p>
-          <p><strong>KRI ID:</strong> {{ editingPermission.kri_id }}</p>
-          <p><strong>Current Permissions:</strong> {{ editingPermission.actions }}</p>
-        </div>
-        
-        <el-form>
-          <el-form-item label="Actions (comma-separated):">
-            <el-input 
-              v-model="editingPermissionActions" 
-              type="textarea"
-              :rows="3"
-              placeholder="e.g., edit,view,review,acknowledge,delete,atomic1_edit,atomic1_view"
-              class="admin-full-width"
-            ></el-input>
-            <div class="admin-permission-help">
-              <small>Available actions: edit, view, review, acknowledge, delete</small><br>
-              <small>Atomic actions: atomic1_edit, atomic1_view, atomic2_edit, etc.</small>
-            </div>
-          </el-form-item>
-        </el-form>
-      </div>
-      
-      <div slot="footer" class="admin-dialog-footer">
-        <el-button @click="permissionEditDialogVisible = false">Cancel</el-button>
-        <el-button 
-          type="primary" 
-          @click="confirmPermissionEdit"
-          :disabled="!editingPermissionActions"
-          :loading="permissionEditLoading"
-        >
-          Update Permission
-        </el-button>
-      </div>
-    </el-dialog>
+    <add-permission-dialog 
+      :visible.sync="editDialogVisible"
+      :permission-data="editingPermission"
+      :edit-mode="true"
+      @permission-updated="handlePermissionUpdated"
+    />
 
     <!-- Add Permission Dialog -->
-    <add-permission-dialog
-      :visible.sync="dialogVisible"
-      :users="users"
-      :available-kris="availableKRIs"
-      @permission-created="handlePermissionCreated"
+    <add-permission-dialog 
+      :visible.sync="addDialogVisible"
+      @permission-added="handlePermissionAdded"
     />
   </div>
 </template>
 
 <script>
+import AdminBasePermissionManagement from '@/components/admin/shared/AdminBasePermissionManagement.vue';
+import AddPermissionDialog from '@/components/admin/dialogs/AddPermissionDialog.vue';
+import KRITable from '@/components/KRITable.vue';
+import adminHelpersMixin from '@/mixins/adminHelpersMixin';
+import adminCrudMixin from '@/mixins/adminCrudMixin';
 import { mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
-import adminCrudMixin from '@/mixins/adminCrudMixin';
-import AddPermissionDialog from './dialogs/AddPermissionDialog.vue';
-import KRITable from '@/components/KRITable.vue';
 
 export default {
   name: 'AdminPermissionManagement',
+  
   components: {
+    AdminBasePermissionManagement,
     AddPermissionDialog,
     KRITable
   },
-  mixins: [adminCrudMixin],
+  
+  mixins: [adminHelpersMixin, adminCrudMixin],
   
   data() {
     return {
-      users: [],
-      departments: [],
-      availableKRIs: [],
       permissionData: [],
+      users: [],
+      kris: [],
+      departments: [],
+      loading: false,
+      deleteLoading: false,
+      selectedItems: [],
       
       // Filters
       permissionDeptFilter: '',
       permissionUserFilter: '',
       
-      // Permission edit dialog
-      permissionEditDialogVisible: false,
-      editingPermission: null,
-      editingPermissionActions: '',
-      permissionEditLoading: false
+      // Dialogs
+      addDialogVisible: false,
+      editDialogVisible: false,
+      editingPermission: null
     };
   },
   
   computed: {
     ...mapGetters('kri', ['currentUser']),
     
-    entityName() {
-      return 'Permission';
-    },
-    
     filteredUsersForPermissions() {
-      if (!this.permissionDeptFilter) {
-        return this.users;
+      let filtered = this.users;
+      if (this.permissionDeptFilter) {
+        filtered = filtered.filter(user => user.Department === this.permissionDeptFilter);
       }
-      return this.users.filter(user => user.Department === this.permissionDeptFilter);
+      return filtered;
     },
     
     formattedPermissionData() {
-      return this.permissionData.map(perm => ({
-        id: perm.kri_id,
-        name: `KRI ${perm.kri_id}`,
-        owner: perm.user_id,
-        dataProvider: perm.user_id,  
-        collectionStatus: perm.effect ? 'Active' : 'Denied',
-        kriValue: perm.actions || 'No permissions',
-        reportingDate: perm.reporting_date,
-        kriId: perm.kri_id,
-        isCalculatedKri: false, // Will be enhanced later for calculated KRIs
-        // Keep original permission data for editing
-        _permissionData: perm
+      return this.permissionData.map(permission => ({
+        ...permission,
+        // Format for KRITable component
+        User_ID: permission.user_id,
+        User_Name: permission.user_name,
+        Department: permission.department,
+        KRI_ID: permission.kri_id,
+        Actions: permission.actions,
+        Effect: permission.effect
       }));
     }
   },
   
   async mounted() {
-    await this.loadInitialData();
+    await this.loadUsers();
+    await this.loadKRIs();
+    await this.loadDepartments();
   },
   
   methods: {
-    // ================================
-    // Implement abstract methods from adminCrudMixin
-    // ================================
-    
-    getDefaultItem() {
-      return {
-        user_uuid: '',
-        kri_id: '',
-        reporting_date: new Date(),
-        actions: '',
-        effect: true
-      };
-    },
-    
-    async loadData() {
-      // Permission data is loaded on demand via filters
-      return Promise.resolve();
-    },
-    
-    async createItem(item) {
-      const permissionUpdate = {
-        user_uuid: item.user_uuid,
-        kri_id: item.kri_id,
-        reporting_date: item.reporting_date,
-        actions: item.actions,
-        effect: item.effect
-      };
-      
-      return await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
-    },
-    
-    async updateItem(item) {
-      const permissionUpdate = {
-        user_uuid: item.user_uuid,
-        kri_id: item.kri_id,
-        reporting_date: item.reporting_date,
-        actions: item.actions,
-        effect: item.effect || true
-      };
-      
-      return await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
-    },
-    
-    async deleteItem(item) {
-      // Implement permission deletion by setting effect to false
-      const permissionUpdate = {
-        user_uuid: item.user_uuid,
-        kri_id: item.kri_id,
-        reporting_date: item.reporting_date,
-        actions: '',
-        effect: false
-      };
-      
-      return await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
-    },
-    
-    // ================================
-    // Component-specific methods
-    // ================================
-    
-    async loadInitialData() {
-      try {
-        await Promise.all([
-          this.loadUsers(),
-          this.loadDepartments(),
-          this.loadAvailableKRIs()
-        ]);
-      } catch (error) {
-        console.error('Error loading initial data:', error);
-        this.$message.error('Failed to load initial data');
-      }
-    },
-    
     async loadUsers() {
       try {
         this.users = await kriService.getAllUsers();
@@ -303,49 +126,37 @@ export default {
       }
     },
     
+    async loadKRIs() {
+      try {
+        this.kris = await kriService.getAllKRIMetadata();
+      } catch (error) {
+        console.error('Error loading KRIs:', error);
+        this.$message.error('Failed to load KRIs');
+      }
+    },
+    
     async loadDepartments() {
       try {
-        this.departments = await kriService.getAllDepartments();
+        this.departments = [...new Set(this.users.map(user => user.Department).filter(Boolean))];
       } catch (error) {
         console.error('Error loading departments:', error);
-        this.$message.error('Failed to load departments');
-      }
-    },
-    
-    async loadAvailableKRIs() {
-      try {
-        this.availableKRIs = await kriService.getAllKRIMetadata();
-      } catch (error) {
-        console.error('Error loading available KRIs:', error);
-        this.$message.error('Failed to load available KRIs');
-      }
-    },
-    
-    handleFilterChange() {
-      // Auto-load when filters change
-      if (this.permissionUserFilter || this.permissionDeptFilter) {
-        this.loadPermissionData();
       }
     },
     
     async loadPermissionData() {
       this.loading = true;
       try {
-        let userUuid = this.permissionUserFilter || null;
-        this.permissionData = await kriService.getUserPermissionsSummary(userUuid);
+        let params = {};
         
-        // If department filter is set, filter the results
         if (this.permissionDeptFilter) {
-          this.permissionData = this.permissionData.filter(perm => 
-            perm.kri_user && perm.kri_user.Department === this.permissionDeptFilter
-          );
+          params.department = this.permissionDeptFilter;
         }
         
-        // Flatten the data for display
-        this.permissionData = this.permissionData.map(perm => ({
-          ...perm,
-          user_id: perm.kri_user ? perm.kri_user.User_ID : 'Unknown'
-        }));
+        if (this.permissionUserFilter) {
+          params.user_uuid = this.permissionUserFilter;
+        }
+        
+        this.permissionData = await kriService.getUserPermissionsSummary(null, params);
       } catch (error) {
         console.error('Error loading permission data:', error);
         this.$message.error('Failed to load permission data');
@@ -354,63 +165,59 @@ export default {
       }
     },
     
-    handlePermissionEdit(row) {
-      // Extract original permission data from the formatted row
-      const permission = row._permissionData;
-      this.editPermission(permission);
+    handleFilterChange(filters) {
+      this.permissionDeptFilter = filters.department || '';
+      this.permissionUserFilter = filters.user || '';
     },
     
-    async editPermission(permission) {
-      this.editingPermission = { ...permission };
-      this.editingPermissionActions = permission.actions || '';
-      this.permissionEditDialogVisible = true;
+    handleSelectionChange(selection) {
+      this.selectedItems = selection;
     },
     
-    async confirmPermissionEdit() {
-      if (!this.editingPermission || !this.editingPermissionActions) return;
+    handleApplyTemplate(_templateKey) {
+      // Handle template application
+      this.$message.info('Template application functionality to be implemented');
+    },
+    
+    openAddDialog() {
+      this.addDialogVisible = true;
+    },
+    
+    handlePermissionEdit(permission) {
+      this.editingPermission = permission;
+      this.editDialogVisible = true;
+    },
+    
+    async handleBulkDelete() {
+      if (!this.selectedItems.length) return;
       
-      this.permissionEditLoading = true;
+      this.deleteLoading = true;
       try {
-        // Update permission using bulk update method
-        const permissionUpdate = {
-          user_uuid: this.editingPermission.user_uuid,
-          kri_id: this.editingPermission.kri_id,
-          reporting_date: this.editingPermission.reporting_date,
-          actions: this.editingPermissionActions,
-          effect: true // Keep permission active
-        };
+        const permissionIds = this.selectedItems.map(item => item.id);
+        await kriService.bulkDeletePermissions(permissionIds, this.currentUser.User_ID);
         
-        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
-        
-        // Update local data
-        const permIndex = this.permissionData.findIndex(p => 
-          p.user_uuid === this.editingPermission.user_uuid && 
-          p.kri_id === this.editingPermission.kri_id
-        );
-        if (permIndex !== -1) {
-          this.permissionData[permIndex].actions = this.editingPermissionActions;
-        }
-        
-        this.$message.success('Permission updated successfully');
-        this.permissionEditDialogVisible = false;
+        this.$message.success(`Deleted ${permissionIds.length} permissions`);
+        await this.loadPermissionData();
+        this.selectedItems = [];
         this.$emit('data-updated');
       } catch (error) {
-        console.error('Error updating permission:', error);
-        this.$message.error('Failed to update permission');
+        console.error('Error deleting permissions:', error);
+        this.$message.error('Failed to delete permissions');
       } finally {
-        this.permissionEditLoading = false;
+        this.deleteLoading = false;
       }
     },
     
-    resetPermissionEditDialog() {
-      this.editingPermission = null;
-      this.editingPermissionActions = '';
-      this.permissionEditLoading = false;
+    async handlePermissionAdded() {
+      this.addDialogVisible = false;
+      await this.loadPermissionData();
+      this.$emit('data-updated');
     },
     
-    handlePermissionCreated(_newPermission) {
-      // Reload permission data to show the new permission
-      this.loadPermissionData();
+    async handlePermissionUpdated() {
+      this.editDialogVisible = false;
+      this.editingPermission = null;
+      await this.loadPermissionData();
       this.$emit('data-updated');
     }
   }
@@ -418,6 +225,5 @@ export default {
 </script>
 
 <style scoped>
-/* Component-specific styles if needed */
-/* Most styles are in admin.css */
+/* Component-specific styles */
 </style>

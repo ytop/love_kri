@@ -448,6 +448,7 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
 - Avoid hardcoding values unless absolutely necessary.
 - Backward compatibility is not a priority; this is a prototyping project.
 - Do not run tests after implementation (such as `npm run dev` or `npm run build`). The project relies on hot reload for development.
+- Run `npm run lint` to check for code quality and linter errors.
 - **Code Reuse**
   - Always check for existing functions or data structures before writing new code.
   - Prefer minor revisions to existing code over creating new code from scratch.
@@ -455,6 +456,11 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
 - If a file exceeds 1000 lines, refactor by moving helper functions to separate files in the appropriate folders.
 - Read the entire file before starting work on it.
 - Do not hardcode if possible and necessary (avoid magic numbers, strings, or configuration in code).
+- When writing code consider re-use if possible:
+  1. if we have a similiar method, we can use that method 
+  2. can we change some part of it to shared using the same method 
+  3. consider writing new, if no existing solution can be adapted.
+  This policy applies to all js, css and vue files.
 
 ### Code Organization Reminder
 

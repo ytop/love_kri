@@ -1,128 +1,18 @@
 <template>
-  <div class="admin-section">
-    <div class="admin-content-header">
-      <div>
-        <h3>User Management</h3>
-        <p class="admin-tab-description">Manage system users, their roles, and department assignments.</p>
-      </div>
-      <div class="admin-header-actions">
-        <el-select 
-          v-model="selectedDepartment" 
-          placeholder="Filter by Department" 
-          clearable
-          @change="handleDepartmentFilter"
-          class="admin-filter-select"
-        >
-          <el-option 
-            v-for="dept in departments" 
-            :key="dept" 
-            :label="dept" 
-            :value="dept"
-          ></el-option>
-        </el-select>
-        <el-button 
-          type="primary" 
-          icon="el-icon-refresh" 
-          @click="refreshUsers"
-          :loading="loading"
-        >
-          Refresh
-        </el-button>
-        <el-button 
-          type="success" 
-          icon="el-icon-plus"
-          @click="openAddDialog"
-        >
-          Add User
-        </el-button>
-      </div>
-    </div>
-
-    <el-table 
-      :data="filteredUsers" 
-      v-loading="loading"
-      stripe
-      border
-      class="admin-full-width"
-      :default-sort="{ prop: 'User_ID', order: 'ascending' }"
-      @selection-change="handleSelectionChange"
-    >
-      <el-table-column type="selection" width="55"></el-table-column>
-      
-      <el-table-column prop="User_ID" label="User ID" sortable width="120">
-      </el-table-column>
-      
-      <el-table-column prop="User_Name" label="Display Name" sortable width="150">
-      </el-table-column>
-      
-      <el-table-column prop="Department" label="Department" sortable width="120">
-      </el-table-column>
-      
-      <el-table-column prop="user_role" label="Role" sortable width="120">
-        <template slot-scope="scope">
-          <el-tag 
-            :type="getRoleTagType(scope.row.user_role)"
-            size="small"
-          >
-            {{ getRoleDisplayName(scope.row.user_role) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      
-      <el-table-column label="Actions" width="240" align="center">
-        <template slot-scope="scope">
-          <div class="admin-user-actions">
-            <el-button 
-              size="mini" 
-              type="primary" 
-              icon="el-icon-edit"
-              @click="openRoleEditDialog(scope.row)"
-              :disabled="!canManageUser(scope.row)"
-            >
-              Edit Role
-            </el-button>
-            <el-button 
-              size="mini" 
-              type="info" 
-              icon="el-icon-view"
-              @click="viewUserPermissions(scope.row)"
-            >
-              Permissions
-            </el-button>
-          </div>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <!-- Bulk Actions -->
-    <div v-if="selectedItems.length > 0" class="admin-bulk-actions" style="margin-top: 16px;">
-      <h4>Bulk Operations</h4>
-      <el-form :inline="true">
-        <el-form-item label="Selected Users:">
-          <span>{{ selectedItems.length }} users selected</span>
-        </el-form-item>
-        <el-form-item label="New Role:">
-          <el-select v-model="bulkNewRole" placeholder="Select role">
-            <el-option 
-              v-for="role in assignableRoles" 
-              :key="role" 
-              :label="getRoleDisplayName(role)" 
-              :value="role"
-            ></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button 
-            type="warning" 
-            @click="executeBulkRoleChange"
-            :disabled="!selectedItems.length || !bulkNewRole"
-            :loading="bulkRoleLoading"
-          >
-            Apply Role Change
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </div>
+  <div>
+    <admin-base-user-management
+      :users="users"
+      :departments="departments"
+      :loading="loading"
+      :show-permission-summary="false"
+      @refresh-users="refreshUsers"
+      @add-user="openAddDialog"
+      @edit-user-role="openRoleEditDialog"
+      @manage-user-permissions="viewUserPermissions"
+      @department-filter-changed="handleDepartmentFilter"
+      @selection-changed="handleSelectionChange"
+      @bulk-role-change="handleBulkRoleChange"
+    />
 
     <!-- Role Edit Dialog -->
     <el-dialog 
@@ -142,26 +32,34 @@
           </p>
         </div>
         
-        <el-form>
+        <el-form :model="roleEditForm" label-width="120px" style="margin-top: 20px;">
           <el-form-item label="New Role:">
-            <el-select v-model="newUserRole" placeholder="Select new role" class="admin-full-width">
+            <el-select v-model="roleEditForm.newRole" placeholder="Select new role">
               <el-option 
-                v-for="role in assignableRoles" 
+                v-for="role in getAssignableRoles(editingUser)" 
                 :key="role" 
                 :label="getRoleDisplayName(role)" 
                 :value="role"
               ></el-option>
             </el-select>
           </el-form-item>
+          <el-form-item label="Reason:">
+            <el-input 
+              v-model="roleEditForm.reason" 
+              type="textarea" 
+              placeholder="Optional reason for role change"
+              :rows="3"
+            ></el-input>
+          </el-form-item>
         </el-form>
       </div>
       
-      <div slot="footer" class="admin-dialog-footer">
-        <el-button @click="roleEditDialogVisible = false">Cancel</el-button>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="resetRoleEditDialog">Cancel</el-button>
         <el-button 
           type="primary" 
           @click="confirmRoleChange"
-          :disabled="!newUserRole || newUserRole === editingUser.user_role"
+          :disabled="!roleEditForm.newRole"
           :loading="roleChangeLoading"
         >
           Update Role
@@ -169,141 +67,72 @@
       </div>
     </el-dialog>
 
-    <!-- User Permissions Dialog -->
-    <el-dialog 
-      title="User Permissions" 
-      :visible.sync="userPermissionsDialogVisible"
-      width="800px"
-    >
-      <div v-if="viewingUser" class="admin-dialog-content">
-        <div class="admin-user-info">
-          <p><strong>User:</strong> {{ viewingUser.User_ID }} ({{ viewingUser.User_Name }})</p>
-          <p><strong>Department:</strong> {{ viewingUser.Department }}</p>
-        </div>
-        
-        <el-table 
-          :data="userPermissions" 
-          v-loading="userPermissionsLoading"
-          stripe
-          class="admin-full-width"
-        >
-          <el-table-column prop="kri_id" label="KRI ID" width="80">
-          </el-table-column>
-          <el-table-column prop="actions" label="Permissions">
-            <template slot-scope="scope">
-              <el-tag 
-                v-for="action in scope.row.actions.split(',')" 
-                :key="action" 
-                size="mini"
-                style="margin-right: 5px;"
-              >
-                {{ action.trim() }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="effect" label="Status" width="80">
-            <template slot-scope="scope">
-              <el-tag :type="scope.row.effect ? 'success' : 'danger'" size="small">
-                {{ scope.row.effect ? 'Active' : 'Denied' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-      
-      <div slot="footer" class="admin-dialog-footer">
-        <el-button @click="userPermissionsDialogVisible = false">Close</el-button>
-      </div>
-    </el-dialog>
-
     <!-- Add User Dialog -->
-    <add-user-dialog
-      :visible.sync="dialogVisible"
-      :departments="departments"
-      :assignable-roles="assignableRoles"
-      @user-created="handleUserCreated"
+    <add-user-dialog 
+      :visible.sync="addDialogVisible"
+      @user-added="handleUserAdded"
     />
   </div>
 </template>
 
 <script>
+import AdminBaseUserManagement from '@/components/admin/shared/AdminBaseUserManagement.vue';
+import AddUserDialog from '@/components/admin/dialogs/AddUserDialog.vue';
+import adminHelpersMixin from '@/mixins/adminHelpersMixin';
+import adminCrudMixin from '@/mixins/adminCrudMixin';
 import { mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
-import Permission from '@/utils/permission';
-import adminCrudMixin from '@/mixins/adminCrudMixin';
-import AddUserDialog from './dialogs/AddUserDialog.vue';
 
 export default {
   name: 'AdminUserManagement',
+  
   components: {
+    AdminBaseUserManagement,
     AddUserDialog
   },
-  mixins: [adminCrudMixin],
+  
+  mixins: [adminHelpersMixin, adminCrudMixin],
   
   data() {
     return {
       users: [],
       departments: [],
+      loading: false,
       selectedDepartment: '',
       
-      // Bulk operations
-      bulkNewRole: '',
-      bulkRoleLoading: false,
-      
-      // Role edit dialog
+      // Role editing
       roleEditDialogVisible: false,
       editingUser: null,
-      newUserRole: '',
+      roleEditForm: {
+        newRole: '',
+        reason: ''
+      },
       roleChangeLoading: false,
       
-      // User permissions dialog
-      userPermissionsDialogVisible: false,
-      viewingUser: null,
-      userPermissions: [],
-      userPermissionsLoading: false
+      // Add user
+      addDialogVisible: false
     };
   },
   
   computed: {
     ...mapGetters('kri', ['currentUser']),
     
-    entityName() {
-      return 'User';
-    },
-    
     filteredUsers() {
-      if (!this.selectedDepartment) {
-        return this.users;
+      let filtered = this.users;
+      if (this.selectedDepartment) {
+        filtered = filtered.filter(user => user.Department === this.selectedDepartment);
       }
-      return this.users.filter(user => user.Department === this.selectedDepartment);
-    },
-    
-    assignableRoles() {
-      return Permission.getAssignableRoles(this.currentUser);
+      return filtered;
     }
   },
   
   async mounted() {
-    await this.loadData();
+    await this.loadUsers();
     await this.loadDepartments();
   },
   
   methods: {
-    // ================================
-    // Implement abstract methods from adminCrudMixin
-    // ================================
-    
-    getDefaultItem() {
-      return {
-        user_id: '',
-        user_name: '',
-        department: '',
-        user_role: 'user',
-        other_info: ''
-      };
-    },
-    
-    async loadData() {
+    async loadUsers() {
       this.loading = true;
       try {
         this.users = await kriService.getAllUsers();
@@ -315,81 +144,92 @@ export default {
       }
     },
     
-    async createItem(item) {
-      return await kriService.createUser(item, this.currentUser.User_ID);
-    },
-    
-    async updateItem(item) {
-      return await kriService.updateUserRole(
-        item.UUID, 
-        item.user_role, 
-        this.currentUser.User_ID
-      );
-    },
-    
-    async deleteItem(_item) {
-      // Implement user deletion if needed
-      throw new Error('User deletion not implemented');
-    },
-    
-    // ================================
-    // Component-specific methods
-    // ================================
-    
     async loadDepartments() {
       try {
-        this.departments = await kriService.getAllDepartments();
+        const users = await kriService.getAllUsers();
+        this.departments = [...new Set(users.map(user => user.Department).filter(Boolean))];
       } catch (error) {
         console.error('Error loading departments:', error);
-        this.$message.error('Failed to load departments');
       }
     },
     
-    handleDepartmentFilter() {
-      // Filter is handled by computed property
-    },
-    
     async refreshUsers() {
-      await this.refreshData();
-      this.$message.success('User data refreshed');
+      await this.loadUsers();
+      this.$emit('data-updated');
     },
     
-    canManageUser(user) {
-      return Permission.canManageUser(this.currentUser, user);
+    handleDepartmentFilter(department) {
+      this.selectedDepartment = department;
+    },
+    
+    handleSelectionChange(_selection) {
+      // Handle selection change if needed
+    },
+    
+    async handleBulkRoleChange(data) {
+      try {
+        const { users, newRole } = data;
+        const userIds = users.map(user => user.UUID);
+        
+        await kriService.bulkUpdateUserRoles(userIds, newRole, this.currentUser.User_ID);
+        
+        this.$message.success(`Updated role for ${users.length} users`);
+        await this.refreshUsers();
+      } catch (error) {
+        console.error('Error updating user roles:', error);
+        this.$message.error('Failed to update user roles');
+      }
+    },
+    
+    openAddDialog() {
+      this.addDialogVisible = true;
     },
     
     openRoleEditDialog(user) {
       this.editingUser = user;
-      this.newUserRole = user.user_role;
+      this.roleEditForm = {
+        newRole: '',
+        reason: ''
+      };
       this.roleEditDialogVisible = true;
     },
     
     resetRoleEditDialog() {
+      this.roleEditDialogVisible = false;
       this.editingUser = null;
-      this.newUserRole = '';
-      this.roleChangeLoading = false;
+      this.roleEditForm = {
+        newRole: '',
+        reason: ''
+      };
+    },
+    
+    getAssignableRoles(user) {
+      const roles = ['user'];
+      
+      // Only system admins can assign admin roles
+      if (this.currentUser.user_role === 'admin') {
+        roles.push('dept_admin', 'admin');
+      }
+      
+      // Filter out current role
+      return roles.filter(role => role !== user.user_role);
     },
     
     async confirmRoleChange() {
-      if (!this.editingUser || !this.newUserRole) return;
+      if (!this.roleEditForm.newRole) return;
       
       this.roleChangeLoading = true;
       try {
         await kriService.updateUserRole(
-          this.editingUser.UUID, 
-          this.newUserRole, 
+          this.editingUser.UUID,
+          this.roleEditForm.newRole,
+          this.roleEditForm.reason,
           this.currentUser.User_ID
         );
         
-        // Update local data
-        const userIndex = this.users.findIndex(u => u.UUID === this.editingUser.UUID);
-        if (userIndex !== -1) {
-          this.users[userIndex].user_role = this.newUserRole;
-        }
-        
-        this.$message.success(`Role updated successfully for ${this.editingUser.User_ID}`);
-        this.roleEditDialogVisible = false;
-        this.$emit('data-updated');
+        this.$message.success('User role updated successfully');
+        this.resetRoleEditDialog();
+        await this.refreshUsers();
       } catch (error) {
         console.error('Error updating user role:', error);
         this.$message.error('Failed to update user role');
@@ -398,76 +238,38 @@ export default {
       }
     },
     
-    async viewUserPermissions(user) {
-      this.viewingUser = user;
-      this.userPermissionsLoading = true;
-      this.userPermissionsDialogVisible = true;
-      
-      try {
-        this.userPermissions = await kriService.getUserPermissionsSummary(user.UUID);
-      } catch (error) {
-        console.error('Error loading user permissions:', error);
-        this.$message.error('Failed to load user permissions');
-      } finally {
-        this.userPermissionsLoading = false;
-      }
+    viewUserPermissions(user) {
+      // Navigate to user's permission view or open permission dialog
+      this.$router.push({
+        name: 'admin',
+        params: { tab: 'permissions' },
+        query: { user: user.UUID }
+      });
     },
     
-    async executeBulkRoleChange() {
-      if (!this.selectedItems.length || !this.bulkNewRole) return;
-      
-      this.bulkRoleLoading = true;
-      try {
-        for (const user of this.selectedItems) {
-          await kriService.updateUserRole(user.UUID, this.bulkNewRole, this.currentUser.User_ID);
-          
-          // Update local data
-          const userIndex = this.users.findIndex(u => u.UUID === user.UUID);
-          if (userIndex !== -1) {
-            this.users[userIndex].user_role = this.bulkNewRole;
-          }
-        }
-        
-        this.$message.success(`Bulk role change completed for ${this.selectedItems.length} users`);
-        this.selectedItems = [];
-        this.bulkNewRole = '';
-        this.$emit('data-updated');
-      } catch (error) {
-        console.error('Error executing bulk role change:', error);
-        this.$message.error('Failed to execute bulk role change');
-      } finally {
-        this.bulkRoleLoading = false;
-      }
-    },
-    
-    handleUserCreated(newUser) {
-      this.users.push(newUser);
+    async handleUserAdded() {
+      this.addDialogVisible = false;
+      await this.refreshUsers();
       this.$emit('data-updated');
-    },
-    
-    // Utility methods
-    getRoleTagType(role) {
-      switch (role) {
-      case 'admin': return 'danger';
-      case 'dept_admin': return 'warning';
-      case 'user': return 'info';
-      default: return 'info';
-      }
-    },
-    
-    getRoleDisplayName(role) {
-      switch (role) {
-      case 'admin': return 'System Admin';
-      case 'dept_admin': return 'Dept Admin';
-      case 'user': return 'User';
-      default: return role || 'User';
-      }
     }
   }
 };
 </script>
 
 <style scoped>
-/* Component-specific styles if needed */
-/* Most styles are in admin.css */
+.admin-user-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.admin-user-info p {
+  margin: 5px 0;
+  color: #606266;
+}
+
+.dialog-footer {
+  text-align: right;
+}
 </style>

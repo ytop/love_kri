@@ -118,7 +118,7 @@
 
 <script>
 export default {
-  name: 'KRIPermissionsDialog',
+  name: 'AdminKRIPermissionsDialog',
   
   props: {
     visible: {

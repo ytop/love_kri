@@ -5,7 +5,6 @@ import KRIPending from '../views/KRIPending.vue';
 import KRIDetail from '../views/KRIDetail.vue';
 import Login from '../views/Login.vue';
 import AdminManagement from '../views/AdminManagement.vue';
-import DepartmentAdmin from '../views/DepartmentAdmin.vue';
 import NotFound from '../views/NotFound.vue';
 import store from '../store';
 import Permission from '../utils/permission';
@@ -55,7 +54,7 @@ const router = new Router({
     {
       path: '/dept-admin',
       name: 'DepartmentAdmin',
-      component: DepartmentAdmin,
+      component: AdminManagement,
       meta: { 
         requiresAuth: true,
         requiresRole: 'dept_admin'

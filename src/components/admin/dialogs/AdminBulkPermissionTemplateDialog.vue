@@ -62,7 +62,7 @@
 
 <script>
 export default {
-  name: 'BulkPermissionTemplateDialog',
+  name: 'AdminBulkPermissionTemplateDialog',
   
   props: {
     visible: {
