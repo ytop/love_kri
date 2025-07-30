@@ -319,6 +319,10 @@ export default {
     loading: {
       type: Boolean,
       default: false
+    },
+    showPermissionActions: {
+      type: Boolean,
+      default: false
     }
   },
   data() {

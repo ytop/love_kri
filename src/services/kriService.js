@@ -1071,6 +1071,113 @@ export const kriService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Get all KRI metadata for admin dropdown selections
+   * @returns {Promise<Array>} Array of KRI data with kri_id, kri_code, and name
+   */
+  async getAllKRIMetadata() {
+    const { data, error } = await supabase
+      .from('kri_with_metadata')
+      .select('kri_id, kri_code, kri_name')
+      .order('kri_id', { ascending: true });
+    
+    if (error) throw error;
+    
+    // Remove duplicates based on kri_id (in case same KRI has multiple reporting dates)
+    const uniqueKRIs = (data || []).reduce((acc, current) => {
+      const existing = acc.find(item => item.kri_id === current.kri_id);
+      if (!existing) {
+        acc.push({
+          kri_id: current.kri_id,
+          kri_code: current.kri_code,
+          name: current.kri_name || 'Unknown'
+        });
+      }
+      return acc;
+    }, []);
+    
+    return uniqueKRIs;
+  },
+
+  /**
+   * Create a new user
+   * @param {Object} userData - User data object
+   * @param {string} changedBy - User creating the account
+   * @returns {Promise<Object>} Created user record
+   */
+  async createUser(userData, changedBy) {
+    if (!userData || !changedBy) {
+      throw new Error('userData and changedBy are required');
+    }
+
+    const { user_id, user_name, department, user_role = 'user', other_info = '' } = userData;
+
+    if (!user_id || !user_name || !department) {
+      throw new Error('user_id, user_name, and department are required');
+    }
+
+    // Check if user_id already exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from('kri_user')
+      .select('User_ID')
+      .eq('User_ID', user_id)
+      .single();
+
+    if (existingUser) {
+      throw new Error(`User ID '${user_id}' already exists`);
+    }
+
+    // If checkError is not "no rows" error, throw it
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw checkError;
+    }
+
+    // Validate role
+    const validRoles = ['user', 'dept_admin', 'admin'];
+    if (!validRoles.includes(user_role)) {
+      throw new Error(`Invalid role: ${user_role}. Valid roles: ${validRoles.join(', ')}`);
+    }
+
+    // Create the user
+    const { data, error } = await supabase
+      .from('kri_user')
+      .insert({
+        User_ID: user_id,
+        User_Name: user_name,
+        Department: department,
+        user_role: user_role,
+        OTHER_INFO: other_info
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log the user creation
+    await this.logUserCreation(data.UUID, user_id, changedBy);
+
+    return data;
+  },
+
+  /**
+   * Log user creation for audit purposes
+   * @param {string} userUuid - Created user UUID
+   * @param {string} userId - Created user ID
+   * @param {string} changedBy - User who created the account
+   * @returns {Promise<void>}
+   * @private
+   */
+  async logUserCreation(userUuid, userId, changedBy) {
+    try {
+      console.log(`User created: ${userId} (${userUuid}) by ${changedBy} at ${new Date().toISOString()}`);
+      
+      // Future implementation could store in dedicated audit table for user management
+    } catch (error) {
+      console.error('Error logging user creation:', error);
+      // Don't throw error as this is just logging
+    }
   }
 
 

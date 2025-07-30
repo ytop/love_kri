@@ -61,5 +61,4 @@ Improve UI/UX desig
 @Kridetail.vue
 Sub-KRIs are treated as flat rows during sort rather than as children of a parent KRI.
 
-
 So Currently the permission and the display dashboard did not take view permission into consideration(invest it), I need it to be online since we have hide all data from anom.

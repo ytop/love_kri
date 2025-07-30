@@ -101,6 +101,7 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
 -**Mixins**:
 
 - `expandableTableMixin.js` - Provides table expansion functionality
+- `adminCrudMixin.js` - Shared CRUD patterns for admin components with abstract methods
 
 -**Shared Components**:
 
@@ -113,6 +114,16 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
   - MD5 hash-based duplicate detection with user warnings
   - Case 1 workflow integration (status 10/20) for automatic KRI value extraction
   - Support for both single KRI and atomic value parsing
+
+-**Admin Components** (`src/components/admin/`):
+
+- `AdminUserManagement.vue` - User role management with department filtering and bulk operations
+- `AdminPermissionManagement.vue` - Permission assignments with user/department filtering
+- `AdminRoleManagement.vue` - Role distribution visualization and bulk role changes
+- `AdminDepartmentManagement.vue` - Department statistics and user promotion
+- `AdminSystemOverview.vue` - System health monitoring and recent activity tracking
+- `dialogs/AddUserDialog.vue` - User creation with validation and role assignment
+- `dialogs/AddPermissionDialog.vue` - Permission creation with templates and KRI selection
 
 #### Routing
 
@@ -416,8 +427,19 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
 
 ## Current Development Status
 
+- **Admin Management System**: Recently refactored from monolithic AdminManagement.vue (1400+ lines) into modular components:
+  - `AdminUserManagement.vue` - User role and department management with bulk operations
+  - `AdminPermissionManagement.vue` - KRI-level permission assignments with filtering
+  - `AdminRoleManagement.vue` - Role distribution analytics and bulk role changes
+  - `AdminDepartmentManagement.vue` - Department statistics and user promotion features
+  - `AdminSystemOverview.vue` - System health monitoring and activity tracking
+  - Dialog components in `src/components/admin/dialogs/` for user and permission creation
+  - Shared `adminCrudMixin.js` for consistent CRUD patterns across admin components
+  - Centralized styling in `src/assets/styles/admin.css` using design system variables
+  - CSS organization follows existing `src/assets/styles/variables.css` design tokens
+
+- **TypeScript Diagnostics**: Minor Vuex import warnings due to package.json exports compatibility (Vue 2 ecosystem constraint)
 - Permission system recently refactored with improved parsing logic
-- Some Manager pattern files referenced in documentation may be missing from current codebase
 - Application uses hot reload extensively - avoid running build commands during development
 - Mock data fallback system ensures functionality during database downtime
 

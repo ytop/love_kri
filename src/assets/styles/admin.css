@@ -1,0 +1,448 @@
+/* Admin-specific CSS using KRI Dashboard Design System */
+/* This file should be imported after variables.css in main.js */
+
+/* ================================
+   Admin Layout Components
+   ================================ */
+
+.admin-management {
+  padding: var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  min-height: 100vh;
+}
+
+.admin-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.admin-title {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-3xl);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.admin-container {
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl);
+}
+
+/* ================================
+   Admin Section Components
+   ================================ */
+
+.admin-section {
+  padding: var(--section-spacing) 0;
+}
+
+.admin-content-header {
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-content-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.admin-tab-description {
+  color: var(--text-secondary);
+  margin: var(--spacing-xs) 0 0 0;
+  font-size: var(--font-size-sm);
+}
+
+/* ================================
+   Admin Action Components
+   ================================ */
+
+.admin-action-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--button-gap);
+  flex-wrap: wrap;
+}
+
+.admin-action-bar .el-select {
+  min-width: 200px;
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--button-gap);
+}
+
+/* ================================
+   Admin Filter Components
+   ================================ */
+
+.admin-filters {
+  background: var(--bg-tertiary);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--border-light);
+}
+
+.admin-filter-form .el-form-item {
+  margin-bottom: 0;
+}
+
+.admin-filter-select {
+  width: 200px;
+}
+
+.admin-filter-select.wide {
+  width: 300px;
+}
+
+/* ================================
+   Admin Stats and Metrics
+   ================================ */
+
+.admin-stats-grid {
+  margin-bottom: var(--spacing-xl);
+}
+
+.admin-stat-card {
+  text-align: center;
+}
+
+.admin-stat-content {
+  padding: var(--spacing-lg);
+}
+
+.admin-stat-number {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.admin-stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.admin-metric-card {
+  text-align: center;
+}
+
+.admin-metric-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+}
+
+.admin-metric-icon {
+  font-size: var(--font-size-2xl);
+  color: var(--color-primary);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.admin-metric-data {
+  flex: 1;
+  text-align: left;
+}
+
+.admin-metric-number {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.admin-metric-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* ================================
+   Admin Role Management
+   ================================ */
+
+.admin-role-summary {
+  margin-bottom: var(--spacing-xl);
+}
+
+.admin-role-card {
+  text-align: center;
+}
+
+.admin-role-info {
+  padding: var(--spacing-md);
+}
+
+.admin-role-name {
+  margin-bottom: var(--spacing-sm);
+}
+
+.admin-role-count {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.admin-role-description {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ================================
+   Admin Bulk Actions
+   ================================ */
+
+.admin-bulk-actions {
+  background: var(--bg-tertiary);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.admin-bulk-actions h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+/* ================================
+   Admin Department Components
+   ================================ */
+
+.admin-department-overview {
+  margin-bottom: var(--spacing-xl);
+}
+
+.admin-dept-card {
+  text-align: center;
+}
+
+.admin-dept-info h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+.admin-dept-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.admin-dept-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-dept-metric-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.admin-dept-metric-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+/* ================================
+   Admin User Table Actions
+   ================================ */
+
+.admin-user-actions {
+  display: flex;
+  gap: var(--button-gap);
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-user-actions .el-button {
+  margin: 0;
+  min-width: 80px;
+  font-size: var(--font-size-xs);
+}
+
+/* ================================
+   Admin Dialog Components
+   ================================ */
+
+.admin-dialog-content {
+  padding: var(--spacing-md);
+}
+
+.admin-user-info,
+.admin-permission-info {
+  background: var(--bg-tertiary);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--border-light);
+}
+
+.admin-user-info p,
+.admin-permission-info p {
+  margin: var(--spacing-xs) 0;
+  color: var(--text-primary);
+}
+
+.admin-dialog-footer {
+  text-align: right;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-light);
+}
+
+.admin-permission-help {
+  margin-top: var(--spacing-sm);  
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+/* ================================
+   Admin Department Details Dialog
+   ================================ */
+
+.admin-dept-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.admin-dept-detail-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-xl);
+}
+
+.admin-dept-detail-metrics .el-tag {
+  margin-left: var(--spacing-sm);
+}
+
+/* ================================
+   Admin No Data States
+   ================================ */
+
+.admin-no-data {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--text-secondary);
+}
+
+.admin-recent-activity h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+/* ================================
+   Admin Responsive Design
+   ================================ */
+
+/* Mobile and Small Tablets */
+@media (max-width: 768px) {
+  .admin-management {
+    padding: var(--spacing-sm);
+  }
+  
+  .admin-content-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+  
+  .admin-header-actions,
+  .admin-action-bar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .admin-filter-select {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .admin-user-actions {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+  
+  .admin-user-actions .el-button {
+    width: 100%;
+    min-width: unset;
+  }
+}
+
+/* Large tablets and small desktops */
+@media (max-width: 1200px) {
+  .admin-user-actions {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+  
+  .admin-user-actions .el-button {
+    width: 100%;
+    min-width: unset;
+  }
+}
+
+/* ================================
+   Admin Utility Classes
+   ================================ */
+
+.admin-text-center {
+  text-align: center;
+}
+
+.admin-text-left {
+  text-align: left;
+}
+
+.admin-text-right {
+  text-align: right;
+}
+
+.admin-full-width {
+  width: 100%;
+}
+
+.admin-flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.admin-gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.admin-gap-md {
+  gap: var(--spacing-md);
+}
+
+.admin-gap-lg {
+  gap: var(--spacing-lg);
+}
