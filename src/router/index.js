@@ -134,7 +134,7 @@ router.beforeEach(async (to, from, next) => {
     }
     
     if (!hasRequiredRole) {
-      console.warn(`Access denied to ${to.path}: User ${currentUser.User_ID} lacks required role: ${requiredRole}`);
+      console.warn(`Access denied to ${to.path}: User ${currentUser.user_id} lacks required role: ${requiredRole}`);
       next({
         name: 'Dashboard',
         query: { error: 'insufficient_permissions' }
@@ -155,11 +155,11 @@ router.beforeEach(async (to, from, next) => {
       return;
     }
     
-    // Only check permissions if permissions are loaded (non-empty array with valid structure)
-    if (userPermissions.length > 0 && userPermissions[0] && userPermissions[0].actionsArray) {
+    // Only check permissions if permissions are loaded (non-empty array with valid permission records)
+    if (userPermissions.length > 0 && Permission.findKRIPermissions(userPermissions, kriId).length > 0) {
       // Check if user has view permission for this specific KRI
       if (!Permission.canView(kriId, null, userPermissions)) {
-        console.warn(`Access denied to KRI ${kriId}: User ${currentUser.User_ID} lacks view permission`);
+        console.warn(`Access denied to KRI ${kriId}: User ${currentUser.user_id} lacks view permission`);
         next({
           name: 'Dashboard',
           query: { error: 'kri_access_denied', kriId: kriId }
@@ -176,7 +176,7 @@ router.beforeEach(async (to, from, next) => {
         
         // Re-check with loaded permissions
         if (updatedPermissions.length > 0 && !Permission.canView(kriId, null, updatedPermissions)) {
-          console.warn(`Access denied to KRI ${kriId}: User ${currentUser.User_ID} lacks view permission after permission load`);
+          console.warn(`Access denied to KRI ${kriId}: User ${currentUser.user_id} lacks view permission after permission load`);
           next({
             name: 'Dashboard',
             query: { error: 'kri_access_denied', kriId: kriId }

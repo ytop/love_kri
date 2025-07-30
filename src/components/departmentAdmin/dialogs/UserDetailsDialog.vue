@@ -14,9 +14,9 @@
                 <span>User Information</span>
               </div>
               <div class="user-details">
-                <p><strong>User ID:</strong> {{ userDetailData.User_ID }}</p>
-                <p><strong>Display Name:</strong> {{ userDetailData.User_Name }}</p>
-                <p><strong>Department:</strong> {{ userDetailData.Department }}</p>
+                <p><strong>User ID:</strong> {{ userDetailData.user_id }}</p>
+                <p><strong>Display Name:</strong> {{ userDetailData.user_name }}</p>
+                <p><strong>Department:</strong> {{ userDetailData.department }}</p>
                 <p><strong>Role:</strong> 
                   <el-tag :type="getRoleTagType(userDetailData.user_role)" size="small">
                     {{ getRoleDisplayName(userDetailData.user_role) }}

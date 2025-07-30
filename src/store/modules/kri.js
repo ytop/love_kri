@@ -20,11 +20,10 @@ const state = {
   currentUser: {
     uuid: null, // uuid
     name: '', // user_id
-    department: '', // Department, for display
+    department: '', // department, for display
     user_role: '', // user role (user, dept_admin, admin)
-    User_ID: '', // Original User_ID field for compatibility
-    User_Name: '', // Original User_Name field for compatibility  
-    Department: '', // Original Department field for compatibility
+    user_id: '', // user_id field (lowercase)
+    user_name: '', // user_name field (lowercase)
     permissions: [], // look up in permission table
     authenticated: false
   },
@@ -122,9 +121,8 @@ const mutations = {
       name: '',
       department: '',
       user_role: '',
-      User_ID: '',
-      User_Name: '',
-      Department: '',
+      user_id: '',
+      user_name: '',
       permissions: [],
       authenticated: false
     };
@@ -276,17 +274,14 @@ const actions = {
   },
 
   async initPermission({ commit, state }) {
-    const rawPermissions = await kriService.fetchUserPermission(state.currentUser.uuid, '*', state.filters.reportingDate);
-    // Parse the permissions to convert actions string to array
-    const parsedPermissions = rawPermissions.map(permission => ({
-      ...permission,
-      actionsArray: permission.actions ? permission.actions.split(',').map(a => a.trim()) : []
-    }));
-    commit('SET_USER_PERMISSIONS', parsedPermissions);
+    const normalizedPermissions = await kriService.fetchUserPermission(state.currentUser.uuid, '*', state.filters.reportingDate);
+    // Permissions are now normalized individual records - no parsing needed
+    // Each record has: { kri_id, reporting_date, action, effect, ... }
+    commit('SET_USER_PERMISSIONS', normalizedPermissions);
     
     // Recalculate pending KRIs when permissions change
     if (state.kriItems.length > 0) {
-      const pendingKRIs = calculatePendingKRIs(state.kriItems, parsedPermissions);
+      const pendingKRIs = calculatePendingKRIs(state.kriItems, normalizedPermissions);
       commit('SET_PENDING_KRI_ITEMS', pendingKRIs);
     }
   },
@@ -343,11 +338,7 @@ const actions = {
           const dbUser = dbUserData[0];
           completeUserData = {
             ...userData,
-            user_role: dbUser.user_role || 'user',
-            User_ID: dbUser.User_ID,
-            User_Name: dbUser.User_Name,
-            Department: dbUser.Department,
-            department: dbUser.Department, // Keep both for compatibility
+            ...dbUser, // Spread the lowercase database fields
             authenticated: true
           };
         }
@@ -401,7 +392,7 @@ const actions = {
       kriId, 
       reportingDate, 
       updateData, 
-      currentUser.name || currentUser.User_ID, 
+      currentUser.name || currentUser.user_id, 
       action, 
       comment
     );
@@ -419,7 +410,7 @@ const actions = {
       atomicId,
       reportingDate,
       evidenceId,
-      currentUser.name || currentUser.User_ID,
+      currentUser.name || currentUser.user_id,
       comment
     );
     
@@ -434,7 +425,7 @@ const actions = {
       kriId,
       atomicId,
       reportingDate,
-      currentUser.name || currentUser.User_ID,
+      currentUser.name || currentUser.user_id,
       comment
     );
     
@@ -479,7 +470,7 @@ const actions = {
         kriId,
         reportingDate,
         { kri_value: calculatedValue.toString() },
-        currentUser.name || currentUser.User_ID || 'system',
+        currentUser.name || currentUser.user_id || 'system',
         'recalculate',
         `KRI recalculated using formula: ${kriDetail.kri_formula} = ${calculatedValue}`
       );

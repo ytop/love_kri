@@ -241,7 +241,7 @@ export default {
         
         // Check view permission before fetching data
         if (currentUser && !Permission.canView(kriId, null, userPermissions)) {
-          console.warn(`User ${currentUser.User_ID} lacks view permission for KRI ${kriId}`);
+          console.warn(`User ${currentUser.user_id} lacks view permission for KRI ${kriId}`);
           this.$message.error('You do not have permission to view this KRI');
           this.$router.push({ name: 'Dashboard', query: { error: 'kri_access_denied' } });
           return;

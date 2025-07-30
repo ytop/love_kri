@@ -7,10 +7,11 @@ import { USER_PERMISSIONS } from '@/utils/types';
  * It handles both KRI-level and atomic-level permissions without fallback.
  * Users can have different permissions on different KRIs based on the composite key (kri_id, reporting_date).
  * 
- * Permission Format:
- * - Database stores permissions as comma-separated strings in 'actions' field
+ * Permission Format (NORMALIZED):
+ * - Database stores permissions as individual rows in kri_user_permission table
+ * - Each permission is a separate record with 'action' field
  * - General permissions: 'edit', 'view', 'review', 'acknowledge', 'delete'
- * - Atomic permissions: 'atomic1_edit', 'atomic2_view', etc.
+ * - Atomic permissions: 'atomic1.edit', 'atomic2.view', etc. (dot notation)
  * - Atomic permissions do NOT fall back to general permissions
  * 
  * @class Permission
@@ -18,17 +19,20 @@ import { USER_PERMISSIONS } from '@/utils/types';
 class Permission {
   
   /**
-   * Parse comma-separated permission string into an array
+   * Extract actions array from normalized permission records for a specific KRI
    * 
-   * @param {string} permissionString - Comma-separated permission string
-   * @returns {string[]} Array of individual permissions
+   * @param {Array} permissionRecords - Array of permission record objects
+   * @returns {string[]} Array of individual permission actions
    * @static
    */
-  static parsePermissionString(permissionString) {
-    if (!permissionString || typeof permissionString !== 'string') {
+  static extractActionsFromRecords(permissionRecords) {
+    if (!Array.isArray(permissionRecords)) {
       return [];
     }
-    return permissionString.split(',').map(p => p.trim()).filter(p => p.length > 0);
+    return permissionRecords
+      .filter(record => record.effect !== false) // Only include allowed permissions
+      .map(record => record.action)
+      .filter(action => action && typeof action === 'string');
   }
 
   /**
@@ -43,20 +47,20 @@ class Permission {
   }
 
   /**
-   * Find permission record for a specific KRI
+   * Find permission records for a specific KRI
    * 
-   * @param {Array} userPermissions - Array of user permission objects
+   * @param {Array} userPermissions - Array of user permission record objects
    * @param {number|string} kriId - KRI ID to find permissions for
-   * @returns {Object|null} Permission object or null if not found
+   * @returns {Array} Array of permission records for the KRI
    * @static
    */
-  static findKRIPermission(userPermissions, kriId) {
+  static findKRIPermissions(userPermissions, kriId) {
     if (!Array.isArray(userPermissions)) {
-      return null;
+      return [];
     }
     
     const kriIdNum = typeof kriId === 'string' ? parseInt(kriId, 10) : kriId;
-    return userPermissions.find(p => p.kri_id === kriIdNum) || null;
+    return userPermissions.filter(p => p.kri_id === kriIdNum);
   }
 
   /**
@@ -68,7 +72,7 @@ class Permission {
    * @param {number|string} kriId - KRI ID to check permissions for
    * @param {number|string|null} atomicId - Atomic ID (null for KRI-level actions)
    * @param {string} action - Action to check (edit, view, review, acknowledge, delete)
-   * @param {Array} userPermissions - Array of user permission objects from store
+   * @param {Array} userPermissions - Array of user permission record objects from store
    * @returns {boolean} True if user can perform the action
    * @static
    */
@@ -89,46 +93,39 @@ class Permission {
       return false;
     }
 
-    // Find permission record for this KRI
-    const permission = Permission.findKRIPermission(userPermissions, kriId);
-    if (!permission) {
+    // Find permission records for this KRI
+    const permissionRecords = Permission.findKRIPermissions(userPermissions, kriId);
+    if (permissionRecords.length === 0) {
       return false;
     }
 
-    // Get parsed actions array (should be pre-parsed by initPermission)
-    const actionsArray = permission.actionsArray || [];
-    if (actionsArray.length === 0) {
-      // Try to parse if not pre-parsed (fallback)
-      const parsedActions = Permission.parsePermissionString(permission.actions);
-      if (parsedActions.length === 0) {
-        return false;
-      }
-      // Use parsed actions for this check
-      return Permission._checkActionsArray(parsedActions, atomicId, action);
-    }
+    // Build the expected action string based on atomic ID
+    const expectedAction = atomicId !== null && atomicId !== undefined 
+      ? `atomic${atomicId}.${action}` 
+      : action;
 
-    return Permission._checkActionsArray(actionsArray, atomicId, action);
+    // Check if the user has the specific permission and it's allowed (effect=true)
+    return permissionRecords.some(record => 
+      record.action === expectedAction && record.effect !== false
+    );
   }
 
   /**
-   * Internal method to check if an action exists in the actions array
+   * Get all permission actions for a specific KRI (for debugging/display)
    * 
-   * @param {string[]} actionsArray - Array of permission actions
-   * @param {number|string|null} atomicId - Atomic ID (null for KRI-level actions)
-   * @param {string} action - Action to check
-   * @returns {boolean} True if action is found
+   * @param {Array} permissionRecords - Array of permission record objects
+   * @returns {string[]} Array of permission actions for the KRI
    * @static
-   * @private
    */
-  static _checkActionsArray(actionsArray, atomicId, action) {
-    // For atomic-level permissions, check specific atomic permission only
-    if (atomicId !== null && atomicId !== undefined) {
-      const atomicAction = `atomic${atomicId}_${action}`;
-      return actionsArray.includes(atomicAction);
+  static _extractActionsFromRecords(permissionRecords) {
+    if (!Array.isArray(permissionRecords)) {
+      return [];
     }
     
-    // For KRI-level permissions, check general permission only
-    return actionsArray.includes(action);
+    return permissionRecords
+      .filter(record => record.effect !== false) // Only allowed permissions
+      .map(record => record.action)
+      .filter(action => action && typeof action === 'string');
   }
 
   /**
@@ -208,12 +205,8 @@ class Permission {
    * @static
    */
   static getKRIPermissions(kriId, userPermissions) {
-    const permission = Permission.findKRIPermission(userPermissions, kriId);
-    if (!permission) {
-      return [];
-    }
-    
-    return permission.actionsArray || Permission.parsePermissionString(permission.actions);
+    const permissionRecords = Permission.findKRIPermissions(userPermissions, kriId);
+    return Permission._extractActionsFromRecords(permissionRecords);
   }
 
   /**
@@ -226,8 +219,8 @@ class Permission {
    * @static
    */
   static hasAnyPermission(kriId, userPermissions) {
-    const permissions = Permission.getKRIPermissions(kriId, userPermissions);
-    return permissions.length > 0;
+    const permissionRecords = Permission.findKRIPermissions(userPermissions, kriId);
+    return permissionRecords.some(record => record.effect !== false);
   }
 
   /**
@@ -419,7 +412,7 @@ class Permission {
 
     // Department admins can only manage their own department
     if (Permission.isDepartmentAdmin(currentUser)) {
-      return currentUser.Department === targetDepartment;
+      return currentUser.department === targetDepartment;
     }
 
     return false;
@@ -449,7 +442,7 @@ class Permission {
     // Department admins can manage users in their department
     if (Permission.isDepartmentAdmin(currentUser)) {
       // Cannot manage users from other departments
-      if (currentUser.Department !== targetUser.Department) {
+      if (currentUser.department !== targetUser.department) {
         return false;
       }
       
@@ -488,7 +481,7 @@ class Permission {
     // Department admins can assign permissions for KRIs owned by their department
     if (Permission.isDepartmentAdmin(currentUser)) {
       // Check if current user's department matches KRI owner
-      return currentUser.Department === kriMetadata.owner;
+      return currentUser.department === kriMetadata.owner;
     }
 
     return false;
@@ -515,7 +508,7 @@ class Permission {
 
     // Department admins can manage KRIs owned by their department
     if (Permission.isDepartmentAdmin(currentUser)) {
-      return allKRIs.filter(kri => kri.owner === currentUser.Department);
+      return allKRIs.filter(kri => kri.owner === currentUser.department);
     }
 
     // Regular users cannot manage KRI permissions
@@ -546,7 +539,7 @@ class Permission {
     // System admins can change any user's role
     if (Permission.isSystemAdmin(currentUser)) {
       // Cannot demote other system admins
-      if (Permission.isSystemAdmin(targetUser) && targetUser.UUID !== currentUser.UUID) {
+      if (Permission.isSystemAdmin(targetUser) && targetUser.uuid !== currentUser.uuid) {
         return false;
       }
       return true;
@@ -555,7 +548,7 @@ class Permission {
     // Department admins have limited role change abilities
     if (Permission.isDepartmentAdmin(currentUser)) {
       // Can only manage users in their department
-      if (currentUser.Department !== targetUser.Department) {
+      if (currentUser.department !== targetUser.department) {
         return false;
       }
       
@@ -566,7 +559,7 @@ class Permission {
       
       // Cannot manage other admins or dept admins
       if (Permission.isSystemAdmin(targetUser) || 
-          (Permission.isDepartmentAdmin(targetUser) && targetUser.UUID !== currentUser.UUID)) {
+          (Permission.isDepartmentAdmin(targetUser) && targetUser.uuid !== currentUser.uuid)) {
         return false;
       }
       

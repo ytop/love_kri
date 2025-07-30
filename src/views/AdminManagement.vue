@@ -39,9 +39,9 @@
             :title="'Team Management'"
             :description="'Manage department team members and their permissions.'"
             :users="departmentUsers"
-            :departments="[currentUser.Department]"
+            :departments="[currentUser.department]"
             :loading="teamLoading"
-            :department-filter="currentUser.Department"
+            :department-filter="currentUser.department"
             :show-department-filter="false"
             :show-department-column="false"
             :show-add-user="false"
@@ -59,7 +59,7 @@
         </el-tab-pane>
 
         <!-- Department Administration Tab (System Admin Only) -->
-        <el-tab-pane v-if="isSystemAdmin" label="Department Admin" name="departments">
+        <el-tab-pane v-if="isSystemAdmin" label="department Admin" name="departments">
           <admin-department-management @data-updated="handleDataUpdated" />
         </el-tab-pane>
 
@@ -76,7 +76,7 @@
             :permission-data="departmentPermissions"
             :available-users="departmentUsers"
             :available-k-r-is="departmentKRIs"
-            :departments="[currentUser.Department]"
+            :departments="[currentUser.department]"
             :loading="permissionsLoading"
             :show-department-filter="false"
             :show-user-filter="true"
@@ -88,7 +88,7 @@
         </el-tab-pane>
 
         <!-- KRI Management Tab (Department Admin Only) -->
-        <el-tab-pane v-if="isDepartmentAdmin" label="Department KRIs" name="kris">
+        <el-tab-pane v-if="isDepartmentAdmin" label="department KRIs" name="kris">
           <admin-base-user-management
             :title="'Department KRIs'"
             :description="'Manage KRIs assigned to your department.'"
@@ -149,7 +149,7 @@
       :user-details-loading="userDetailsLoading"
     />
 
-    <admin-kri-permissions-dialog
+    <admin-k-r-i-permissions-dialog
       :visible.sync="kriPermissionsDialogVisible"
       :selected-kri="selectedKRI"
       :kri-user-permissions="kriUserPermissions"
@@ -216,8 +216,8 @@ export default {
     AdminSystemOverview,
     AdminUserPermissionsDialog,
     AdminUserDetailsDialog,
-    // AdminKRIPermissionsDialog,
-    AdminBulkPermissionTemplateDialog
+    AdminBulkPermissionTemplateDialog,
+    AdminKRIPermissionsDialog
   },
   
   mixins: [adminHelpersMixin, adminPermissionMixin],
@@ -366,7 +366,7 @@ export default {
     },
     
     auditDepartments() {
-      return this.isSystemAdmin ? [] : [this.currentUser.Department];
+      return this.isSystemAdmin ? [] : [this.currentUser.department];
     }
   },
   
@@ -425,7 +425,7 @@ export default {
     async loadDepartmentData() {
       try {
         const overview = await departmentAdminService.getDepartmentOverview(
-          this.currentUser.Department,
+          this.currentUser.department,
           this.currentUser
         );
         
@@ -442,7 +442,7 @@ export default {
       this.teamLoading = true;
       try {
         this.departmentUsers = await departmentAdminService.getDepartmentUsersWithPermissions(
-          this.currentUser.Department,
+          this.currentUser.department,
           this.currentUser
         );
       } catch (error) {
@@ -456,7 +456,7 @@ export default {
     async refreshDepartmentKRIs() {
       this.krisLoading = true;
       try {
-        this.departmentKRIs = await kriService.getDepartmentKRIs(this.currentUser.Department);
+        this.departmentKRIs = await kriService.getDepartmentKRIs(this.currentUser.department);
       } catch (error) {
         console.error('Error loading department KRIs:', error);
         this.$message.error('Failed to load department KRIs');
@@ -470,7 +470,7 @@ export default {
       try {
         // Load permissions for department users and KRIs
         this.departmentPermissions = await kriService.getDepartmentPermissions(
-          this.currentUser.Department
+          this.currentUser.department
         );
       } catch (error) {
         console.error('Error loading department permissions:', error);
@@ -489,7 +489,7 @@ export default {
         } else {
           // Load department-specific audit data
           this.auditData = await departmentAdminService.getDepartmentAuditTrail(
-            this.currentUser.Department
+            this.currentUser.department
           );
         }
         
@@ -519,7 +519,7 @@ export default {
       this.userPermissionsDialogVisible = true;
       
       try {
-        const permissions = await kriService.getUserPermissionsSummary(user.UUID);
+        const permissions = await kriService.getUserPermissionsSummary(user.uuid);
         this.editablePermissions = this.departmentKRIs.map(kri => {
           const existingPerm = permissions.find(p => p.kri_id === kri.kri_code);
           return {
@@ -545,8 +545,8 @@ export default {
       
       try {
         const [permissions, recentActivity] = await Promise.all([
-          kriService.getUserPermissionsSummary(user.UUID),
-          this.getUserRecentActivity(user.UUID)
+          kriService.getUserPermissionsSummary(user.uuid),
+          this.getUserRecentActivity(user.uuid)
         ]);
         
         this.userDetailData = {
@@ -578,13 +578,13 @@ export default {
           .filter(p => p.kri_id === kri.kri_code)
           .map(p => ({
             ...p,
-            user_name: p.kri_user ? p.kri_user.User_Name : 'Unknown',
-            user_id: p.kri_user ? p.kri_user.User_ID : 'Unknown',
-            user_department: p.kri_user ? p.kri_user.Department : 'Unknown'
+            user_name: p.kri_user ? p.kri_user.user_name : 'Unknown',
+            user_id: p.kri_user ? p.kri_user.user_id : 'Unknown',
+            user_department: p.kri_user ? p.kri_user.department : 'Unknown'
           }));
           
         this.availableUsersForKRI = this.departmentUsers.filter(member => 
-          !this.kriUserPermissions.some(p => p.user_uuid === member.UUID)
+          !this.kriUserPermissions.some(p => p.user_uuid === member.uuid)
         );
       } catch (error) {
         console.error('Error loading KRI permissions:', error);
@@ -614,7 +614,7 @@ export default {
     
     // Permission management methods
     async updateUserPermissions(permissions) {
-      const success = await this.bulkUpdateUserPermissions(permissions, this.currentUser.User_ID);
+      const success = await this.bulkUpdateUserPermissions(permissions, this.currentUser.user_id);
       if (success) {
         this.userPermissionsDialogVisible = false;
         await this.refreshDepartmentUsers();
@@ -626,7 +626,7 @@ export default {
         permissionData.user_uuid,
         this.selectedKRI.kri_code,
         permissionData.actions,
-        this.currentUser.User_ID
+        this.currentUser.user_id
       );
       if (success) {
         await this.handleManageKRIPermissions(this.selectedKRI);
@@ -637,7 +637,7 @@ export default {
       const success = await this.removeKRIUserPermission(
         permission.user_uuid,
         permission.kri_id,
-        this.currentUser.User_ID
+        this.currentUser.user_id
       );
       if (success) {
         await this.handleManageKRIPermissions(this.selectedKRI);

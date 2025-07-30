@@ -23,8 +23,8 @@
     >
       <div v-if="editingUser" class="admin-dialog-content">
         <div class="admin-user-info">
-          <p><strong>User:</strong> {{ editingUser.User_ID }} ({{ editingUser.User_Name }})</p>
-          <p><strong>Department:</strong> {{ editingUser.Department }}</p>
+          <p><strong>User:</strong> {{ editingUser.user_id }} ({{ editingUser.user_name }})</p>
+          <p><strong>Department:</strong> {{ editingUser.department }}</p>
           <p><strong>Current Role:</strong> 
             <el-tag :type="getRoleTagType(editingUser.user_role)" size="small">
               {{ getRoleDisplayName(editingUser.user_role) }}
@@ -120,7 +120,7 @@ export default {
     filteredUsers() {
       let filtered = this.users;
       if (this.selectedDepartment) {
-        filtered = filtered.filter(user => user.Department === this.selectedDepartment);
+        filtered = filtered.filter(user => user.department === this.selectedDepartment);
       }
       return filtered;
     }
@@ -147,7 +147,7 @@ export default {
     async loadDepartments() {
       try {
         const users = await kriService.getAllUsers();
-        this.departments = [...new Set(users.map(user => user.Department).filter(Boolean))];
+        this.departments = [...new Set(users.map(user => user.department).filter(Boolean))];
       } catch (error) {
         console.error('Error loading departments:', error);
       }
@@ -169,9 +169,9 @@ export default {
     async handleBulkRoleChange(data) {
       try {
         const { users, newRole } = data;
-        const userIds = users.map(user => user.UUID);
+        const userIds = users.map(user => user.uuid);
         
-        await kriService.bulkUpdateUserRoles(userIds, newRole, this.currentUser.User_ID);
+        await kriService.bulkUpdateUserRoles(userIds, newRole, this.currentUser.user_id);
         
         this.$message.success(`Updated role for ${users.length} users`);
         await this.refreshUsers();
@@ -221,10 +221,10 @@ export default {
       this.roleChangeLoading = true;
       try {
         await kriService.updateUserRole(
-          this.editingUser.UUID,
+          this.editingUser.uuid,
           this.roleEditForm.newRole,
           this.roleEditForm.reason,
-          this.currentUser.User_ID
+          this.currentUser.user_id
         );
         
         this.$message.success('User role updated successfully');
@@ -243,7 +243,7 @@ export default {
       this.$router.push({
         name: 'admin',
         params: { tab: 'permissions' },
-        query: { user: user.UUID }
+        query: { user: user.uuid }
       });
     },
     

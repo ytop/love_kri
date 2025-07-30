@@ -48,10 +48,10 @@ CREATE TABLE public.kri_evidence (
   uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
   md5 text,
   CONSTRAINT kri_evidence_pkey PRIMARY KEY (evidence_id),
-  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
   CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
   CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
-  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date)
+  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id)
 );
 CREATE TABLE public.kri_item (
   kri_id bigint NOT NULL,
@@ -90,30 +90,30 @@ CREATE TABLE public.kri_metadata (
   CONSTRAINT kri_metadata_pkey PRIMARY KEY (metadata_id)
 );
 CREATE TABLE public.kri_user (
-  UUID uuid NOT NULL DEFAULT gen_random_uuid(),
-  User_ID character varying NOT NULL,
-  User_Name character varying,
-  Department character varying,
-  OTHER_INFO text DEFAULT 'anything'::text,
+  uuid uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id character varying NOT NULL,
+  user_name character varying,
+  department character varying,
+  other_info text DEFAULT 'anything'::text,
   user_role character varying DEFAULT 'user'::character varying CHECK (user_role::text = ANY (ARRAY['user'::character varying, 'dept_admin'::character varying, 'admin'::character varying]::text[])),
-  CONSTRAINT kri_user_pkey PRIMARY KEY (UUID)
+  CONSTRAINT kri_user_pkey PRIMARY KEY (uuid)
 );
 CREATE TABLE public.kri_user_permission (
   user_uuid uuid NOT NULL,
   kri_id bigint NOT NULL,
   reporting_date integer NOT NULL,
-  actions character varying NOT NULL DEFAULT ''::character varying,
+  action character varying NOT NULL,
   effect boolean DEFAULT true,
   condition json,
   created_date timestamp without time zone DEFAULT now(),
   update_date timestamp without time zone DEFAULT now(),
   kri_code text,
-  CONSTRAINT kri_user_permission_pkey PRIMARY KEY (user_uuid, kri_id, reporting_date),
-  CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
-  CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
-  CONSTRAINT kri_user_permission_user_uuid_fkey FOREIGN KEY (user_uuid) REFERENCES public.kri_user(UUID),
-  CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
-  CONSTRAINT kri_user_permission_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date)
+  CONSTRAINT kri_user_permission_pkey PRIMARY KEY (user_uuid, kri_id, reporting_date, action),
+  CONSTRAINT kri_user_permission_new_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
+  CONSTRAINT kri_user_permission_new_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
+  CONSTRAINT kri_user_permission_new_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT kri_user_permission_new_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT kri_user_permission_user_uuid_fkey FOREIGN KEY (user_uuid) REFERENCES public.kri_user(uuid)
 );
 CREATE TABLE public.metadata_history (
   history_id bigint NOT NULL DEFAULT nextval('metadata_history_history_id_seq'::regclass),

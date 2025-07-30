@@ -12,48 +12,54 @@ The KRI (Key Risk Indicator) system implements a sophisticated multi-level permi
 
 ```sql
 CREATE TABLE public.kri_user (
-  UUID uuid NOT NULL DEFAULT gen_random_uuid(),
-  User_ID character varying NOT NULL,
-  User_Name character varying,
-  Department character varying,
-  OTHER_INFO text DEFAULT 'anything'::text,
+  uuid uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id character varying NOT NULL,
+  user_name character varying,
+  department character varying,
+  other_info text DEFAULT 'anything'::text,
   user_role character varying DEFAULT 'user'::character varying CHECK (user_role::text = ANY (ARRAY['user'::character varying, 'dept_admin'::character varying, 'admin'::character varying]::text[])),
-  CONSTRAINT kri_user_pkey PRIMARY KEY (UUID)
+  CONSTRAINT kri_user_pkey PRIMARY KEY (uuid)
 );
 ```
 
 **Key Fields:**
 
-- `UUID`: Primary key, auto-generated UUID
-- `User_ID`: Unique user identifier
-- `User_Name`: Display name
-- `Department`: User's department affiliation
+- `uuid`: Primary key, auto-generated UUID
+- `user_id`: Unique user identifier
+- `user_name`: Display name
+- `department`: User's department affiliation
 - `user_role`: Role-based access level (`user`, `dept_admin`, `admin`)
 
-#### `kri_user_permission` Table
+#### `kri_user_permission` Table (Normalized Structure)
 
 ```sql
 CREATE TABLE public.kri_user_permission (
   user_uuid uuid NOT NULL,
   kri_id bigint NOT NULL,
   reporting_date integer NOT NULL,
-  actions character varying NOT NULL DEFAULT ''::character varying,
+  action varchar(50) NOT NULL, -- Individual permission action
   effect boolean DEFAULT true,
   condition json,
   created_date timestamp without time zone DEFAULT now(),
   update_date timestamp without time zone DEFAULT now(),
   kri_code text,
-  CONSTRAINT kri_user_permission_pkey PRIMARY KEY (user_uuid, kri_id, reporting_date)
+  CONSTRAINT kri_user_permission_pkey PRIMARY KEY (user_uuid, kri_id, reporting_date, action)
 );
 ```
 
 **Key Fields:**
 
-- `user_uuid`: Foreign key to kri_user.UUID
+- `user_uuid`: Foreign key to kri_user.uuid
 - `kri_id`: KRI identifier
 - `reporting_date`: Reporting period (YYYYMMDD format)
-- `actions`: Comma-separated permission string
+- `action`: Individual permission action (e.g., 'edit', 'view', 'atomic1.edit')
 - `effect`: Boolean flag for permission effect (true = grant, false = deny)
+
+**Database Design:**
+- **Normalized Structure**: Each permission is stored as a separate row
+- **Dot Notation**: Atomic permissions use format `atomic1.edit`, `atomic2.view`
+- **Primary Key**: Composite key includes action for unique permission records
+- **Performance**: Indexed for efficient querying and filtering
 
 #### `kri_metadata` Table
 
@@ -121,33 +127,42 @@ export const USER_PERMISSIONS = {
 };
 ```
 
-#### Permission Format
+#### Permission Format (Normalized)
 
-Permissions are stored as comma-separated strings in the `actions` field:
+Permissions are stored as individual database records, one per action:
 
-```
-"view,edit,review,acknowledge,delete"
+```sql
+-- Example permission records for a user on KRI 1:
+INSERT INTO kri_user_permission VALUES 
+  ('uuid-123', 1, 20250630, 'view', true),
+  ('uuid-123', 1, 20250630, 'edit', true),
+  ('uuid-123', 1, 20250630, 'review', true);
 ```
 
 ### 3. Atomic-Level Permissions
 
-#### Atomic Permission Format
+#### Atomic Permission Format (Dot Notation)
 
-Atomic permissions follow the pattern `atomic{id}_{action}`:
+Atomic permissions use dot notation pattern `atomic{id}.{action}`:
 
-```
-"atomic1_edit,atomic1_view,atomic2_edit,atomic2_view"
+```sql
+-- Example atomic permission records:
+INSERT INTO kri_user_permission VALUES 
+  ('uuid-123', 1, 20250630, 'atomic1.edit', true),
+  ('uuid-123', 1, 20250630, 'atomic1.view', true),
+  ('uuid-123', 1, 20250630, 'atomic2.edit', true),
+  ('uuid-123', 1, 20250630, 'atomic2.view', true);
 ```
 
 #### Atomic Permission Patterns
 
 ```javascript
 export const ATOMIC_PERMISSION_PATTERNS = {
-  ATOMIC_EDIT: /^atomic\d+_edit$/,
-  ATOMIC_VIEW: /^atomic\d+_view$/,
-  ATOMIC_REVIEW: /^atomic\d+_review$/,
-  ATOMIC_ACKNOWLEDGE: /^atomic\d+_acknowledge$/,
-  ATOMIC_DELETE: /^atomic\d+_delete$/
+  ATOMIC_EDIT: /^atomic\d+\.edit$/,
+  ATOMIC_VIEW: /^atomic\d+\.view$/,
+  ATOMIC_REVIEW: /^atomic\d+\.review$/,
+  ATOMIC_ACKNOWLEDGE: /^atomic\d+\.acknowledge$/,
+  ATOMIC_DELETE: /^atomic\d+\.delete$/
 };
 ```
 
@@ -171,19 +186,25 @@ static canAcknowledge(kriId, atomicId, userPermissions)
 static canDelete(kriId, atomicId, userPermissions)
 ```
 
-#### Permission Parsing
+#### Permission Record Processing
 
 ```javascript
-static parsePermissionString(permissionString)
-// Converts "atomic1_edit,atomic2_view,edit" to ["atomic1_edit", "atomic2_view", "edit"]
+static findKRIPermissions(userPermissions, kriId)
+// Returns array of permission records for the specified KRI
+// Each record: { kri_id, action, effect, ... }
+
+static extractActionsFromRecords(permissionRecords)
+// Extracts action strings from permission records
+// Filters out denied permissions (effect=false)
 ```
 
 #### Atomic Permission Logic
 
 ```javascript
-static _checkActionsArray(actionsArray, atomicId, action)
-// For atomicId !== null: checks "atomic{id}_{action}"
-// For atomicId === null: checks general "{action}"
+static canPerform(kriId, atomicId, action, userPermissions)
+// For atomicId !== null: checks for "atomic{id}.{action}" record
+// For atomicId === null: checks for general "{action}" record
+// Returns true only if record exists with effect=true
 ```
 
 ### Role-Based Permission Methods
@@ -251,22 +272,22 @@ permissionTemplates: {
   viewer: {
     name: 'Viewer',
     description: 'View-only access to KRIs',
-    permissions: 'view'
+    actions: ['view']
   },
   editor: {
     name: 'Editor', 
     description: 'View and edit access to KRIs',
-    permissions: 'view,edit'
+    actions: ['view', 'edit']
   },
   dataProvider: {
     name: 'Data Provider',
     description: 'Data provider permissions including review',
-    permissions: 'view,edit,review'
+    actions: ['view', 'edit', 'review']
   },
   kriOwner: {
     name: 'KRI Owner',
     description: 'Full KRI ownership permissions',
-    permissions: 'view,edit,review,acknowledge'
+    actions: ['view', 'edit', 'review', 'acknowledge']
   }
 }
 ```
@@ -396,9 +417,10 @@ static needsUserAction(kriItem, userPermissions) {
 
 #### 1. Permission Initialization
 ```javascript
-// Store initialization with parsed permissions
-commit('SET_USER_PERMISSIONS', parsedPermissions);
-// Each permission object gets actionsArray property for efficient checking
+// Store initialization with normalized permissions
+commit('SET_USER_PERMISSIONS', normalizedPermissions);
+// Each permission is already a separate record - no parsing needed
+// Records: [{ kri_id, action, effect, ... }, ...]
 ```
 
 #### 2. Component Permission Checking
@@ -426,10 +448,11 @@ computed: {
 
 ### Performance Optimizations
 
-#### 1. Pre-parsed Permission Arrays
+#### 1. Direct Permission Record Access
 ```javascript
-// Store parsed permissions to avoid repeated string splitting
-permission.actionsArray = Permission.parsePermissionString(permission.actions);
+// No parsing needed - permissions are already normalized
+// Direct filtering and querying of permission records
+const kriPermissions = userPermissions.filter(p => p.kri_id === kriId);
 ```
 
 #### 2. Cached Permission Checks
@@ -515,10 +538,11 @@ await kriService.bulkUpdatePermissions(updates, userId);
 
 ### Common Issues
 
-1. **Atomic permissions not working**: Ensure atomic permissions are explicitly assigned (no fallback)
+1. **Atomic permissions not working**: Ensure atomic permissions are explicitly assigned with dot notation (e.g., `atomic1.edit`)
 2. **Department admin access denied**: Verify KRI ownership vs data provider relationship
 3. **Role assignment failures**: Check current user's role assignment capabilities
-4. **Permission parsing errors**: Validate permission string format
+4. **Permission record errors**: Validate action format and ensure records exist with effect=true
+5. **Migration issues**: Verify old comma-separated permissions were properly converted to normalized records
 
 ### Debug Methods
 
@@ -531,6 +555,130 @@ Permission.hasAnyPermission(kriId, userPermissions)
 
 // Validate permission actions
 Permission.isValidAction(action)
+
+// Find permission records for debugging
+Permission.findKRIPermissions(userPermissions, kriId)
+
+// Extract atomic ID from dot notation
+getAtomicIdFromPermission('atomic1.edit') // returns 1
 ```
 
-This permission system provides a robust, scalable foundation for managing access to KRI data while maintaining security and operational flexibility.
+## Database Migration: Normalized Permission Structure
+
+### Migration Overview
+
+The permission system was migrated from a comma-separated string format to a fully normalized database structure to improve performance, maintainability, and query flexibility.
+
+### Migration Details
+
+#### Before (Legacy Format)
+```sql
+-- Old structure with comma-separated actions
+CREATE TABLE kri_user_permission_old (
+  user_uuid uuid,
+  kri_id bigint,
+  reporting_date integer,
+  actions varchar, -- "view,edit,atomic1_edit,atomic2_view"
+  PRIMARY KEY (user_uuid, kri_id, reporting_date)
+);
+```
+
+#### After (Normalized Format)
+```sql
+-- New normalized structure with individual permission records
+CREATE TABLE kri_user_permission (
+  user_uuid uuid,
+  kri_id bigint,
+  reporting_date integer,
+  action varchar(50), -- "view", "edit", "atomic1.edit", "atomic2.view"
+  effect boolean DEFAULT true,
+  PRIMARY KEY (user_uuid, kri_id, reporting_date, action)
+);
+```
+
+### Migration Process
+
+1. **Create normalized table** with dot notation support
+2. **Parse existing comma-separated permissions** using PostgreSQL functions
+3. **Convert underscore to dot notation**: `atomic1_edit` → `atomic1.edit`
+4. **Insert individual permission records** for each action
+5. **Replace old table** with new normalized structure
+6. **Update application code** to work with normalized data
+
+### Benefits of Normalized Structure
+
+#### 1. **Performance Improvements**
+- **Direct database queries** instead of string parsing
+- **Efficient filtering** with WHERE clauses on action column
+- **Better indexing** for atomic permission queries
+- **Reduced client-side processing** overhead
+
+#### 2. **Query Flexibility**
+```sql
+-- Easy to query specific permission types
+SELECT * FROM kri_user_permission WHERE action = 'edit';
+
+-- Simple atomic permission filtering  
+SELECT * FROM kri_user_permission WHERE action LIKE 'atomic%.edit';
+
+-- Permission counting and analytics
+SELECT action, COUNT(*) FROM kri_user_permission GROUP BY action;
+```
+
+#### 3. **Maintainability**
+- **Cleaner code** - no string parsing logic
+- **Type safety** - each permission is a proper database record
+- **Easier debugging** - permissions are visible as individual records
+- **Simpler updates** - add/remove individual permissions without string manipulation
+
+#### 4. **Extensibility**
+- **Easy to add metadata** to individual permissions
+- **Granular permission control** with effect flags
+- **Condition-based permissions** using JSON conditions
+- **Audit trail integration** for individual permission changes
+
+### Code Changes Summary
+
+#### Permission Utility Class Updates
+```javascript
+// Old approach - string parsing
+static parsePermissionString(permissionString) {
+  return permissionString.split(',').map(a => a.trim());
+}
+
+// New approach - direct record filtering
+static findKRIPermissions(userPermissions, kriId) {
+  return userPermissions.filter(p => p.kri_id === kriId);
+}
+```
+
+#### Store Integration Updates
+```javascript
+// Old approach - parse comma-separated strings
+const parsedPermissions = rawPermissions.map(permission => ({
+  ...permission,
+  actionsArray: permission.actions.split(',').map(a => a.trim())
+}));
+
+// New approach - use normalized records directly
+const normalizedPermissions = await kriService.fetchUserPermission(...);
+commit('SET_USER_PERMISSIONS', normalizedPermissions);
+```
+
+#### Helper Function Updates
+```javascript
+// Updated regex patterns for dot notation
+export const ATOMIC_PERMISSION_PATTERNS = {
+  ATOMIC_EDIT: /^atomic\d+\.edit$/,    // was: /^atomic\d+_edit$/
+  ATOMIC_VIEW: /^atomic\d+\.view$/,    // was: /^atomic\d+_view$/
+  // ...
+};
+
+// Updated atomic ID extraction
+export const getAtomicIdFromPermission = (permission) => {
+  const match = permission.match(/^atomic(\d+)\./); // was: /^atomic(\d+)_/
+  return match ? parseInt(match[1], 10) : null;
+};
+```
+
+This normalized permission system provides a robust, scalable foundation for managing access to KRI data while maintaining security and operational flexibility. The migration to a normalized structure with dot notation ensures better performance, maintainability, and future extensibility.

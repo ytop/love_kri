@@ -93,13 +93,13 @@ export const calculateBreachStatus = (kriValue, warningLineValue, limitValue) =>
   }
 };
 
-// Atomic-level permission patterns
+// Atomic-level permission patterns (updated for dot notation)
 export const ATOMIC_PERMISSION_PATTERNS = {
-  ATOMIC_EDIT: /^atomic\d+_edit$/,
-  ATOMIC_VIEW: /^atomic\d+_view$/,
-  ATOMIC_REVIEW: /^atomic\d+_review$/,
-  ATOMIC_ACKNOWLEDGE: /^atomic\d+_acknowledge$/,
-  ATOMIC_DELETE: /^atomic\d+_delete$/
+  ATOMIC_EDIT: /^atomic\d+\.edit$/,
+  ATOMIC_VIEW: /^atomic\d+\.view$/,
+  ATOMIC_REVIEW: /^atomic\d+\.review$/,
+  ATOMIC_ACKNOWLEDGE: /^atomic\d+\.acknowledge$/,
+  ATOMIC_DELETE: /^atomic\d+\.delete$/
 };
 
 // Check if permission is an atomic-level permission
@@ -107,9 +107,9 @@ export const isAtomicPermission = (permission) => {
   return Object.values(ATOMIC_PERMISSION_PATTERNS).some(pattern => pattern.test(permission));
 };
 
-// Extract atomic ID from atomic permission (e.g., "atomic1_edit" -> "1")
+// Extract atomic ID from atomic permission (e.g., "atomic1.edit" -> "1")
 export const getAtomicIdFromPermission = (permission) => {
-  const match = permission.match(/^atomic(\d+)_/);
+  const match = permission.match(/^atomic(\d+)\./);
   return match ? parseInt(match[1], 10) : null;
 };
 
@@ -124,8 +124,8 @@ export const calculatePendingKRIs = (kriItems, userPermissions) => {
 // Get user display name with fallback options based on database schema
 export const getUserDisplayName = (user) => {
   if (!user) return 'Unknown User';
-  // Prioritize User_Name, then User_ID, then Department from kri_user table schema
-  return user.User_Name || user.name || user.User_ID || user.Department || user.department || 'User';
+  // Prioritize user_name, then user_id, then department from kri_user table schema (lowercase columns)
+  return user.user_name || user.name || user.user_id || user.department || 'User';
 };
 
 // ---------------------------------- Breach Status Utilities ----------------------------------

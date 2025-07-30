@@ -3,7 +3,7 @@
 ## Current State Analysis
 
 **Existing Infrastructure:**
-- Database schema with `kri_user` table containing `Department` field
+- Database schema with `kri_user` table containing `department` field
 - Current `AdminManagement.vue` view with basic user and permission management
 - Permission system via `kri_user_permission` table with KRI-level access control
 - Relationship-based access through `owner` and `data_provider` fields in `kri_metadata`
@@ -80,7 +80,7 @@ ALTER TABLE kri_user ADD COLUMN user_role VARCHAR(20) DEFAULT 'user' CHECK (user
 #### 2. Update existing records
 ```sql
 -- Set admin role for admin department users
-UPDATE kri_user SET user_role = 'admin' WHERE Department = 'admin';
+UPDATE kri_user SET user_role = 'admin' WHERE department = 'admin';
 ```
 
 ### Permission System Enhancements

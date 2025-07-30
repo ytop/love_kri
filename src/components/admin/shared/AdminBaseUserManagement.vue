@@ -46,18 +46,18 @@
       stripe
       border
       class="admin-full-width"
-      :default-sort="{ prop: 'User_ID', order: 'ascending' }"
+      :default-sort="{ prop: 'user_id', order: 'ascending' }"
       @selection-change="handleSelectionChange"
     >
       <el-table-column v-if="showSelection" type="selection" width="55"></el-table-column>
       
-      <el-table-column prop="User_ID" label="User ID" sortable width="120">
+      <el-table-column prop="user_id" label="User ID" sortable width="120">
       </el-table-column>
       
-      <el-table-column prop="User_Name" label="Display Name" sortable width="150">
+      <el-table-column prop="user_name" label="Display Name" sortable width="150">
       </el-table-column>
       
-      <el-table-column v-if="showDepartmentColumn" prop="Department" label="Department" sortable width="120">
+      <el-table-column v-if="showDepartmentColumn" prop="department" label="department" sortable width="120">
       </el-table-column>
       
       <el-table-column prop="user_role" label="Role" sortable width="120">
@@ -259,7 +259,7 @@ export default {
       let filtered = this.users;
       
       if (this.selectedDepartment) {
-        filtered = filtered.filter(user => user.Department === this.selectedDepartment);
+        filtered = filtered.filter(user => user.department === this.selectedDepartment);
       }
       
       return filtered;
@@ -284,14 +284,14 @@ export default {
     canManageUser(user) {
       // System admin can manage all users except themselves
       if (this.currentUser.user_role === 'admin') {
-        return user.UUID !== this.currentUser.UUID;
+        return user.uuid !== this.currentUser.uuid;
       }
       
       // Department admin can only manage users in their department (except other dept admins)
       if (this.currentUser.user_role === 'dept_admin') {
-        return user.Department === this.currentUser.Department && 
+        return user.department === this.currentUser.department && 
                user.user_role === 'user' &&
-               user.UUID !== this.currentUser.UUID;
+               user.uuid !== this.currentUser.uuid;
       }
       
       return false;

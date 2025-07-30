@@ -7,7 +7,7 @@
   >
     <div v-if="selectedUser">
       <div class="user-info-header">
-        <h4>{{ selectedUser.User_Name }} ({{ selectedUser.User_ID }})</h4>
+        <h4>{{ selectedUser.user_name }} ({{ selectedUser.user_id }})</h4>
         <el-tag :type="getRoleTagType(selectedUser.user_role)" size="medium">
           {{ getRoleDisplayName(selectedUser.user_role) }}
         </el-tag>

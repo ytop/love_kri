@@ -21,9 +21,9 @@
           >
             <el-option 
               v-for="user in users" 
-              :key="user.UUID" 
-              :label="`${user.User_ID} (${user.User_Name} - ${user.Department})`" 
-              :value="user.UUID"
+              :key="user.uuid" 
+              :label="`${user.user_id} (${user.user_name} - ${user.department})`" 
+              :value="user.uuid"
             ></el-option>
           </el-select>
         </el-form-item>
@@ -60,12 +60,12 @@
             v-model="newPermission.actions" 
             type="textarea"
             :rows="3"
-            placeholder="e.g., edit,view,review,acknowledge,delete,atomic1_edit,atomic1_view"
+            placeholder="e.g., edit,view,review,acknowledge,delete,atomic1.edit,atomic1.view"
             class="admin-full-width"
           ></el-input>
           <div class="admin-permission-help">
             <small>Available actions: edit, view, review, acknowledge, delete</small><br>
-            <small>Atomic actions: atomic1_edit, atomic1_view, atomic2_edit, etc.</small>
+            <small>Atomic actions: atomic1.edit, atomic1.view, atomic2.edit, etc. (dot notation)</small>
           </div>
         </el-form-item>
         
@@ -228,17 +228,19 @@ export default {
           reportingDate = parseInt(reportingDate.toISOString().slice(0, 10).replace(/-/g, ''));
         }
         
-        const permissionUpdate = {
+        // Convert comma-separated actions to individual permission records
+        const actions = this.newPermission.actions.split(',').map(a => a.trim()).filter(a => a);
+        const permissionUpdates = actions.map(action => ({
           user_uuid: this.newPermission.user_uuid,
           kri_id: this.newPermission.kri_id,
           reporting_date: reportingDate,
-          actions: this.newPermission.actions,
+          action: action,
           effect: this.newPermission.effect
-        };
+        }));
         
         await kriService.bulkUpdatePermissions(
-          [permissionUpdate], 
-          this.$store.getters['kri/currentUser'].User_ID
+          permissionUpdates, 
+          this.$store.getters['kri/currentUser'].user_id
         );
         
         this.$message.success('Permission added successfully');
@@ -298,11 +300,11 @@ export default {
       // Split actions and check for valid format
       const actions = value.split(',').map(a => a.trim()).filter(a => a);
       const validActions = ['view', 'edit', 'review', 'acknowledge', 'delete'];
-      const atomicPattern = /^atomic\d+_(edit|view|review|acknowledge|delete)$/;
+      const atomicPattern = /^atomic\d+\.(edit|view|review|acknowledge|delete)$/;
       
       for (const action of actions) {
         if (!validActions.includes(action) && !atomicPattern.test(action)) {
-          callback(new Error(`Invalid action: ${action}. Use valid actions or atomic patterns like atomic1_edit`));
+          callback(new Error(`Invalid action: ${action}. Use valid actions or atomic patterns like atomic1.edit`));
           return;
         }
       }

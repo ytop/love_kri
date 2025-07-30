@@ -59,7 +59,7 @@
       <div class="admin-bulk-actions">
         <h4>Bulk Department Operations</h4>
         <el-form :inline="true">
-          <el-form-item label="Department:">
+          <el-form-item label="department:">
             <el-select 
               v-model="selectedDepartment" 
               placeholder="Select department"
@@ -102,7 +102,7 @@
 
     <!-- Department Details Dialog -->
     <el-dialog 
-      title="Department Management" 
+      title="department Management" 
       :visible.sync="departmentDetailsDialogVisible"
       width="900px"
       @close="resetDepartmentDetailsDialog"
@@ -119,8 +119,8 @@
         <el-tabs>
           <el-tab-pane label="Users" name="users">
             <el-table :data="departmentUsers" stripe class="admin-full-width">
-              <el-table-column prop="User_ID" label="User ID" width="120"></el-table-column>
-              <el-table-column prop="User_Name" label="Name" width="150"></el-table-column>
+              <el-table-column prop="user_id" label="User ID" width="120"></el-table-column>
+              <el-table-column prop="user_name" label="Name" width="150"></el-table-column>
               <el-table-column prop="user_role" label="Role" width="120">
                 <template slot-scope="scope">
                   <el-tag :type="getRoleTagType(scope.row.user_role)" size="small">
@@ -187,8 +187,8 @@
     >
       <div v-if="viewingUser" class="admin-dialog-content">
         <div class="admin-user-info">
-          <p><strong>User:</strong> {{ viewingUser.User_ID }} ({{ viewingUser.User_Name }})</p>
-          <p><strong>Department:</strong> {{ viewingUser.Department }}</p>
+          <p><strong>User:</strong> {{ viewingUser.user_id }} ({{ viewingUser.user_name }})</p>
+          <p><strong>Department:</strong> {{ viewingUser.department }}</p>
         </div>
         
         <el-table 
@@ -336,7 +336,7 @@ export default {
         const stats = [];
         
         for (const dept of this.departments) {
-          const deptUsers = users.filter(u => u.Department === dept);
+          const deptUsers = users.filter(u => u.department === dept);
           let deptKRIs = [];
           
           try {
@@ -447,15 +447,15 @@ export default {
     
     async promoteUserToDeptAdmin(user) {
       try {
-        await kriService.updateUserRole(user.UUID, 'dept_admin', this.currentUser.User_ID);
+        await kriService.updateUserRole(user.uuid, 'dept_admin', this.currentUser.user_id);
         
         // Update local data
-        const userIndex = this.departmentUsers.findIndex(u => u.UUID === user.UUID);
+        const userIndex = this.departmentUsers.findIndex(u => u.uuid === user.uuid);
         if (userIndex !== -1) {
           this.departmentUsers[userIndex].user_role = 'dept_admin';
         }
         
-        this.$message.success(`${user.User_ID} promoted to Department Administrator`);
+        this.$message.success(`${user.user_id} promoted to Department Administrator`);
         await this.loadDepartmentStats(); // Refresh stats
         this.$emit('data-updated');
       } catch (error) {
@@ -470,7 +470,7 @@ export default {
       this.userPermissionsDialogVisible = true;
       
       try {
-        this.userPermissions = await kriService.getUserPermissionsSummary(user.UUID);
+        this.userPermissions = await kriService.getUserPermissionsSummary(user.uuid);
       } catch (error) {
         console.error('Error loading user permissions:', error);
         this.$message.error('Failed to load user permissions');

@@ -7,7 +7,7 @@
       </div>
       <div class="admin-header-actions">
         <span class="department-info">
-          <el-tag type="primary" size="large">{{ currentUser.Department }}</el-tag>
+          <el-tag type="primary" size="large">{{ currentUser.department }}</el-tag>
           <span class="user-role">Department Administrator</span>
         </span>
       </div>

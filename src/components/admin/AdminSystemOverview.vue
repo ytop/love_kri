@@ -332,7 +332,7 @@ export default {
         const stats = [];
         
         for (const dept of this.departments) {
-          const deptUsers = users.filter(u => u.Department === dept);
+          const deptUsers = users.filter(u => u.department === dept);
           let kriCount = 0;
           
           try {
@@ -364,21 +364,21 @@ export default {
           {
             timestamp: new Date().toISOString(),
             action: 'Role Change',
-            user: this.currentUser.User_ID || 'System Admin',
+            user: this.currentUser.user_id || 'System Admin',
             target: 'User123',
             details: 'Promoted to dept_admin'
           },
           {
             timestamp: new Date(Date.now() - 3600000).toISOString(),
             action: 'Permission Update',
-            user: this.currentUser.User_ID || 'System Admin',
+            user: this.currentUser.user_id || 'System Admin',
             target: 'KRI_001',
             details: 'Added edit permissions for User456'
           },
           {
             timestamp: new Date(Date.now() - 7200000).toISOString(),
             action: 'User Creation',
-            user: this.currentUser.User_ID || 'System Admin',
+            user: this.currentUser.user_id || 'System Admin',
             target: 'NewUser789',
             details: 'Created new user in Finance department'
           }

@@ -68,7 +68,7 @@
             ></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item v-if="showDepartmentFilter" label="Department:">
+        <el-form-item v-if="showDepartmentFilter" label="department:">
           <el-select 
             v-model="departmentFilter" 
             placeholder="All Departments"
@@ -93,9 +93,9 @@
           >
             <el-option 
               v-for="user in availableUsers" 
-              :key="user.UUID || user.User_ID" 
-              :label="`${user.User_ID} (${user.User_Name})`" 
-              :value="user.UUID || user.User_ID"
+              :key="user.uuid || user.user_id" 
+              :label="`${user.user_id} (${user.user_name})`" 
+              :value="user.uuid || user.user_id"
             ></el-option>
           </el-select>
         </el-form-item>
@@ -148,7 +148,7 @@
       <el-table-column prop="changed_by" label="User" width="120" sortable>
       </el-table-column>
       
-      <el-table-column v-if="showDepartmentColumn" prop="user_department" label="Department" width="120">
+      <el-table-column v-if="showDepartmentColumn" prop="user_department" label="department" width="120">
       </el-table-column>
       
       <el-table-column v-if="showFieldColumn" prop="field_name" label="Field" width="150">

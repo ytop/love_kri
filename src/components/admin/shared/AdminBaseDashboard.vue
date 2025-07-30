@@ -7,8 +7,8 @@
       </div>
       <div class="admin-header-actions">
         <slot name="header-actions">
-          <span v-if="currentUser.Department" class="department-info">
-            <el-tag type="primary" size="large">{{ currentUser.Department }}</el-tag>
+          <span v-if="currentUser.department" class="department-info">
+            <el-tag type="primary" size="large">{{ currentUser.department }}</el-tag>
             <span class="user-role">{{ getRoleDisplayName(currentUser.user_role) }}</span>
           </span>
         </slot>

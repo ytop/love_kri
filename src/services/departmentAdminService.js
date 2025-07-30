@@ -71,7 +71,7 @@ class DepartmentAdminService {
       const usersWithPermissions = [];
 
       for (const user of users) {
-        const permissions = await kriService.getUserPermissionsSummary(user.UUID);
+        const permissions = await kriService.getUserPermissionsSummary(user.uuid);
         
         // Count permissions by type
         const permissionSummary = permissions.reduce((acc, perm) => {
@@ -122,7 +122,7 @@ class DepartmentAdminService {
 
       // Validate that all users belong to the department
       const departmentUsers = await kriService.getUsersByDepartment(department);
-      const departmentUserUuids = departmentUsers.map(user => user.UUID);
+      const departmentUserUuids = departmentUsers.map(user => user.uuid);
       
       const invalidUsers = userUuids.filter(uuid => !departmentUserUuids.includes(uuid));
       if (invalidUsers.length > 0) {
@@ -146,7 +146,7 @@ class DepartmentAdminService {
       // Execute bulk permission update
       const results = await kriService.bulkUpdatePermissions(
         permissionUpdates, 
-        currentUser.User_ID || currentUser.name
+        currentUser.user_id || currentUser.name
       );
 
       return results;
@@ -201,7 +201,7 @@ class DepartmentAdminService {
       const result = await kriService.updateUserRole(
         userUuid, 
         'dept_admin', 
-        currentUser.User_ID || currentUser.name
+        currentUser.user_id || currentUser.name
       );
       
       return result;
@@ -226,7 +226,7 @@ class DepartmentAdminService {
       const result = await kriService.updateUserRole(
         userUuid, 
         'user', 
-        currentUser.User_ID || currentUser.name
+        currentUser.user_id || currentUser.name
       );
       
       return result;
@@ -281,7 +281,7 @@ class DepartmentAdminService {
    * @returns {Promise<Array>} Array of updated permission records
    */
   async applyPermissionTemplate(template, userUuids, kriIds, reportingDate, currentUser) {
-    const templates = this.getPermissionTemplates(currentUser.Department);
+    const templates = this.getPermissionTemplates(currentUser.department);
     
     if (!templates[template]) {
       throw new Error(`Invalid permission template: ${template}`);
@@ -290,7 +290,7 @@ class DepartmentAdminService {
     const permissions = templates[template].permissions;
     
     return await this.bulkAssignDepartmentPermissions(
-      currentUser.Department,
+      currentUser.department,
       userUuids,
       kriIds,
       permissions,

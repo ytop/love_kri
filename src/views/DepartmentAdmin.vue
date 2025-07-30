@@ -46,7 +46,7 @@
         </el-tab-pane>
 
         <!-- Department KRIs Tab -->
-        <el-tab-pane label="Department KRIs" name="kris">
+        <el-tab-pane label="department KRIs" name="kris">
           <department-kri-management 
             :departmentKRIs="departmentKRIs"
             :loading="krisLoading"
@@ -212,7 +212,7 @@ export default {
     ...mapGetters('kri', ['currentUser']),
     
     permissionTemplates() {
-      return departmentAdminService.getPermissionTemplates(this.currentUser.Department);
+      return departmentAdminService.getPermissionTemplates(this.currentUser.department);
     }
   },
   async mounted() {
@@ -234,7 +234,7 @@ export default {
       try {
         // Load department overview
         const overview = await departmentAdminService.getDepartmentOverview(
-          this.currentUser.Department, 
+          this.currentUser.department, 
           this.currentUser
         );
         
@@ -254,7 +254,7 @@ export default {
     async loadTeamMembersWithPermissions() {
       try {
         this.teamMembers = await departmentAdminService.getDepartmentUsersWithPermissions(
-          this.currentUser.Department,
+          this.currentUser.department,
           this.currentUser
         );
       } catch (error) {
@@ -299,7 +299,7 @@ export default {
     async refreshKRIData() {
       this.krisLoading = true;
       try {
-        this.departmentKRIs = await kriService.getDepartmentKRIs(this.currentUser.Department);
+        this.departmentKRIs = await kriService.getDepartmentKRIs(this.currentUser.department);
         this.$message.success('KRI data refreshed');
       } catch (error) {
         console.error('Error refreshing KRI data:', error);
@@ -379,7 +379,7 @@ export default {
       
       try {
         // Load user's current permissions
-        this.userCurrentPermissions = await kriService.getUserPermissionsSummary(user.UUID);
+        this.userCurrentPermissions = await kriService.getUserPermissionsSummary(user.uuid);
         
         // Transform permissions for editing
         this.editablePermissions = this.departmentKRIs.map(kri => {
@@ -408,8 +408,8 @@ export default {
       try {
         // Load detailed user information
         const [permissions, recentActivity] = await Promise.all([
-          kriService.getUserPermissionsSummary(user.UUID),
-          this.getUserRecentActivity(user.UUID)
+          kriService.getUserPermissionsSummary(user.uuid),
+          this.getUserRecentActivity(user.uuid)
         ]);
         
         this.userDetailData = {
@@ -442,14 +442,14 @@ export default {
           .filter(p => p.kri_id === kri.kri_code)
           .map(p => ({
             ...p,
-            user_name: p.kri_user ? p.kri_user.User_Name : 'Unknown',
-            user_id: p.kri_user ? p.kri_user.User_ID : 'Unknown',
-            user_department: p.kri_user ? p.kri_user.Department : 'Unknown'
+            user_name: p.kri_user ? p.kri_user.user_name : 'Unknown',
+            user_id: p.kri_user ? p.kri_user.user_id : 'Unknown',
+            user_department: p.kri_user ? p.kri_user.department : 'Unknown'
           }));
           
         // Prepare available users for assignment (department members without current permissions)
         this.availableUsersForKRI = this.teamMembers.filter(member => 
-          !this.kriUserPermissions.some(p => p.user_uuid === member.UUID)
+          !this.kriUserPermissions.some(p => p.user_uuid === member.uuid)
         );
       } catch (error) {
         console.error('Error loading KRI permissions:', error);
@@ -504,7 +504,7 @@ export default {
         const reportingDate = parseInt(new Date().toISOString().slice(0, 10).replace(/-/g, ''));
         
         await departmentAdminService.bulkAssignDepartmentPermissions(
-          this.currentUser.Department,
+          this.currentUser.department,
           this.bulkPermissionUsers,
           this.bulkPermissionKRIs,
           this.bulkPermissionActions,
@@ -592,14 +592,14 @@ export default {
         for (const perm of this.editablePermissions) {
           if (perm.current_actions !== perm.new_actions) {
             const permissionUpdate = {
-              user_uuid: this.selectedUser.UUID,
+              user_uuid: this.selectedUser.uuid,
               kri_id: perm.kri_id,
               actions: perm.new_actions,
               effect: perm.new_actions ? true : false,
               reporting_date: reportingDate
             };
             
-            await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
+            await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.user_id);
           }
         }
         
@@ -630,7 +630,7 @@ export default {
           reporting_date: reportingDate
         };
         
-        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
+        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.user_id);
         
         this.$message.success('KRI permission added successfully');
         this.newUserPermissions = { user_uuid: '', actions: '' };
@@ -653,7 +653,7 @@ export default {
           reporting_date: reportingDate
         };
         
-        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.User_ID);
+        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.user_id);
         
         this.$message.success('KRI permission removed successfully');
         await this.manageKRIPermissions(this.selectedKRI); // Refresh data

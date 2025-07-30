@@ -48,9 +48,9 @@
             >
               <el-option 
                 v-for="user in availableUsers" 
-                :key="user.UUID" 
-                :label="`${user.User_ID} (${user.User_Name})`" 
-                :value="user.UUID"
+                :key="user.uuid" 
+                :label="`${user.user_id} (${user.user_name})`" 
+                :value="user.uuid"
               ></el-option>
             </el-select>
           </el-form-item>
@@ -100,7 +100,7 @@
     <!-- Filters Section -->
     <div v-if="showFilters" class="admin-filters" :style="(showTemplates || showBulkAssignment) ? 'margin-top: 20px;' : ''">
       <el-form :inline="true" class="admin-filter-form">
-        <el-form-item v-if="showDepartmentFilter" label="Department:">
+        <el-form-item v-if="showDepartmentFilter" label="department:">
           <el-select 
             v-model="selectedDepartment" 
             placeholder="All Departments"
@@ -128,9 +128,9 @@
           >
             <el-option 
               v-for="user in filteredUsers" 
-              :key="user.UUID" 
-              :label="`${user.User_ID} (${user.Department || 'No Dept'})`" 
-              :value="user.UUID"
+              :key="user.uuid" 
+              :label="`${user.user_id} (${user.department || 'No Dept'})`" 
+              :value="user.uuid"
             ></el-option>
           </el-select>
         </el-form-item>
@@ -175,7 +175,7 @@
           <el-table-column prop="user_name" label="User Name" width="150" sortable>
           </el-table-column>
           
-          <el-table-column v-if="showDepartmentColumn" prop="department" label="Department" width="120">
+          <el-table-column v-if="showDepartmentColumn" prop="department" label="department" width="120">
           </el-table-column>
           
           <el-table-column prop="kri_id" label="KRI Code" width="120" sortable>
@@ -349,7 +349,7 @@ export default {
       let filtered = this.availableUsers;
       
       if (this.selectedDepartment) {
-        filtered = filtered.filter(user => user.Department === this.selectedDepartment);
+        filtered = filtered.filter(user => user.department === this.selectedDepartment);
       }
       
       return filtered;

@@ -23,16 +23,16 @@ export async function authenticateUser(username) {
     const user = userData[0];
     
     // Check for the actual field names from database schema
-    // Database has: UUID, User_ID, User_Name, Department
-    if (!user.UUID || !user.User_ID) {
+    // Database has: uuid, user_id, user_name, department
+    if (!user.uuid || !user.user_id) {
       console.error('Missing required fields. Available fields:', Object.keys(user));
       throw new Error('Invalid user data: missing required fields');
     }
     
     return {
-      uuid: user.UUID,
-      name: user.User_ID,
-      department: user.Department || '',
+      uuid: user.uuid,
+      name: user.user_id,
+      department: user.department || '',
       authenticated: true
     };
   } catch (error) {
@@ -65,9 +65,9 @@ export function formatUserForStore(rawUser) {
   }
 
   return {
-    uuid: rawUser.UUID || null,
-    name: rawUser.User_ID || '',
-    department: rawUser.Department || '',
+    uuid: rawUser.uuid || null,
+    name: rawUser.user_id || '',
+    department: rawUser.department || '',
     permissions: [],
     authenticated: true
   };

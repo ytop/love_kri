@@ -357,12 +357,12 @@ class BaseKRIService {
 
   /**
  * Fetch user record(s) from kri_user table.
- * @param {string} userId - User_ID(s) to fetch
+ * @param {string} userId - user_id(s) to fetch
  * @param {string} select - Columns to select (default: '*')
  * @returns {Promise<object>} Query result (may be single or multiple records)
  */
   async fetchUser(userId, select = '*') {
-    return this.generalFetch('kri_user', ['User_ID'], [userId], select);
+    return this.generalFetch('kri_user', ['user_id'], [userId], select);
   }
 
   /**
@@ -813,8 +813,8 @@ export const kriService = {
   async getAllUsers() {
     const { data, error } = await supabase
       .from('kri_user')
-      .select('UUID, "User_ID", "User_Name", "Department", user_role, "OTHER_INFO"')
-      .order('"User_ID"', { ascending: true });
+      .select('uuid, user_id, user_name, department, user_role, other_info')
+      .order('user_id', { ascending: true });
     
     if (error) throw error;
     return data || [];
@@ -830,9 +830,9 @@ export const kriService = {
     
     const { data, error } = await supabase
       .from('kri_user')
-      .select('UUID, "User_ID", "User_Name", "Department", user_role, "OTHER_INFO"')
-      .eq('"Department"', department)
-      .order('"User_ID"', { ascending: true });
+      .select('uuid, user_id, user_name, department, user_role, other_info')
+      .eq('department', department)
+      .order('user_id', { ascending: true });
     
     if (error) throw error;
     return data || [];
@@ -858,7 +858,7 @@ export const kriService = {
     const { data, error } = await supabase
       .from('kri_user')
       .update({ user_role: newRole })
-      .eq('UUID', userUuid)
+      .eq('uuid', userUuid)
       .select()
       .single();
 
@@ -877,14 +877,14 @@ export const kriService = {
   async getAllDepartments() {
     const { data, error } = await supabase
       .from('kri_user')
-      .select('"Department"')
-      .not('"Department"', 'is', null)
-      .not('"Department"', 'eq', '');
+      .select('department')
+      .not('department', 'is', null)
+      .not('department', 'eq', '');
     
     if (error) throw error;
     
     // Extract unique departments
-    const departments = [...new Set(data.map(row => row.Department))].filter(dept => dept);
+    const departments = [...new Set(data.map(row => row.department))].filter(dept => dept);
     return departments.sort();
   },
 
@@ -951,10 +951,13 @@ export const kriService = {
     const results = [];
     
     for (const update of permissionUpdates) {
-      const { user_uuid, kri_id, reporting_date, actions, effect = true } = update;
+      const { user_uuid, kri_id, reporting_date, action, actions, effect = true } = update;
       
-      if (!user_uuid || !kri_id || !reporting_date || !actions) {
-        throw new Error('Each permission update must have user_uuid, kri_id, reporting_date, and actions');
+      // Support both old format (actions) and new format (action)
+      const permissionAction = action || actions;
+      
+      if (!user_uuid || !kri_id || !reporting_date || !permissionAction) {
+        throw new Error('Each permission update must have user_uuid, kri_id, reporting_date, and action/actions');
       }
 
       try {
@@ -962,13 +965,14 @@ export const kriService = {
         let { data, error } = await supabase
           .from('kri_user_permission')
           .update({
-            actions,
+            action: permissionAction,
             effect,
             update_date: new Date().toISOString()
           })
           .eq('user_uuid', user_uuid)
           .eq('kri_id', kri_id)
           .eq('reporting_date', reporting_date)
+          .eq('action', permissionAction)
           .select()
           .single();
 
@@ -980,7 +984,7 @@ export const kriService = {
               user_uuid,
               kri_id,
               reporting_date,
-              actions,
+              action: permissionAction,
               effect,
               created_date: new Date().toISOString(),
               update_date: new Date().toISOString()
@@ -1015,8 +1019,8 @@ export const kriService = {
     // Get user count in department
     const { data: users, error: usersError } = await supabase
       .from('kri_user')
-      .select('UUID, user_role')
-      .eq('"Department"', department);
+      .select('uuid, user_role')
+      .eq('department', department);
 
     if (usersError) throw usersError;
 
@@ -1085,7 +1089,7 @@ export const kriService = {
       .from('kri_user_permission')
       .select(`
         *,
-        kri_user!inner("User_ID", "User_Name", "Department", user_role)
+        kri_user!inner(user_id, user_name, department, user_role)
       `);
 
     // Apply filters
@@ -1093,7 +1097,7 @@ export const kriService = {
       query = query.eq('user_uuid', userUuid);
     }
     if (filters.department) {
-      query = query.eq('kri_user.Department', filters.department);
+      query = query.eq('kri_user.department', filters.department);
     }
     if (filters.kri_id) {
       query = query.eq('kri_id', filters.kri_id);
@@ -1104,12 +1108,41 @@ export const kriService = {
     const { data, error } = await query;
     if (error) throw error;
     
-    // Format data for admin interfaces (maintaining backward compatibility)
-    return (data || []).map(permission => ({
+    // Group permissions by user and KRI for admin interface display
+    const groupedPermissions = {};
+    
+    (data || []).forEach(permission => {
+      const key = `${permission.user_uuid}_${permission.kri_id}`;
+      
+      if (!groupedPermissions[key]) {
+        groupedPermissions[key] = {
+          user_uuid: permission.user_uuid,
+          kri_id: permission.kri_id,
+          user_id: permission.kri_user?.user_id || 'Unknown',
+          user_name: permission.kri_user?.user_name || 'Unknown',
+          department: permission.kri_user?.department || 'Unknown',
+          user_role: permission.kri_user?.user_role || 'user',
+          actions: [],
+          effect: true,
+          reporting_date: permission.reporting_date
+        };
+      }
+      
+      // Add individual action to the actions array
+      if (permission.action && permission.effect) {
+        groupedPermissions[key].actions.push(permission.action);
+      }
+      
+      // If any permission is inactive, mark the whole group as inactive
+      if (!permission.effect) {
+        groupedPermissions[key].effect = false;
+      }
+    });
+    
+    // Convert grouped permissions back to array and format actions as comma-separated string
+    return Object.values(groupedPermissions).map(permission => ({
       ...permission,
-      user_id: permission.kri_user?.User_ID || 'Unknown',
-      user_name: permission.kri_user?.User_Name || 'Unknown',
-      department: permission.kri_user?.Department || 'Unknown'
+      actions: permission.actions.join(', ')
     }));
   },
 
@@ -1161,8 +1194,8 @@ export const kriService = {
     // Check if user_id already exists
     const { data: existingUser, error: checkError } = await supabase
       .from('kri_user')
-      .select('User_ID')
-      .eq('User_ID', user_id)
+      .select('user_id')
+      .eq('user_id', user_id)
       .single();
 
     if (existingUser) {
@@ -1184,11 +1217,11 @@ export const kriService = {
     const { data, error } = await supabase
       .from('kri_user')
       .insert({
-        User_ID: user_id,
-        User_Name: user_name,
-        Department: department,
+        user_id: user_id,
+        user_name: user_name,
+        department: department,
         user_role: user_role,
-        OTHER_INFO: other_info
+        other_info: other_info
       })
       .select()
       .single();
@@ -1196,7 +1229,7 @@ export const kriService = {
     if (error) throw error;
 
     // Log the user creation
-    await this.logUserCreation(data.UUID, user_id, changedBy);
+    await this.logUserCreation(data.uuid, user_id, changedBy);
 
     return data;
   },

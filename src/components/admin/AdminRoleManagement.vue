@@ -37,9 +37,9 @@
           >
             <el-option 
               v-for="user in users" 
-              :key="user.UUID" 
-              :label="`${user.User_ID} (${user.Department})`" 
-              :value="user.UUID"
+              :key="user.uuid" 
+              :label="`${user.user_id} (${user.department})`" 
+              :value="user.uuid"
               :disabled="!canManageUser(user)"
             ></el-option>
           </el-select>
@@ -92,13 +92,13 @@
         class="admin-full-width"
         :default-sort="{ prop: 'user_role', order: 'ascending' }"
       >
-        <el-table-column prop="User_ID" label="User ID" sortable width="120">
+        <el-table-column prop="user_id" label="User ID" sortable width="120">
         </el-table-column>
         
-        <el-table-column prop="User_Name" label="Display Name" sortable width="150">
+        <el-table-column prop="user_name" label="Display Name" sortable width="150">
         </el-table-column>
         
-        <el-table-column prop="Department" label="Department" sortable width="120">
+        <el-table-column prop="department" label="department" sortable width="120">
         </el-table-column>
         
         <el-table-column prop="user_role" label="Current Role" sortable width="140">
@@ -161,8 +161,8 @@
     >
       <div v-if="selectedUser" class="admin-dialog-content">
         <div class="admin-user-info">
-          <p><strong>User:</strong> {{ selectedUser.User_ID }} ({{ selectedUser.User_Name }})</p>
-          <p><strong>Department:</strong> {{ selectedUser.Department }}</p>
+          <p><strong>User:</strong> {{ selectedUser.user_id }} ({{ selectedUser.user_name }})</p>
+          <p><strong>Department:</strong> {{ selectedUser.department }}</p>
           <p><strong>Current Role:</strong> 
             <el-tag :type="getRoleTagType(selectedUser.user_role)" size="small">
               {{ getRoleDisplayName(selectedUser.user_role) }}
@@ -300,9 +300,9 @@ export default {
     
     async updateItem(item) {
       return await kriService.updateUserRole(
-        item.UUID, 
+        item.uuid, 
         item.user_role, 
-        this.currentUser.User_ID
+        this.currentUser.user_id
       );
     },
     
@@ -337,18 +337,18 @@ export default {
       this.roleChangeLoading = true;
       try {
         await kriService.updateUserRole(
-          this.selectedUser.UUID, 
+          this.selectedUser.uuid, 
           this.selectedNewRole, 
-          this.currentUser.User_ID
+          this.currentUser.user_id
         );
         
         // Update local data
-        const userIndex = this.users.findIndex(u => u.UUID === this.selectedUser.UUID);
+        const userIndex = this.users.findIndex(u => u.uuid === this.selectedUser.uuid);
         if (userIndex !== -1) {
           this.users[userIndex].user_role = this.selectedNewRole;
         }
         
-        this.$message.success(`Role updated successfully for ${this.selectedUser.User_ID}`);
+        this.$message.success(`Role updated successfully for ${this.selectedUser.user_id}`);
         this.roleChangeDialogVisible = false;
         this.$emit('data-updated');
       } catch (error) {
@@ -365,10 +365,10 @@ export default {
       this.loading = true;
       try {
         for (const userUuid of this.selectedUsers) {
-          await kriService.updateUserRole(userUuid, this.newRole, this.currentUser.User_ID);
+          await kriService.updateUserRole(userUuid, this.newRole, this.currentUser.user_id);
           
           // Update local data
-          const userIndex = this.users.findIndex(u => u.UUID === userUuid);
+          const userIndex = this.users.findIndex(u => u.uuid === userUuid);
           if (userIndex !== -1) {
             this.users[userIndex].user_role = this.newRole;
           }

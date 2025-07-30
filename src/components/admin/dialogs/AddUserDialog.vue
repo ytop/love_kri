@@ -28,7 +28,7 @@
           ></el-input>
         </el-form-item>
         
-        <el-form-item label="Department:" prop="department">
+        <el-form-item label="department:" prop="department">
           <el-select 
             v-model="newUser.department" 
             placeholder="Select department" 
@@ -166,7 +166,7 @@ export default {
       try {
         const newUser = await kriService.createUser(
           this.newUser, 
-          this.$store.getters['kri/currentUser'].User_ID
+          this.$store.getters['kri/currentUser'].user_id
         );
         
         this.$message.success(`User ${this.newUser.user_id} created successfully`);

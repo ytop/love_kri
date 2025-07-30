@@ -80,7 +80,7 @@ class AdminService {
     const stats = [];
     
     for (const dept of departments) {
-      const deptUsers = users.filter(u => u.Department === dept);
+      const deptUsers = users.filter(u => u.department === dept);
       let kriCount = 0;
       
       try {
@@ -117,14 +117,14 @@ class AdminService {
       {
         timestamp: new Date().toISOString(),
         action: 'Role Change',
-        user: currentUser.User_ID || 'System Admin',
+        user: currentUser.user_id || 'System Admin',
         target: 'User123',
         details: 'Promoted to dept_admin'
       },
       {
         timestamp: new Date(Date.now() - 3600000).toISOString(),
         action: 'Permission Update',
-        user: currentUser.User_ID || 'System Admin',
+        user: currentUser.user_id || 'System Admin',
         target: 'KRI_001',
         details: 'Added edit permissions for User456'
       }
@@ -154,7 +154,7 @@ class AdminService {
         const result = await kriService.updateUserRole(
           userUuid, 
           newRole, 
-          currentUser.User_ID
+          currentUser.user_id
         );
         results.push(result);
       }
@@ -180,7 +180,7 @@ class AdminService {
     try {
       return await kriService.bulkUpdatePermissions(
         permissionUpdates, 
-        currentUser.User_ID
+        currentUser.user_id
       );
     } catch (error) {
       console.error('Error in bulk permission update:', error);
@@ -204,7 +204,7 @@ class AdminService {
       
       // Apply department filter
       if (filters.department) {
-        users = users.filter(user => user.Department === filters.department);
+        users = users.filter(user => user.department === filters.department);
       }
 
       // Apply role filter
@@ -247,14 +247,14 @@ class AdminService {
       // Apply department filter if specified
       if (filters.department) {
         permissions = permissions.filter(perm => 
-          perm.kri_user && perm.kri_user.Department === filters.department
+          perm.kri_user && perm.kri_user.department === filters.department
         );
       }
 
       // Enhance permission data with user information
       const enhancedPermissions = permissions.map(perm => ({
         ...perm,
-        user_id: perm.kri_user ? perm.kri_user.User_ID : 'Unknown'
+        user_id: perm.kri_user ? perm.kri_user.user_id : 'Unknown'
       }));
 
       return {
@@ -284,9 +284,9 @@ class AdminService {
     if (Permission.isDepartmentAdmin(currentUser)) {
       switch (operation) {
       case 'manage_department_users':
-        return target && target.Department === currentUser.Department;
+        return target && target.department === currentUser.department;
       case 'assign_department_permissions':
-        return target && target.department === currentUser.Department;
+        return target && target.department === currentUser.department;
       default:
         return false;
       }
@@ -308,13 +308,13 @@ class AdminService {
       // In a full implementation, this would write to an audit log
       console.log('Admin Action:', {
         action,
-        user: currentUser.User_ID,
+        user: currentUser.user_id,
         timestamp: new Date().toISOString(),
         details
       });
       
       // Could also call kriService to log to audit trail table
-      // await kriService.logAuditTrail(action, currentUser.User_ID, details);
+      // await kriService.logAuditTrail(action, currentUser.user_id, details);
     } catch (error) {
       console.error('Error logging admin action:', error);
       // Don't throw - logging failures shouldn't break the operation
@@ -410,7 +410,7 @@ class AdminService {
       const exportData = {
         exportType,
         timestamp: new Date().toISOString(),
-        exportedBy: currentUser.User_ID
+        exportedBy: currentUser.user_id
       };
 
       switch (exportType) {

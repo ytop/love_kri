@@ -298,7 +298,7 @@ export function transformKRIData(data, mapStatus) {
     id: String(kri.kri_id),
     kriId: kri.kri_id, // Keep numeric ID for internal operations
     name: kri.kri_name || '',
-    owner: kri.kri_owner || '',
+    owner: kri.owner || '',
     dataProvider: kri.data_provider || '',
     collectionStatus: mapStatus ? mapStatus(kri.kri_status) : kri.kri_status,
     kriStatus: kri.kri_status, // Keep numeric status for internal operations

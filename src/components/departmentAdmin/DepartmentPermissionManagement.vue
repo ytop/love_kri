@@ -46,9 +46,9 @@
             >
               <el-option 
                 v-for="user in teamMembers" 
-                :key="user.UUID" 
-                :label="`${user.User_ID} (${user.User_Name})`" 
-                :value="user.UUID"
+                :key="user.uuid" 
+                :label="`${user.user_id} (${user.user_name})`" 
+                :value="user.uuid"
               ></el-option>
             </el-select>
           </el-form-item>

@@ -17,22 +17,22 @@ export default {
         viewer: {
           name: 'Viewer',
           description: 'View-only access to KRIs',
-          permissions: 'view'
+          permissions: ['view']
         },
         editor: {
           name: 'Editor', 
           description: 'View and edit access to KRIs',
-          permissions: 'view,edit'
+          permissions: ['view', 'edit']
         },
         dataProvider: {
           name: 'Data Provider',
           description: 'Data provider permissions including review',
-          permissions: 'view,edit,review'
+          permissions: ['view', 'edit', 'review']
         },
         kriOwner: {
           name: 'KRI Owner',
           description: 'Full KRI ownership permissions',
-          permissions: 'view,edit,review,acknowledge'
+          permissions: ['view', 'edit', 'review', 'acknowledge']
         }
       }
     };
@@ -50,13 +50,21 @@ export default {
       try {
         const reportingDate = this.getCurrentReportingDate();
         
-        const updates = permissionUpdates.map(update => ({
-          user_uuid: update.user_uuid,
-          kri_id: update.kri_id,
-          actions: update.actions,
-          effect: update.actions ? true : false,
-          reporting_date: reportingDate
-        }));
+        const updates = [];
+        for (const update of permissionUpdates) {
+          // Convert comma-separated actions to individual permission records
+          const actions = Array.isArray(update.actions) ? update.actions : update.actions.split(',').map(a => a.trim()).filter(a => a);
+          
+          for (const action of actions) {
+            updates.push({
+              user_uuid: update.user_uuid,
+              kri_id: update.kri_id,
+              action: action,
+              effect: update.effect !== false,
+              reporting_date: reportingDate
+            });
+          }
+        }
         
         await kriService.bulkUpdatePermissions(updates, userId);
         this.$message.success('Permissions updated successfully');
@@ -102,16 +110,19 @@ export default {
           const updates = [];
           for (const userId of userIds) {
             for (const kriId of kriIds) {
-              updates.push({
-                user_uuid: userId,
-                kri_id: kriId,
-                actions: template.permissions,
-                effect: true,
-                reporting_date: reportingDate
-              });
+              // Create individual permission records for each action
+              for (const action of template.permissions) {
+                updates.push({
+                  user_uuid: userId,
+                  kri_id: kriId,
+                  action: action,
+                  effect: true,
+                  reporting_date: reportingDate
+                });
+              }
             }
           }
-          await kriService.bulkUpdatePermissions(updates, currentUser.User_ID);
+          await kriService.bulkUpdatePermissions(updates, currentUser.user_id);
         }
         
         this.$message.success(`${template.name} template applied successfully`);
@@ -141,7 +152,7 @@ export default {
         // For department admin context
         if (currentUser.user_role === 'dept_admin') {
           await departmentAdminService.bulkAssignDepartmentPermissions(
-            currentUser.Department,
+            currentUser.department,
             userIds,
             kriIds,
             actions,
@@ -151,18 +162,22 @@ export default {
         } else {
           // For system admin context
           const updates = [];
+          const actionArray = Array.isArray(actions) ? actions : actions.split(',').map(a => a.trim());
           for (const userId of userIds) {
             for (const kriId of kriIds) {
-              updates.push({
-                user_uuid: userId,
-                kri_id: kriId,
-                actions: actions,
-                effect: true,
-                reporting_date: reportingDate
-              });
+              // Create individual permission records for each action
+              for (const action of actionArray) {
+                updates.push({
+                  user_uuid: userId,
+                  kri_id: kriId,
+                  action: action,
+                  effect: true,
+                  reporting_date: reportingDate
+                });
+              }
             }
           }
-          await kriService.bulkUpdatePermissions(updates, currentUser.User_ID);
+          await kriService.bulkUpdatePermissions(updates, currentUser.user_id);
         }
         
         this.$message.success('Bulk permissions assigned successfully');
@@ -187,15 +202,22 @@ export default {
       try {
         const reportingDate = this.getCurrentReportingDate();
         
-        const permissionUpdate = {
-          user_uuid: userUuid,
-          kri_id: kriId,
-          actions: '',
-          effect: false,
-          reporting_date: reportingDate
-        };
+        // Get current permissions for this user and KRI to remove them
+        const currentPermissions = await kriService.fetchUserPermission(userUuid, kriId);
         
-        await kriService.bulkUpdatePermissions([permissionUpdate], userId);
+        if (currentPermissions && currentPermissions.length > 0) {
+          // Create permission updates to set effect to false for all existing permissions
+          const permissionUpdates = currentPermissions.map(permission => ({
+            user_uuid: userUuid,
+            kri_id: kriId,
+            action: permission.action,
+            effect: false,
+            reporting_date: reportingDate
+          }));
+          
+          await kriService.bulkUpdatePermissions(permissionUpdates, userId);
+        }
+        
         this.$message.success('Permission removed successfully');
         return true;
       } catch (error) {
@@ -217,15 +239,17 @@ export default {
       try {
         const reportingDate = this.getCurrentReportingDate();
         
-        const permissionUpdate = {
+        // Convert comma-separated actions to individual permission records
+        const actionArray = Array.isArray(actions) ? actions : actions.split(',').map(a => a.trim()).filter(a => a);
+        const permissionUpdates = actionArray.map(action => ({
           user_uuid: userUuid,
           kri_id: kriId,
-          actions: actions,
+          action: action,
           effect: true,
           reporting_date: reportingDate
-        };
+        }));
         
-        await kriService.bulkUpdatePermissions([permissionUpdate], userId);
+        await kriService.bulkUpdatePermissions(permissionUpdates, userId);
         this.$message.success('Permission added successfully');
         return true;
       } catch (error) {

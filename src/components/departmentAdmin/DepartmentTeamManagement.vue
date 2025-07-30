@@ -24,10 +24,10 @@
       border
       class="admin-full-width"
     >
-      <el-table-column prop="User_ID" label="User ID" sortable width="120">
+      <el-table-column prop="user_id" label="User ID" sortable width="120">
       </el-table-column>
       
-      <el-table-column prop="User_Name" label="Display Name" sortable width="150">
+      <el-table-column prop="user_name" label="Display Name" sortable width="150">
       </el-table-column>
       
       <el-table-column prop="user_role" label="Role" sortable width="120">

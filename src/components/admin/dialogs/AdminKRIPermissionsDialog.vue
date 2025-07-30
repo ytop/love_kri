@@ -27,9 +27,9 @@
             >
               <el-option 
                 v-for="user in availableUsersForKRI" 
-                :key="user.UUID" 
-                :label="`${user.User_ID} (${user.User_Name})`" 
-                :value="user.UUID"
+                :key="user.uuid" 
+                :label="`${user.user_id} (${user.user_name})`" 
+                :value="user.uuid"
               ></el-option>
             </el-select>
           </el-form-item>
@@ -71,7 +71,7 @@
         <el-table-column prop="user_name" label="User Name" width="150">
         </el-table-column>
         
-        <el-table-column prop="user_department" label="Department" width="120">
+        <el-table-column prop="user_department" label="department" width="120">
         </el-table-column>
         
         <el-table-column prop="actions" label="Permissions">

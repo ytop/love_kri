@@ -16,15 +16,116 @@
       @bulk-delete-permissions="handleBulkDelete"
       @bulk-assignment-completed="loadPermissionData"
     >
-      <!-- Use KRITable component for permission display -->
+      <!-- New dedicated permission table -->
       <template #permission-table="{ loading }">
-        <KRITable
-          :data="formattedPermissionData"
-          :loading="loading"
-          :show-permission-actions="true"
-          @selection-change="handleSelectionChange"
-          @permission-edit="handlePermissionEdit"
-        />
+        <div class="permission-table-container">
+          <el-table
+            :data="formattedPermissionData"
+            :loading="loading"
+            @selection-change="handleSelectionChange"
+            style="width: 100%"
+            border
+            stripe
+          >
+            <el-table-column
+              type="selection"
+              width="55"
+              align="center"
+            />
+            
+            <el-table-column
+              prop="user_name"
+              label="User Name"
+              min-width="120"
+              sortable
+            >
+              <template slot-scope="scope">
+                <div class="user-info">
+                  <div class="user-name">{{ scope.row.user_name || scope.row.user_id }}</div>
+                  <div class="user-id">{{ scope.row.user_id }}</div>
+                </div>
+              </template>
+            </el-table-column>
+            
+            <el-table-column
+              prop="department"
+              label="Department"
+              min-width="120"
+              sortable
+            />
+            
+            <el-table-column
+              prop="kri_id"
+              label="KRI ID"
+              min-width="100"
+              sortable
+            />
+            
+            <el-table-column
+              prop="actions"
+              label="Permissions"
+              min-width="200"
+            >
+              <template slot-scope="scope">
+                <div class="permission-actions">
+                  <el-tag
+                    v-for="action in scope.row.permissionActions"
+                    :key="action"
+                    :type="getPermissionTagType(action)"
+                    size="small"
+                    class="permission-tag"
+                  >
+                    {{ formatPermissionAction(action) }}
+                  </el-tag>
+                  <span v-if="!scope.row.permissionActions.length" class="no-permissions">
+                    No permissions
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            
+            <el-table-column
+              prop="effect"
+              label="Status"
+              width="100"
+              align="center"
+            >
+              <template slot-scope="scope">
+                <el-tag
+                  :type="scope.row.effect ? 'success' : 'danger'"
+                  size="small"
+                >
+                  {{ scope.row.effect ? 'Active' : 'Inactive' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            
+            <el-table-column
+              label="Actions"
+              width="150"
+              align="center"
+            >
+              <template slot-scope="scope">
+                <el-button
+                  type="primary"
+                  size="mini"
+                  @click="handlePermissionEdit(scope.row)"
+                  icon="el-icon-edit"
+                >
+                  Edit
+                </el-button>
+                <el-button
+                  type="danger"
+                  size="mini"
+                  @click="handleRemovePermission(scope.row)"
+                  icon="el-icon-delete"
+                >
+                  Remove
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </template>
     </admin-base-permission-management>
 
@@ -47,9 +148,9 @@
 <script>
 import AdminBasePermissionManagement from '@/components/admin/shared/AdminBasePermissionManagement.vue';
 import AddPermissionDialog from '@/components/admin/dialogs/AddPermissionDialog.vue';
-import KRITable from '@/components/KRITable.vue';
 import adminHelpersMixin from '@/mixins/adminHelpersMixin';
 import adminCrudMixin from '@/mixins/adminCrudMixin';
+import adminPermissionMixin from '@/mixins/adminPermissionMixin';
 import { mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
 
@@ -58,11 +159,10 @@ export default {
   
   components: {
     AdminBasePermissionManagement,
-    AddPermissionDialog,
-    KRITable
+    AddPermissionDialog
   },
   
-  mixins: [adminHelpersMixin, adminCrudMixin],
+  mixins: [adminHelpersMixin, adminCrudMixin, adminPermissionMixin],
   
   data() {
     return {
@@ -91,22 +191,21 @@ export default {
     filteredUsersForPermissions() {
       let filtered = this.users;
       if (this.permissionDeptFilter) {
-        filtered = filtered.filter(user => user.Department === this.permissionDeptFilter);
+        filtered = filtered.filter(user => user.department === this.permissionDeptFilter);
       }
       return filtered;
     },
     
     formattedPermissionData() {
-      return this.permissionData.map(permission => ({
-        ...permission,
-        // Format for KRITable component
-        User_ID: permission.user_id,
-        User_Name: permission.user_name,
-        Department: permission.department,
-        KRI_ID: permission.kri_id,
-        Actions: permission.actions,
-        Effect: permission.effect
-      }));
+      return this.permissionData.map(permission => {
+        // Parse the actions string to get individual permissions
+        const permissionActions = this.parsePermissionActions(permission.actions);
+        
+        return {
+          ...permission,
+          permissionActions: permissionActions
+        };
+      });
     }
   },
   
@@ -137,7 +236,7 @@ export default {
     
     async loadDepartments() {
       try {
-        this.departments = [...new Set(this.users.map(user => user.Department).filter(Boolean))];
+        this.departments = [...new Set(this.users.map(user => user.department).filter(Boolean))];
       } catch (error) {
         console.error('Error loading departments:', error);
       }
@@ -188,13 +287,41 @@ export default {
       this.editDialogVisible = true;
     },
     
+    async handleRemovePermission(permission) {
+      try {
+        await this.$confirm(
+          `Are you sure you want to remove all permissions for ${permission.user_name || permission.user_id} on KRI ${permission.kri_id}?`,
+          'Remove Permission',
+          {
+            confirmButtonText: 'Remove',
+            cancelButtonText: 'Cancel',
+            type: 'warning'
+          }
+        );
+        
+        await this.removeKRIUserPermission(
+          permission.user_uuid,
+          permission.kri_id,
+          this.currentUser.user_id
+        );
+        
+        this.$message.success('Permission removed successfully');
+        await this.loadPermissionData();
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Error removing permission:', error);
+          this.$message.error('Failed to remove permission');
+        }
+      }
+    },
+    
     async handleBulkDelete() {
       if (!this.selectedItems.length) return;
       
       this.deleteLoading = true;
       try {
         const permissionIds = this.selectedItems.map(item => item.id);
-        await kriService.bulkDeletePermissions(permissionIds, this.currentUser.User_ID);
+        await kriService.bulkDeletePermissions(permissionIds, this.currentUser.user_id);
         
         this.$message.success(`Deleted ${permissionIds.length} permissions`);
         await this.loadPermissionData();
@@ -219,11 +346,83 @@ export default {
       this.editingPermission = null;
       await this.loadPermissionData();
       this.$emit('data-updated');
+    },
+    
+    // Helper methods for permission display
+    parsePermissionActions(actionsString) {
+      if (!actionsString) return [];
+      
+      // Handle both comma-separated and space-separated formats
+      return actionsString.split(/[,\s]+/).map(action => action.trim()).filter(action => action);
+    },
+    
+    formatPermissionAction(action) {
+      // Format atomic permissions (e.g., atomic1.edit -> Atomic1 Edit)
+      if (action.includes('.')) {
+        const [atomic, permission] = action.split('.');
+        return `${atomic.charAt(0).toUpperCase() + atomic.slice(1)} ${permission.charAt(0).toUpperCase() + permission.slice(1)}`;
+      }
+      
+      // Format regular permissions
+      return action.charAt(0).toUpperCase() + action.slice(1);
+    },
+    
+    getPermissionTagType(action) {
+      const typeMap = {
+        'view': 'info',
+        'edit': 'warning',
+        'review': 'primary',
+        'acknowledge': 'success',
+        'delete': 'danger'
+      };
+      
+      // Handle atomic permissions
+      if (action.includes('.')) {
+        const permission = action.split('.')[1];
+        return typeMap[permission] || 'default';
+      }
+      
+      return typeMap[action] || 'default';
     }
   }
 };
 </script>
 
 <style scoped>
-/* Component-specific styles */
+.permission-table-container {
+  margin-top: 20px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-weight: 500;
+  color: #303133;
+}
+
+.user-id {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.permission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.permission-tag {
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
+.no-permissions {
+  color: #909399;
+  font-style: italic;
+  font-size: 12px;
+}
 </style>
