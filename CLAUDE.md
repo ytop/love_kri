@@ -83,7 +83,7 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
 
 #### Component Structure
 
--**Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement
+-**Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement, DepartmentAdmin
 
 -**Components**: KRIFilters, KRITable, KRIChartView, KRITableCollectData
 
@@ -124,6 +124,18 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
 - `AdminSystemOverview.vue` - System health monitoring and recent activity tracking
 - `dialogs/AddUserDialog.vue` - User creation with validation and role assignment
 - `dialogs/AddPermissionDialog.vue` - Permission creation with templates and KRI selection
+
+-**Department Admin Components** (`src/components/departmentAdmin/`):
+
+- `DepartmentDashboard.vue` - Department-specific dashboard with filtered KRI views
+- `DepartmentKRIManagement.vue` - KRI management scoped to department
+- `DepartmentPermissionManagement.vue` - Department-level permission assignments
+- `DepartmentTeamManagement.vue` - Team member management within department
+- `DepartmentActivityAudit.vue` - Department-scoped activity monitoring
+- `dialogs/BulkPermissionTemplateDialog.vue` - Bulk permission templates for department
+- `dialogs/KRIPermissionsDialog.vue` - KRI-specific permission management
+- `dialogs/UserDetailsDialog.vue` - Department user detail management
+- `dialogs/UserPermissionsDialog.vue` - User permission assignment within department
 
 #### Routing
 
@@ -439,7 +451,8 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
   - CSS organization follows existing `src/assets/styles/variables.css` design tokens
 
 - **TypeScript Diagnostics**: Minor Vuex import warnings due to package.json exports compatibility (Vue 2 ecosystem constraint)
-- Permission system recently refactored with improved parsing logic
+- **Permission System Changes**: Recently migrated from comma-separated permission strings to a new format - some compatibility issues may exist and are being resolved
+- **Department Admin System**: New department-scoped admin components for role-based departmental management and KRI oversight
 - Application uses hot reload extensively - avoid running build commands during development
 - Mock data fallback system ensures functionality during database downtime
 

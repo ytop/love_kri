@@ -15,6 +15,8 @@ The KRI Dashboard provides enterprise-grade risk management capabilities with:
 - **Advanced Permissions**: Relationship-based access control with department-level permissions
 - **Real-time Collaboration**: Multi-user workflow with audit logging
 - **Calculated KRI Support**: Specialized workflow for calculated KRIs with atomic value management
+- **Admin Management System**: Comprehensive user, role, and permission management
+- **Department Admin System**: Department-scoped administrative capabilities
 
 ## Tech Stack
 
@@ -69,7 +71,7 @@ Unified status configuration managed by `StatusManager` class in `src/utils/type
 
 ### Component Structure
 
-- **Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement
+- **Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement, DepartmentAdmin
 - **Components**: KRIFilters, KRITable, KRIChartView, KRITableCollectData
 - **Detail Components**: 
   - `KRIGeneralInfo` - Basic KRI information display
@@ -81,7 +83,9 @@ Unified status configuration managed by `StatusManager` class in `src/utils/type
     - Provider-based permission checking for atomic elements
   - `KRIEvidenceAudit` - Evidence upload and audit trail management
   - `KRISidebar` - Action buttons and workflow controls
-- **Mixins**: `expandableTableMixin.js` - Provides table expansion functionality
+- **Mixins**: 
+  - `expandableTableMixin.js` - Provides table expansion functionality
+  - `adminCrudMixin.js` - Shared CRUD patterns for admin components with abstract methods
 - **Shared Components**:
   - `KRIActionButtons.vue` - Standardized action button components
   - `KRIStatusTag.vue` - Consistent status display components
@@ -92,6 +96,28 @@ Unified status configuration managed by `StatusManager` class in `src/utils/type
     - MD5 hash-based duplicate detection with user warnings
     - Case 1 workflow integration (status 10/20) for automatic KRI value extraction
     - Support for both single KRI and atomic value parsing
+- **Admin Components** (`src/components/admin/`):
+  - `AdminUserManagement.vue` - User role management with department filtering and bulk operations
+  - `AdminPermissionManagement.vue` - Permission assignments with user/department filtering
+  - `AdminRoleManagement.vue` - Role distribution visualization and bulk role changes
+  - `AdminDepartmentManagement.vue` - Department statistics and user promotion
+  - `AdminSystemOverview.vue` - System health monitoring and recent activity tracking
+  - `dialogs/AddUserDialog.vue` - User creation with validation and role assignment
+  - `dialogs/AddPermissionDialog.vue` - Permission creation with templates and KRI selection
+  - `dialogs/AdminBulkPermissionTemplateDialog.vue` - Bulk permission templates for admin
+  - `dialogs/AdminKRIPermissionsDialog.vue` - KRI-specific permission management
+  - `dialogs/AdminUserDetailsDialog.vue` - Admin user detail management
+  - `dialogs/AdminUserPermissionsDialog.vue` - User permission assignment in admin context
+- **Department Admin Components** (`src/components/departmentAdmin/`):
+  - `DepartmentDashboard.vue` - Department-specific dashboard with filtered KRI views
+  - `DepartmentKRIManagement.vue` - KRI management scoped to department
+  - `DepartmentPermissionManagement.vue` - Department-level permission assignments
+  - `DepartmentTeamManagement.vue` - Team member management within department
+  - `DepartmentActivityAudit.vue` - Department-scoped activity monitoring
+  - `dialogs/BulkPermissionTemplateDialog.vue` - Bulk permission templates for department
+  - `dialogs/KRIPermissionsDialog.vue` - KRI-specific permission management
+  - `dialogs/UserDetailsDialog.vue` - Department user detail management
+  - `dialogs/UserPermissionsDialog.vue` - User permission assignment within department
 
 ### Routing
 
@@ -201,12 +227,61 @@ The application supports calculated KRIs with a specific workflow:
 4. Auto-recalculation when all atomics are finalized
 5. Final KRI approval with optional manual override capability
 
+### Admin Management System
+
+Comprehensive administrative capabilities including:
+
+- **User Management**: Role assignment, department filtering, and bulk operations
+- **Permission Management**: Granular permission assignments with user/department filtering
+- **Role Management**: Role distribution analytics and bulk role changes
+- **Department Management**: Department statistics and user promotion features
+- **System Overview**: System health monitoring and recent activity tracking
+
+### Department Admin System
+
+Department-scoped administrative capabilities:
+
+- **Department Dashboard**: Filtered KRI views and department-specific metrics
+- **KRI Management**: Department-scoped KRI oversight and management
+- **Permission Management**: Department-level permission assignments
+- **Team Management**: Team member management within department scope
+- **Activity Audit**: Department-scoped activity monitoring and audit trails
+
 ## Project Structure
 
 ```
 src/
 ├── components/
-│   ├── detail/                    # KRI detail view components
+│   ├── admin/                    # Admin management components
+│   │   ├── AdminUserManagement.vue
+│   │   ├── AdminPermissionManagement.vue
+│   │   ├── AdminRoleManagement.vue
+│   │   ├── AdminDepartmentManagement.vue
+│   │   ├── AdminSystemOverview.vue
+│   │   ├── dialogs/              # Admin dialog components
+│   │   │   ├── AddUserDialog.vue
+│   │   │   ├── AddPermissionDialog.vue
+│   │   │   ├── AdminBulkPermissionTemplateDialog.vue
+│   │   │   ├── AdminKRIPermissionsDialog.vue
+│   │   │   ├── AdminUserDetailsDialog.vue
+│   │   │   └── AdminUserPermissionsDialog.vue
+│   │   └── shared/               # Admin shared components
+│   │       ├── AdminBaseActivityAudit.vue
+│   │       ├── AdminBaseDashboard.vue
+│   │       ├── AdminBasePermissionManagement.vue
+│   │       └── AdminBaseUserManagement.vue
+│   ├── departmentAdmin/          # Department admin components
+│   │   ├── DepartmentDashboard.vue
+│   │   ├── DepartmentKRIManagement.vue
+│   │   ├── DepartmentPermissionManagement.vue
+│   │   ├── DepartmentTeamManagement.vue
+│   │   ├── DepartmentActivityAudit.vue
+│   │   └── dialogs/              # Department admin dialogs
+│   │       ├── BulkPermissionTemplateDialog.vue
+│   │       ├── KRIPermissionsDialog.vue
+│   │       ├── UserDetailsDialog.vue
+│   │       └── UserPermissionsDialog.vue
+│   ├── detail/                   # KRI detail view components
 │   │   ├── KRIGeneralInfo.vue    # Basic KRI information display
 │   │   ├── KRIOverview.vue       # KRI summary with data visualization
 │   │   ├── KRIDataElements.vue   # Atomic data management with bulk operations
@@ -215,28 +290,48 @@ src/
 │   ├── shared/                   # Shared components
 │   │   ├── EvidenceUploadModal.vue # Enhanced file upload with auto-parse
 │   │   ├── KRIActionButtons.vue   # Standardized action buttons
-│   │   └── KRIStatusTag.vue       # Consistent status display
+│   │   ├── KRIStatusTag.vue       # Consistent status display
+│   │   ├── LoadingSpinner.vue     # Loading state components
+│   │   └── LoadingState.vue       # Loading state management
 │   ├── KRIFilters.vue            # Advanced filtering interface
 │   ├── KRITable.vue              # Data table with sorting and selection
-│   └── KRIChartView.vue          # Chart visualization
+│   ├── KRITableInlineEdit.vue    # Inline editing table component
+│   ├── KRIChartView.vue          # Chart visualization
+│   └── KRIBulkActionsToolbar.vue # Bulk actions toolbar
 ├── views/                        # Page components
 │   ├── Dashboard.vue             # Main dashboard with filters and table
 │   ├── KRIDetail.vue             # Comprehensive KRI detail page
-│   ├── KRIListByStatus.vue       # Status-based KRI listings
-│   └── KRIWorkflowPage.vue       # Workflow management interface
+│   ├── KRIPending.vue            # Pending KRI management
+│   ├── AdminManagement.vue       # Admin management interface
+│   ├── DepartmentAdmin.vue       # Department admin interface
+│   ├── Login.vue                 # Authentication
+│   └── NotFound.vue              # 404 page
 ├── services/                     # Service layer
 │   ├── kriService.js             # Main API service with audit trail logging
+│   ├── adminService.js           # Admin-specific API services
+│   ├── departmentAdminService.js # Department admin API services
 │   ├── ExcelParserService.js     # Excel parsing with multiple strategies
 │   ├── ObjectStorage.js          # File storage operations
-│   └── supabase.js               # Supabase client configuration
+│   ├── supabase.js               # Supabase client configuration
+│   └── kriWorkflowService.js     # Workflow management service
 ├── store/modules/
 │   └── kri.js                    # Centralized state management with mock fallback
 ├── utils/
 │   ├── types.js                  # StatusManager and unified configurations
 │   ├── permission.js             # Permission utility class
-│   └── helpers.js                # Common utility functions
+│   ├── helpers.js                # Common utility functions
+│   ├── kriCalculation.js         # KRI calculation utilities
+│   ├── login.js                  # Authentication utilities
+│   ├── sessionStorage.js         # Session management
+│   └── tableColumnConfig.js      # Table column configuration
 ├── mixins/                       # Reusable component logic
-│   └── expandableTableMixin.js   # Table expansion functionality
+│   ├── expandableTableMixin.js   # Table expansion functionality
+│   ├── adminCrudMixin.js         # Shared CRUD patterns for admin components
+│   ├── adminHelpersMixin.js      # Admin helper functions
+│   └── adminPermissionMixin.js   # Admin permission management
+├── assets/styles/                # Styling
+│   ├── admin.css                 # Admin-specific styles
+│   └── variables.css             # Design system variables
 └── router/                       # Vue Router configuration
     └── index.js                  # Route definitions with dynamic routes
 ```
@@ -469,6 +564,11 @@ const canPerform = permission.canPerform(kriId, atomicId, action);
 - If a file exceeds 1000 lines, refactor by moving helper functions to separate files in the appropriate folders
 - Read the entire file before starting work on it
 - Do not hardcode if possible and necessary (avoid magic numbers, strings, or configuration in code)
+- When writing code consider re-use if possible:
+  1. if we have a similar method, we can use that method 
+  2. can we change some part of it to shared using the same method 
+  3. consider writing new, if no existing solution can be adapted.
+  This policy applies to all js, css and vue files.
 
 ### Code Organization Reminder
 
@@ -481,8 +581,23 @@ const canPerform = permission.canPerform(kriId, atomicId, action);
 
 ## Current Development Status
 
-- Permission system recently refactored with improved parsing logic
-- Some Manager pattern files referenced in documentation may be missing from current codebase
+- **Admin Management System**: Recently refactored from monolithic AdminManagement.vue (1400+ lines) into modular components:
+  - `AdminUserManagement.vue` - User role and department management with bulk operations
+  - `AdminPermissionManagement.vue` - KRI-level permission assignments with filtering
+  - `AdminRoleManagement.vue` - Role distribution analytics and bulk role changes
+  - `AdminDepartmentManagement.vue` - Department statistics and user promotion features
+  - `AdminSystemOverview.vue` - System health monitoring and activity tracking
+  - Dialog components in `src/components/admin/dialogs/` for user and permission creation
+  - Shared `adminCrudMixin.js` for consistent CRUD patterns across admin components
+  - Centralized styling in `src/assets/styles/admin.css` using design system variables
+  - CSS organization follows existing `src/assets/styles/variables.css` design tokens
+
+- **Department Admin System**: New department-scoped admin components for role-based departmental management and KRI oversight
+
+- **TypeScript Diagnostics**: Minor Vuex import warnings due to package.json exports compatibility (Vue 2 ecosystem constraint)
+
+- **Permission System Changes**: Recently migrated from comma-separated permission strings to a new format - some compatibility issues may exist and are being resolved
+
 - Application uses hot reload extensively - avoid running build commands during development
 - Mock data fallback system ensures functionality during database downtime
 

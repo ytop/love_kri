@@ -244,7 +244,7 @@ export default {
         );
         
         this.$message.success('Permission added successfully');
-        this.$emit('permission-created', permissionUpdate);
+        this.$emit('permission-created', permissionUpdates);
         this.dialogVisible = false;
       } catch (error) {
         console.error('Error adding permission:', error);
