@@ -45,6 +45,7 @@ admin management page
 - change department display for display and manage Users not permissions
 department admin page
 - implement the logic for department admin page
+- remove overlapped logic for admin management page
 
 add Object Storage preview for evidence
 modify atomic data element input dialog (new window?)
