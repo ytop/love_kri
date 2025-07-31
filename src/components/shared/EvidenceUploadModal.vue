@@ -81,7 +81,7 @@
 import { mapState, mapActions } from 'vuex';
 import { EvidenceStorageService } from '@/services/ObjectStorage';
 import { kriService } from '@/services/kriService';
-import { getUserDisplayName } from '@/utils/helpers';
+import { getUserDisplayName, calculateBreachStatusForKRI } from '@/utils/helpers';
 import { excelParserService } from '@/services/ExcelParserService';
 
 export default {
@@ -538,6 +538,10 @@ export default {
           
           updateData.kri_value = bestParse.kriValue;
           updateData.source = 'autoParse'; // Mark as auto-parsed
+          
+          // Calculate breach status for the auto-parsed value
+          const breachStatus = calculateBreachStatusForKRI(bestParse.kriValue, this.kriItem);
+          updateData.breach_type = breachStatus;
         }
         
         await kriService.updateKRI(
@@ -548,6 +552,8 @@ export default {
           'case1_evidence_upload',
           `Status changed to Saved after evidence upload${
             updateData.kri_value ? ` with auto-parsed value: ${updateData.kri_value}` : ''
+          }${
+            updateData.breach_type ? ` (Breach: ${updateData.breach_type})` : ''
           }`
         );
         
@@ -556,12 +562,15 @@ export default {
           oldStatus: this.kriItem.kri_status,
           newStatus: 30,
           kriValue: updateData.kri_value || null,
+          breachType: updateData.breach_type || null,
           autoParseApplied: !!updateData.kri_value
         });
         
         this.$message.success(
           `KRI status updated to "Saved"${
             updateData.kri_value ? ` with auto-parsed value: ${updateData.kri_value}` : ''
+          }${
+            updateData.breach_type ? ` (Breach: ${updateData.breach_type})` : ''
           }`
         );
       }

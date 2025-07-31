@@ -196,6 +196,19 @@ class Permission {
   }
 
   /**
+   * Check if user can download evidence/content for a KRI or atomic element
+   * 
+   * @param {number|string} kriId - KRI ID 
+   * @param {number|string|null} atomicId - Atomic ID (null for KRI-level)
+   * @param {Array} userPermissions - User permissions array
+   * @returns {boolean} True if user can download
+   * @static
+   */
+  static canDownload(kriId, atomicId, userPermissions) {
+    return Permission.canPerform(kriId, atomicId, USER_PERMISSIONS.DOWNLOAD, userPermissions);
+  }
+
+  /**
    * Get all permissions for a specific KRI
    * Useful for debugging or displaying user capabilities
    * 
@@ -607,6 +620,73 @@ class Permission {
    */
   static needsAdminInterface(user) {
     return Permission.isSystemAdmin(user) || Permission.isDepartmentAdmin(user);
+  }
+
+  /**
+   * Check if user can download general KRI evidence
+   * Checks for 'evidence.download' permission
+   * 
+   * @param {number|string} kriId - KRI ID
+   * @param {Array} userPermissions - User permissions array
+   * @returns {boolean} True if user can download KRI evidence
+   * @static
+   */
+  static canDownloadEvidence(kriId, userPermissions) {
+    if (!kriId || !Array.isArray(userPermissions)) {
+      return false;
+    }
+
+    // Check for evidence.download permission specifically
+    const permissionRecords = Permission.findKRIPermissions(userPermissions, kriId);
+    const actions = Permission.extractActionsFromRecords(permissionRecords);
+    
+    return actions.includes('evidence.download');
+  }
+
+  /**
+   * Check if user can download atomic-level evidence
+   * Checks for 'atomic{n}.evidence.download' permission, with fallback to general evidence.download
+   * 
+   * @param {number|string} kriId - KRI ID
+   * @param {number|string} atomicId - Atomic ID
+   * @param {Array} userPermissions - User permissions array
+   * @returns {boolean} True if user can download atomic evidence
+   * @static
+   */
+  static canDownloadAtomicEvidence(kriId, atomicId, userPermissions) {
+    if (!kriId || !atomicId || !Array.isArray(userPermissions)) {
+      return false;
+    }
+
+    const permissionRecords = Permission.findKRIPermissions(userPermissions, kriId);
+    const actions = Permission.extractActionsFromRecords(permissionRecords);
+    
+    // Check for specific atomic evidence download permission
+    const atomicEvidenceDownload = `atomic${atomicId}.evidence.download`;
+    if (actions.includes(atomicEvidenceDownload)) {
+      return true;
+    }
+    
+    // Fallback to general evidence download permission
+    return actions.includes('evidence.download');
+  }
+
+  /**
+   * Check if user can download any evidence (general or atomic) for a KRI
+   * Convenience method that checks both general and atomic evidence permissions
+   * 
+   * @param {number|string} kriId - KRI ID
+   * @param {number|string|null} atomicId - Atomic ID (null for general evidence)
+   * @param {Array} userPermissions - User permissions array
+   * @returns {boolean} True if user can download evidence
+   * @static
+   */
+  static canDownloadAnyEvidence(kriId, atomicId, userPermissions) {
+    if (atomicId) {
+      return Permission.canDownloadAtomicEvidence(kriId, atomicId, userPermissions);
+    } else {
+      return Permission.canDownloadEvidence(kriId, userPermissions);
+    }
   }
 }
 

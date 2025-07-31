@@ -71,26 +71,56 @@ export const formatDateToInt = (dateString) => {
   return '';
 };
 
-// Calculate breach status based on KRI value, warning line, and limit value
-export const calculateBreachStatus = (kriValue, warningLineValue, limitValue) => {
+// Calculate breach status based on KRI value with support for 4 limit types
+export const calculateBreachStatus = (kriValue, warningLineValue, limitValue, negativeWarning, negativeLimit) => {
   // Convert values to numbers
   const value = parseFloat(kriValue);
   const warning = parseFloat(warningLineValue);
   const limit = parseFloat(limitValue);
+  const negWarn = parseFloat(negativeWarning);
+  const negLim = parseFloat(negativeLimit);
 
-  // Return 'No Breach' if any value is invalid
-  if (isNaN(value) || isNaN(warning) || isNaN(limit)) {
+  // Return 'No Breach' if value is invalid
+  if (isNaN(value)) {
     return 'No Breach';
   }
 
-  // Check breach levels
-  if (value >= limit) {
+  // Check positive limit breaches first (highest priority)
+  if (!isNaN(limit) && value >= limit) {
     return 'Limit';
-  } else if (value >= warning) {
+  }
+
+  // Check negative limit breaches (second highest priority)
+  if (!isNaN(negLim) && value <= negLim) {
+    return 'Limit';
+  }
+
+  // Check positive warning breaches
+  if (!isNaN(warning) && value >= warning) {
     return 'Warning';
-  } else {
+  }
+
+  // Check negative warning breaches
+  if (!isNaN(negWarn) && value <= negWarn) {
+    return 'Warning';
+  }
+
+  return 'No Breach';
+};
+
+// Calculate breach status for a KRI using its data object
+export const calculateBreachStatusForKRI = (kriValue, kriData) => {
+  if (!kriData) {
     return 'No Breach';
   }
+  
+  return calculateBreachStatus(
+    kriValue,
+    kriData.warning_line_value || kriData.warningLineValue,
+    kriData.limit_value || kriData.limitValue,
+    kriData.negative_warning || kriData.negativeWarning,
+    kriData.negative_limit || kriData.negativeLimit
+  );
 };
 
 // Atomic-level permission patterns (updated for dot notation)
@@ -157,10 +187,16 @@ export const getBreachDescription = (breachType) => {
 
 // Calculate breach status for atomic values using parent KRI thresholds
 export const calculateAtomicBreach = (atomic, kriItem) => {
-  if (!atomic.atomicValue || !kriItem.warningLineValue || !kriItem.limitValue) {
+  if (!atomic.atomicValue) {
     return 'No Breach';
   }
-  return calculateBreachStatus(atomic.atomicValue, kriItem.warningLineValue, kriItem.limitValue);
+  return calculateBreachStatus(
+    atomic.atomicValue, 
+    kriItem.warningLineValue, 
+    kriItem.limitValue,
+    kriItem.negativeWarning,
+    kriItem.negativeLimit
+  );
 };
 
 // Calculate warning bar data for inline risk level display
@@ -441,6 +477,11 @@ export const canSubmitKRIValue = (kriDetail, evidenceData = [], currentValue = n
   const hasValue = currentValue !== null && currentValue !== '';
   const source = kriDetail.source;
   
+  // Allow system-generated data without evidence requirement
+  if (source === 'system') {
+    return hasValue; // Only value required for system data
+  }
+  
   if (!source || source === '' || source === null) {
     // For empty/null source: requires both value AND evidence
     return hasValue && hasEvidence;
@@ -450,6 +491,25 @@ export const canSubmitKRIValue = (kriDetail, evidenceData = [], currentValue = n
   }
   
   return false;
+};
+
+// Check if atomic element can be submitted (requires value and evidence/system source)
+export const canSubmitAtomicValue = (atomicItem, evidenceData = []) => {
+  if (!atomicItem) return false;
+  
+  const hasValue = atomicItem.atomic_value !== null && 
+                   atomicItem.atomic_value !== undefined && 
+                   atomicItem.atomic_value !== '';
+  const source = atomicItem.source;
+  
+  // Allow system-generated data without evidence requirement
+  if (source === 'system') {
+    return hasValue;
+  }
+  
+  // For manual/empty source: requires evidence
+  const hasEvidence = isAtomicEvidenceSelected(atomicItem, evidenceData);
+  return hasValue && hasEvidence;
 };
 
 // Get validation message for save action
@@ -476,6 +536,14 @@ export const getSubmitValidationMessage = (kriDetail, evidenceData = [], current
   const hasEvidence = evidenceData && evidenceData.length > 0;
   const hasValue = currentValue !== null && currentValue !== '';
   const source = kriDetail.source;
+  
+  // System-generated data only needs value
+  if (source === 'system') {
+    if (!hasValue) {
+      return 'Please enter a KRI value';
+    }
+    return 'Submit system-generated data for approval';
+  }
   
   if (!source || source === '' || source === null) {
     if (!hasValue) {

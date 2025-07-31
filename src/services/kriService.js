@@ -231,7 +231,6 @@ class BaseKRIService {
  * @param {string} comment - Optional comment
  * @returns {Promise<object>} Updated kri_atomic row
  */
-  // TODO: fix in the future, the function did not exist in the database
   async updateatomickri(kriId, atomicId, reportingDate, updateData, changedBy, action, comment = '') {
     if (!changedBy) throw new Error('changedBy is required');
     if (!action) throw new Error('action is required');

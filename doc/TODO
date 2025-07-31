@@ -10,6 +10,16 @@ Completed:
   Current: Implemented service, need to test with frontend
 filter by department display and permissions
 Fix element display not working for calculated KRIs.
+inline warning bar in table
+add audit trail for atomic data element
+
+@kriService.js
+- updateatomickri function - This method currently tries to
+  call a missing updateatomickri database RPC function. The
+  function needs to be created in the database (requires
+  database migration permissions). For now, it's marked with a
+  TODO comment for future implementation.
+
 
 Marked Not Fixed:
 16. Atomic sub-row styling, specifically the action buttons, requires CSS mathing
@@ -22,19 +32,15 @@ Working:
 Add unit and adaption to DB
 Negative warining and limit value (4 limits)
 add department display in formula
-
-
-Pending:
 new admin management page (offical)
-inline warning bar in table
-
-add Object Storage preview for evidence
-modify atomic data element input dialog (new window?)
-
+ - implemented, need to test, require proper UI/UX design
 permission for viewing level2/level3 data hiding
  -> much more, enhance permission system to support admin/department hard/field director/commities/sub-commities
 
-add audit trail for atomic data element
+Pending:
+add Object Storage preview for evidence
+modify atomic data element input dialog (new window?)
+
 add historical data for atomic data element
 add formula change for atomic data element
 
@@ -51,14 +57,9 @@ evidence tabs 和 audit trail tabs 宽度随地大小变
   - Ideal solution needed: Dynamic width calculation based on max(evidence_content_width, audit_content_width)
 Improve UI/UX desig
 
-@kriService.js
-- updateatomickri function - This method currently tries to
-  call a missing updateatomickri database RPC function. The
-  function needs to be created in the database (requires
-  database migration permissions). For now, it's marked with a
-  TODO comment for future implementation.
-
 @Kridetail.vue
 Sub-KRIs are treated as flat rows during sort rather than as children of a parent KRI.
 
 So Currently the permission and the display dashboard did not take view permission into consideration(invest it), I need it to be online since we have hide all data from anom.
+
+Use atomic1.evidence.view / atomic1.evidence.download / atomic1.evidence.delete to check if the user has permission to view/download/delete the evidence.

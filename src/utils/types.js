@@ -274,7 +274,8 @@ export const USER_PERMISSIONS = {
   EDIT: 'edit',
   REVIEW: 'review',
   ACKNOWLEDGE: 'acknowledge',
-  DELETE: 'delete'
+  DELETE: 'delete',
+  DOWNLOAD: 'download'
 };
 
 //reverse mapping from permission labels to numeric values
@@ -298,7 +299,7 @@ export function transformKRIData(data, mapStatus) {
     id: String(kri.kri_id),
     kriId: kri.kri_id, // Keep numeric ID for internal operations
     name: kri.kri_name || '',
-    owner: kri.owner || '',
+    owner: kri.kri_owner || '',
     dataProvider: kri.data_provider || '',
     collectionStatus: mapStatus ? mapStatus(kri.kri_status) : kri.kri_status,
     kriStatus: kri.kri_status, // Keep numeric status for internal operations
@@ -309,8 +310,8 @@ export function transformKRIData(data, mapStatus) {
     kriValue: kri.kri_value || 'N/A',
     warningLineValue: kri.warning_line_value,
     limitValue: kri.limit_value,
-    negativeWarning: kri.negative_warning,
-    negativeLimit: kri.negative_limit,
+    negativeWarning: kri.negative_warning || 0,
+    negativeLimit: kri.negative_limit || 0,
     reportingCycle: kri.reporting_frequency || '',
     reportingDate: kri.reporting_date, // Keep as integer for internal operations
     isCalculatedKri: kri.is_calculated_kri || false, // Map calculated KRI flag

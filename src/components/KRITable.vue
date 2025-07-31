@@ -8,7 +8,7 @@
           <i class="el-icon-info table-info-icon"></i>
         </el-tooltip>
         <table-column-config 
-          :table-type="tableType"
+          :table-type="currentTableType"
           @preferences-changed="handlePreferencesChanged"
         />
       </div>

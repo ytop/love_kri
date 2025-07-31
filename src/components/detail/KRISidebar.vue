@@ -140,7 +140,8 @@ import {
   canSaveKRIValue,
   canSubmitKRIValue,
   getSaveValidationMessage,
-  getSubmitValidationMessage
+  getSubmitValidationMessage,
+  calculateBreachStatusForKRI
 } from '@/utils/helpers';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
@@ -207,7 +208,9 @@ export default {
       const value = this.kriData.kri_value || this.kriData.kriValue;
       const warning = this.kriData.warning_line_value || this.kriData.warningLineValue;
       const limit = this.kriData.limit_value || this.kriData.limitValue;
-      return calculateBreachStatus(value, warning, limit);
+      const negWarning = this.kriData.negative_warning || this.kriData.negativeWarning;
+      const negLimit = this.kriData.negative_limit || this.kriData.negativeLimit;
+      return calculateBreachStatus(value, warning, limit, negWarning, negLimit);
     },
 
     breachTagType() {
@@ -309,18 +312,60 @@ export default {
       return null;
     },
 
-    // Chart Options - Using actual KRI thresholds for dynamic color zones
+    // Chart Options - Using actual KRI thresholds for dynamic color zones with 4-limit support
     gaugeOption() {
       const value = parseFloat(this.kriData.kri_value) || 0;
       const warning = parseFloat(this.kriData.warning_line_value) || 0;
       const limit = parseFloat(this.kriData.limit_value) || 0;
+      const negWarning = parseFloat(this.kriData.negative_warning) || 0;
+      const negLimit = parseFloat(this.kriData.negative_limit) || 0;
       
-      // Set dynamic max value with buffer
-      const maxValue = limit * 1.2;
+      // Check if negative limits exist
+      const hasNegativeLimits = negWarning !== 0 || negLimit !== 0;
       
-      // Calculate segment positions as ratios
-      const warningRatio = warning / maxValue;
-      const limitRatio = limit / maxValue;
+      // Set dynamic range based on available thresholds
+      let minValue, maxValue;
+      if (hasNegativeLimits) {
+        // Use full range when negative limits exist
+        const negativeRange = Math.min(negWarning, negLimit);
+        const positiveRange = Math.max(warning, limit);
+        minValue = negativeRange < 0 ? negativeRange * 1.2 : negativeRange * 0.8;
+        maxValue = positiveRange > 0 ? positiveRange * 1.2 : positiveRange * 1.2;
+      } else {
+        // Traditional positive-only range
+        minValue = 0;
+        maxValue = limit * 1.2;
+      }
+      
+      // Calculate segment positions as ratios for color zones
+      let colorSegments;
+      if (hasNegativeLimits) {
+        const range = maxValue - minValue;
+        // Define 5 zones: [min to negLimit], [negLimit to negWarning], [negWarning to posWarning], [posWarning to posLimit], [posLimit to max]
+        const negLimitRatio = (negLimit - minValue) / range;
+        const negWarningRatio = (negWarning - minValue) / range;
+        const posWarningRatio = (warning - minValue) / range;
+        const posLimitRatio = (limit - minValue) / range;
+        
+        colorSegments = [
+          [negLimitRatio, '#F56C6C'],     // Red: min to negative limit (breach zone)
+          [negWarningRatio, '#E6A23C'],   // Yellow: negative limit to negative warning
+          [posWarningRatio, '#67C23A'],   // Green: safe zone (negative warning to positive warning)
+          [posLimitRatio, '#E6A23C'],     // Yellow: positive warning to positive limit  
+          [1, '#F56C6C']                  // Red: positive limit to max (breach zone)
+        ];
+      } else {
+        // Traditional 3-zone positive gauge
+        const range = maxValue - minValue;
+        const warningRatio = (warning - minValue) / range;
+        const limitRatio = (limit - minValue) / range;
+        
+        colorSegments = [
+          [warningRatio, '#67C23A'],      // Green: min to warning
+          [limitRatio, '#E6A23C'],        // Yellow: warning to limit
+          [1, '#F56C6C']                  // Red: limit to max
+        ];
+      }
 
       return {
         series: [
@@ -329,17 +374,13 @@ export default {
             center: ['50%', '60%'],
             startAngle: 200,
             endAngle: -20,
-            min: 0,
+            min: minValue,
             max: maxValue,
-            splitNumber: 10, // More granularity for segments
+            splitNumber: hasNegativeLimits ? 12 : 10, // More segments for 4-limit display
             axisLine: {
               lineStyle: {
                 width: 18,
-                color: [ // Dynamic color segments based on actual thresholds
-                  [warningRatio, '#67C23A'], // Green: 0 to warning
-                  [limitRatio, '#E6A23C'],   // Yellow: warning to limit
-                  [1, '#F56C6C']             // Red: limit to max
-                ]
+                color: colorSegments // Dynamic color segments based on actual thresholds
               }
             },
             progress: {
@@ -373,24 +414,25 @@ export default {
                 color: '#bbb' // Slightly darker color
               }
             },
-            axisLabel: { // Show labels for thresholds
+            axisLabel: { // Show labels for thresholds with negative value support
               distance: -10, // Adjusted distance
               color: 'auto', // Use segment colors or a default
               fontSize: 9,
               formatter: function(value) {
-                return -1 < value && value < 1 ? value : Math.round(value);
+                // Handle negative values and small decimals properly
+                return Math.abs(value) < 1 ? value.toFixed(1) : Math.round(value);
               }
             },
             anchor: {
               show: false
             },
-            title: { // Title for context if needed, e.g. "Breach Level"
+            title: { // Title for context, adapted for 4-limit display
               show: true,
               offsetCenter: [0, '40%'],
               fontSize: 12,
               color: '#666'
             },
-            detail: { // Prominent value display
+            detail: { // Prominent value display with negative value support
               valueAnimation: true,
               width: '60%',
               lineHeight: 30, // Adjusted line height
@@ -398,13 +440,16 @@ export default {
               offsetCenter: [0, '60%'], // Adjusted position
               fontSize: 20, // Larger font size
               fontWeight: 'bold', // Bolder font
-              formatter: '{value}', // Show raw value without percentage
+              formatter: function(val) {
+                // Format numbers appropriately for negative values
+                return Math.abs(val) < 1 ? val.toFixed(2) : Math.round(val);
+              },
               color: 'auto' // Color based on segment
             },
             data: [
               {
-                value: -1 < value && value < 1 ? value : Math.round(value), // Round axis labels to integers
-                name: 'Status' // Optional name for title
+                value: Math.abs(value) < 1 ? parseFloat(value.toFixed(2)) : Math.round(value),
+                name: hasNegativeLimits ? 'Risk Level' : 'Status' // Updated title for 4-limit context
               }
             ]
           }
@@ -568,12 +613,18 @@ export default {
 
       this.actionLoading = true;
       try {
+        // Calculate breach status for the new KRI value
+        const breachStatus = calculateBreachStatusForKRI(this.inputForm.kriValue, this.kriData);
+        
         await this.updateKRIStatus({
           kriId: this.kriId,
           reportingDate: this.reportingDate,
-          updateData: { kri_value: this.inputForm.kriValue },
+          updateData: { 
+            kri_value: this.inputForm.kriValue,
+            breach_type: breachStatus
+          },
           action: 'save',
-          comment: 'KRI value saved via sidebar'
+          comment: `KRI value saved via sidebar (Breach: ${breachStatus})`
         });
         this.$message.success('KRI value saved successfully');
       } catch (error) {
@@ -596,16 +647,20 @@ export default {
         const kriOwner = this.kriData.kri_owner || this.kriData.owner;
         const dataProvider = this.kriData.data_provider || this.kriData.dataProvider;
         const nextStatus = (kriOwner === dataProvider) ? 50 : 40;
+        
+        // Calculate breach status for the new KRI value
+        const breachStatus = calculateBreachStatusForKRI(this.inputForm.kriValue, this.kriData);
 
         await this.updateKRIStatus({
           kriId: this.kriId,
           reportingDate: this.reportingDate,
           updateData: { 
             kri_value: this.inputForm.kriValue,
-            kri_status: nextStatus
+            kri_status: nextStatus,
+            breach_type: breachStatus
           },
           action: 'submit',
-          comment: 'KRI submitted for approval via sidebar'
+          comment: `KRI submitted for approval via sidebar (Breach: ${breachStatus})`
         });
         this.$message.success('KRI submitted successfully');
       } catch (error) {

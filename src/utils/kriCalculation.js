@@ -95,14 +95,16 @@ export class KRICalculationService {
   }
 
   /**
-   * Calculate breach status based on KRI value and limits
+   * Calculate breach status based on KRI value and limits (4-limit support)
    * @param {number} kriValue - The KRI value
    * @param {number} warningLineValue - Warning threshold
    * @param {number} limitValue - Limit threshold
+   * @param {number} negativeWarning - Negative warning threshold (optional)
+   * @param {number} negativeLimit - Negative limit threshold (optional)
    * @returns {string} Breach status
    */
-  calculateKRIBreachStatus(kriValue, warningLineValue, limitValue) {
-    return calculateBreachStatus(kriValue, warningLineValue, limitValue);
+  calculateKRIBreachStatus(kriValue, warningLineValue, limitValue, negativeWarning = null, negativeLimit = null) {
+    return calculateBreachStatus(kriValue, warningLineValue, limitValue, negativeWarning, negativeLimit);
   }
 
   // ========================================

@@ -5,15 +5,10 @@
       
       <el-tab-pane label="KRI Evidence" name="evidence">
         <div class="evidence-header">
-          <el-button
-            v-if="canUploadEvidence"
-            type="primary"
-            size="small"
-            icon="el-icon-upload2"
-            @click="showUploadModal"
-          >
-            Upload Evidence
-          </el-button>
+          <el-tag type="info" size="small">
+            <i class="el-icon-view"></i>
+            Evidence files (read-only)
+          </el-tag>
           <div></div>
         </div>
         
@@ -23,21 +18,6 @@
         
         <div v-else>
           <el-table :data="evidenceData" style="width: 100%">
-            <el-table-column
-              label="Selected"
-              width="80"
-              align="center"
-            >
-              <template slot-scope="scope">
-                <el-radio 
-                  :value="selectedEvidenceId" 
-                  :label="scope.row.evidence_id"
-                  @change="selectEvidence(scope.row.evidence_id)"
-                >
-                  <span></span>
-                </el-radio>
-              </template>
-            </el-table-column>
             
             <el-table-column
               prop="file_name"
@@ -46,17 +26,7 @@
               show-overflow-tooltip
             >
               <template slot-scope="scope">
-                <div style="display: flex; align-items: center;">
-                  <span>{{ scope.row.file_name }}</span>
-                  <el-tag 
-                    v-if="scope.row.evidence_id === selectedEvidenceId" 
-                    type="success" 
-                    size="mini" 
-                    style="margin-left: 8px;"
-                  >
-                    Submitted
-                  </el-tag>
-                </div>
+                <span>{{ scope.row.file_name }}</span>
               </template>
             </el-table-column>
             
@@ -97,28 +67,14 @@
             >
               <template slot-scope="scope">
                 <el-button
+                  v-if="canDownloadGeneralEvidence"
                   type="text"
                   size="small"
                   @click="downloadFile(scope.row.file_url, scope.row.file_name)"
                 >
                   Download
                 </el-button>
-                <el-button
-                  v-if="canSelectEvidence && scope.row.evidence_id !== selectedEvidenceId"
-                  type="text"
-                  size="small"
-                  @click="selectEvidence(scope.row.evidence_id)"
-                >
-                  Select
-                </el-button>
-                <el-button
-                  v-if="canSelectEvidence && scope.row.evidence_id === selectedEvidenceId"
-                  type="text"
-                  size="small"
-                  @click="unselectEvidence()"
-                >
-                  Unselect
-                </el-button>
+                <span v-else class="no-permission-text">No Download Permission</span>
               </template>
             </el-table-column>
           </el-table>
@@ -196,13 +152,14 @@
             >
               <template slot-scope="scope">
                 <el-button
-                  v-if="scope.row.linkedEvidence"
+                  v-if="scope.row.linkedEvidence && canDownloadAtomicEvidence(scope.row.atomic_id)"
                   type="text"
                   size="small"
-                  @click="downloadFile(scope.row.linkedEvidence.file_url, scope.row.linkedEvidence.file_name)"
+                  @click="downloadFile(scope.row.linkedEvidence.file_url, scope.row.linkedEvidence.file_name, scope.row.atomic_id)"
                 >
                   Download
                 </el-button>
+                <span v-else-if="scope.row.linkedEvidence" class="no-permission-text">No Download Permission</span>
                 <span v-else class="no-actions">-</span>
               </template>
             </el-table-column>
@@ -336,22 +293,13 @@
     </el-tabs>
     </div>
 
-    <!-- Evidence Upload Modal -->
-    <evidence-upload-modal
-      :visible.sync="uploadModalVisible"
-      :kri-id="String(kriId)"
-      :reporting-date="reportingDate"
-      :kri-item="kriItem"
-      @upload-success="handleUploadSuccess"
-      @close="handleModalClose"
-    />
   </div>
 </template>
 
 <script>
 import { mapState, mapGetters } from 'vuex';
-import { formatDateFromInt, requiresEvidence, getUserDisplayName } from '@/utils/helpers';
-import { kriService } from '@/services/kriService';
+import { formatDateFromInt } from '@/utils/helpers';
+import Permission from '@/utils/permission';
 
 export default {
   name: 'KRIEvidenceAudit',
@@ -391,9 +339,7 @@ export default {
   },
   data() {
     return {
-      activeTab: 'evidence',
-      uploadModalVisible: false,
-      isUpdatingSelection: false
+      activeTab: 'evidence'
     };
   },
   computed: {
@@ -401,38 +347,6 @@ export default {
     ...mapGetters('kri', ['canPerform']),
     
     
-    canUploadEvidence() {
-      if (!this.currentUser || !this.currentUser.permissions) {
-        return false;
-      }
-      
-      // Check if evidence is required for this KRI based on source
-      if (!requiresEvidence(this.kriItem?.source)) {
-        return false;
-      }
-      
-      const kriIdNum = parseInt(this.kriId, 10);
-      const allowedStatuses = [10, 20, 30];
-      const hasValidStatus = allowedStatuses.includes(this.currentStatus);
-      
-      return hasValidStatus && this.canPerform(kriIdNum, null, 'edit');
-    },
-    
-    canSelectEvidence() {
-      if (!this.currentUser || !this.currentUser.permissions) {
-        return false;
-      }
-      
-      const kriIdNum = parseInt(this.kriId, 10);
-      const allowedStatuses = [10, 20, 30, 40, 50]; // Allow selection in more statuses
-      const hasValidStatus = allowedStatuses.includes(this.currentStatus);
-      
-      return hasValidStatus && this.canPerform(kriIdNum, null, 'edit');
-    },
-    
-    selectedEvidenceId() {
-      return this.kriItem?.evidence_id || null;
-    },
     
     sortedAuditData() {
       if (!this.auditData || this.auditData.length === 0) {
@@ -463,6 +377,18 @@ export default {
     // Check if this is a calculated KRI for atomic evidence tab
     isCalculatedKRI() {
       return this.kriItem?.is_calculated_kri || false;
+    },
+
+    // Check if user can download general KRI evidence
+    canDownloadGeneralEvidence() {
+      if (!this.currentUser || !this.currentUser.permissions) {
+        return false;
+      }
+      
+      const kriIdNum = parseInt(this.kriId, 10);
+      const userPermissions = this.currentUser.permissions || [];
+      
+      return Permission.canDownloadEvidence(kriIdNum, userPermissions);
     }
   },
   methods: {
@@ -487,13 +413,19 @@ export default {
       }
     },
     
-    showUploadModal() {
-      this.uploadModalVisible = true;
-    },
-    
-    async downloadFile(fileUrl, fileName) {
+    async downloadFile(fileUrl, fileName, atomicId = null) {
       if (!fileUrl) {
         this.$message.warning('File URL not available');
+        return;
+      }
+      
+      // Check download permissions
+      const hasPermission = atomicId 
+        ? this.canDownloadAtomicEvidence(atomicId)
+        : this.canDownloadGeneralEvidence;
+        
+      if (!hasPermission) {
+        this.$message.error('You do not have permission to download this evidence file');
         return;
       }
       
@@ -519,65 +451,17 @@ export default {
         this.$message.error('Failed to download file');
       }
     },
-    
-    async selectEvidence(evidenceId) {
-      if (this.isUpdatingSelection) return;
-      
-      try {
-        this.isUpdatingSelection = true;
-        
-        await kriService.linkEvidenceToKRI(
-          this.kriId,
-          this.reportingDate,
-          evidenceId,
-          getUserDisplayName(this.currentUser),
-          'Evidence selected as submitted evidence'
-        );
-        
-        this.$message.success('Evidence selected successfully');
-        this.$emit('evidence-selected', evidenceId);
-        
-      } catch (error) {
-        console.error('Error selecting evidence:', error);
-        this.$message.error('Failed to select evidence: ' + error.message);
-      } finally {
-        this.isUpdatingSelection = false;
+
+    // Check if user can download atomic evidence
+    canDownloadAtomicEvidence(atomicId) {
+      if (!this.currentUser || !this.currentUser.permissions || !atomicId) {
+        return false;
       }
-    },
-    
-    async unselectEvidence() {
-      if (this.isUpdatingSelection) return;
       
-      try {
-        this.isUpdatingSelection = true;
-        
-        await kriService.unlinkEvidenceFromKRI(
-          this.kriId,
-          this.reportingDate,
-          getUserDisplayName(this.currentUser),
-          'Evidence selection removed'
-        );
-        
-        this.$message.success('Evidence unselected successfully');
-        this.$emit('evidence-unselected');
-        
-      } catch (error) {
-        console.error('Error unselecting evidence:', error);
-        this.$message.error('Failed to unselect evidence: ' + error.message);
-      } finally {
-        this.isUpdatingSelection = false;
-      }
-    },
-    
-    handleUploadSuccess() {
-      this.uploadModalVisible = false;
-      this.$message.success('Evidence uploaded successfully');
+      const kriIdNum = parseInt(this.kriId, 10);
+      const userPermissions = this.currentUser.permissions || [];
       
-      this.$emit('evidence-uploaded');
-    },
-    
-    handleModalClose() {
-      this.uploadModalVisible = false;
+      return Permission.canDownloadAtomicEvidence(kriIdNum, atomicId, userPermissions);
     },
     
     exportAuditCSV() {
@@ -666,12 +550,6 @@ export default {
 
       this.$message.success('Metadata changes exported successfully');
     }
-  },
-  components: {
-    EvidenceUploadModal: () => import('@/components/shared/EvidenceUploadModal.vue').catch(() => {
-      console.warn('EvidenceUploadModal component not found');
-      return { template: '<div></div>' };
-    })
   }
 };
 </script>
@@ -847,5 +725,12 @@ export default {
 .header-info {
   display: flex;
   align-items: center;
+}
+
+/* Permission-related styles */
+.no-permission-text {
+  color: #909399;
+  font-size: 12px;
+  font-style: italic;
 }
 </style>

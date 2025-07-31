@@ -63,6 +63,7 @@ CREATE TABLE public.kri_item (
   source text DEFAULT ''::text,
   evidence_id bigint,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  breach_type text,
   CONSTRAINT kri_item_pkey PRIMARY KEY (kri_id, reporting_date),
   CONSTRAINT fk_kri_item_metadata FOREIGN KEY (kri_code) REFERENCES public.kri_metadata(kri_code),
   CONSTRAINT fk_kri_item_evidence FOREIGN KEY (evidence_id) REFERENCES public.kri_evidence(evidence_id)
@@ -78,7 +79,6 @@ CREATE TABLE public.kri_metadata (
   l1_risk_type text,
   l2_risk_type text,
   ras_metric text,
-  breach_type text,
   limit_value integer,
   warning_line_value integer,
   negative_warning integer DEFAULT 0,
@@ -127,7 +127,6 @@ CREATE TABLE public.metadata_history (
   l1_risk_type text,
   l2_risk_type text,
   ras_metric text,
-  breach_type text,
   limit_value integer,
   warning_line_value integer,
   negative_warning integer DEFAULT 0,

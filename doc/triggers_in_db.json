@@ -1,38 +1,38 @@
 [
-    {
-      "trigger_name": "trigger_update_kri_status_from_atomic",
-      "table_name": "kri_atomic",
-      "schema_name": "public",
-      "function_name": "update_kri_status_from_atomic",
-      "trigger_timing": "AFTER",
-      "trigger_events": "UPDATE",
-      "trigger_level": "ROW",
-      "enabled": "O",
-      "trigger_definition": "CREATE TRIGGER trigger_update_kri_status_from_atomic AFTER UPDATE ON public.kri_atomic FOR EACH ROW WHEN (((new.atomic_status = 60) AND ((old.atomic_status IS NULL) OR (old.atomic_status <> 60)))) EXECUTE FUNCTION update_kri_status_from_atomic()",
-      "function_definition": "CREATE OR REPLACE FUNCTION public.update_kri_status_from_atomic()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  all_atomic_finalized boolean;\n  kri_metadata_rec RECORD;\nBEGIN\n  -- Get metadata to check if this is a calculated KRI\n  SELECT * INTO kri_metadata_rec \n  FROM get_current_kri_metadata(\n    (SELECT kri_code FROM kri_item WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date)\n  );\n  \n  -- Only proceed if this is a calculated KRI\n  IF kri_metadata_rec.is_calculated_kri THEN\n    -- Check if all atomic components for this KRI are finalized (status 60)\n    SELECT NOT EXISTS (\n      SELECT 1 FROM kri_atomic ka\n      WHERE ka.kri_id = NEW.kri_id \n        AND ka.reporting_date = NEW.reporting_date\n        AND (ka.atomic_status IS NULL OR ka.atomic_status != 60)\n    ) INTO all_atomic_finalized;\n    \n    -- If all atomics are finalized, update KRI status to finalized\n    IF all_atomic_finalized THEN\n      UPDATE kri_item \n      SET kri_status = 60 \n      WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date;\n      \n      -- Add audit trail entry\n      INSERT INTO kri_audit_trail (\n        kri_id, reporting_date, changed_at, changed_by, action, \n        field_name, old_value, new_value, comment, kri_code\n      ) VALUES (\n        NEW.kri_id, NEW.reporting_date, NOW(), 'system', 'auto_finalize_from_atomic',\n        'kri_status', \n        (SELECT kri_status FROM kri_item WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date),\n        '60',\n        'KRI automatically finalized as all atomic components are finalized',\n        (SELECT kri_code FROM kri_item WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date)\n      );\n    END IF;\n  END IF;\n  \n  RETURN NEW;\nEND;\n$function$\n"
-    },
-    {
-      "trigger_name": "trigger_set_metadata_effective_date",
-      "table_name": "kri_item",
-      "schema_name": "public",
-      "function_name": "set_metadata_effective_date",
-      "trigger_timing": "BEFORE",
-      "trigger_events": "INSERT",
-      "trigger_level": "ROW",
-      "enabled": "O",
-      "trigger_definition": "CREATE TRIGGER trigger_set_metadata_effective_date BEFORE INSERT ON public.kri_item FOR EACH ROW EXECUTE FUNCTION set_metadata_effective_date()",
-      "function_definition": "CREATE OR REPLACE FUNCTION public.set_metadata_effective_date()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  -- If metadata_effective_date is not provided, set it to the current timestamp\n  IF NEW.metadata_effective_date IS NULL THEN\n    NEW.metadata_effective_date := NOW();\n  END IF;\n  \n  RETURN NEW;\nEND;\n$function$\n"
-    },
-    {
-      "trigger_name": "trigger_archive_metadata_changes",
-      "table_name": "kri_metadata",
-      "schema_name": "public",
-      "function_name": "archive_metadata_changes",
-      "trigger_timing": "AFTER",
-      "trigger_events": "INSERT, UPDATE",
-      "trigger_level": "ROW",
-      "enabled": "O",
-      "trigger_definition": "CREATE TRIGGER trigger_archive_metadata_changes AFTER INSERT OR UPDATE ON public.kri_metadata FOR EACH ROW EXECUTE FUNCTION archive_metadata_changes()",
-      "function_definition": "CREATE OR REPLACE FUNCTION public.archive_metadata_changes()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  -- When updating metadata, archive the old version\n  IF TG_OP = 'UPDATE' THEN\n    -- Set the effective_to date for the old version\n    UPDATE metadata_history \n    SET effective_to = NOW()\n    WHERE metadata_id = OLD.metadata_id \n      AND effective_to IS NULL;\n    \n    -- Insert the new version\n    INSERT INTO metadata_history (\n      metadata_id, kri_code, name, description, formula, owner, data_provider,\n      l1_risk_type, l2_risk_type, ras_metric, breach_type, limit_value, \n      warning_line_value, negative_warning, negative_limit, reporting_frequency,\n      is_calculated_kri, effective_from, effective_to, changed_by, changed_at, change_reason\n    ) VALUES (\n      NEW.metadata_id, NEW.kri_code, NEW.name, NEW.description, NEW.formula, \n      NEW.owner, NEW.data_provider, NEW.l1_risk_type, NEW.l2_risk_type, \n      NEW.ras_metric, NEW.breach_type, NEW.limit_value, NEW.warning_line_value,\n      NEW.negative_warning, NEW.negative_limit, NEW.reporting_frequency,\n      NEW.is_calculated_kri, OLD.updated_at, NULL, 'system', NOW(), 'Metadata updated'\n    );\n    \n    RETURN NEW;\n  END IF;\n  \n  -- When inserting new metadata, create initial history record\n  IF TG_OP = 'INSERT' THEN\n    INSERT INTO metadata_history (\n      metadata_id, kri_code, name, description, formula, owner, data_provider,\n      l1_risk_type, l2_risk_type, ras_metric, breach_type, limit_value, \n      warning_line_value, negative_warning, negative_limit, reporting_frequency,\n      is_calculated_kri, effective_from, effective_to, changed_by, changed_at, change_reason\n    ) VALUES (\n      NEW.metadata_id, NEW.kri_code, NEW.name, NEW.description, NEW.formula, \n      NEW.owner, NEW.data_provider, NEW.l1_risk_type, NEW.l2_risk_type, \n      NEW.ras_metric, NEW.breach_type, NEW.limit_value, NEW.warning_line_value,\n      NEW.negative_warning, NEW.negative_limit, NEW.reporting_frequency,\n      NEW.is_calculated_kri, NEW.created_at, NULL, 'system', NOW(), 'Initial metadata creation'\n    );\n    \n    RETURN NEW;\n  END IF;\n  \n  RETURN NULL;\nEND;\n$function$\n"
-    }
-  ]
+  {
+    "trigger_name": "trigger_update_kri_status_from_atomic",
+    "table_name": "kri_atomic",
+    "schema_name": "public",
+    "function_name": "update_kri_status_from_atomic",
+    "trigger_timing": "AFTER",
+    "trigger_events": "UPDATE",
+    "trigger_level": "ROW",
+    "enabled": "O",
+    "trigger_definition": "CREATE TRIGGER trigger_update_kri_status_from_atomic AFTER UPDATE ON public.kri_atomic FOR EACH ROW WHEN (((new.atomic_status = 60) AND ((old.atomic_status IS NULL) OR (old.atomic_status <> 60)))) EXECUTE FUNCTION update_kri_status_from_atomic()",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.update_kri_status_from_atomic()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  all_atomic_finalized boolean;\n  kri_metadata_rec RECORD;\nBEGIN\n  -- Get metadata to check if this is a calculated KRI\n  SELECT * INTO kri_metadata_rec \n  FROM get_current_kri_metadata(\n    (SELECT kri_code FROM kri_item WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date)\n  );\n  \n  -- Only proceed if this is a calculated KRI\n  IF kri_metadata_rec.is_calculated_kri THEN\n    -- Check if all atomic components for this KRI are finalized (status 60)\n    SELECT NOT EXISTS (\n      SELECT 1 FROM kri_atomic ka\n      WHERE ka.kri_id = NEW.kri_id \n        AND ka.reporting_date = NEW.reporting_date\n        AND (ka.atomic_status IS NULL OR ka.atomic_status != 60)\n    ) INTO all_atomic_finalized;\n    \n    -- If all atomics are finalized, update KRI status to finalized\n    IF all_atomic_finalized THEN\n      UPDATE kri_item \n      SET kri_status = 60 \n      WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date;\n      \n      -- Add audit trail entry\n      INSERT INTO kri_audit_trail (\n        kri_id, reporting_date, changed_at, changed_by, action, \n        field_name, old_value, new_value, comment, kri_code\n      ) VALUES (\n        NEW.kri_id, NEW.reporting_date, NOW(), 'system', 'auto_finalize_from_atomic',\n        'kri_status', \n        (SELECT kri_status FROM kri_item WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date),\n        '60',\n        'KRI automatically finalized as all atomic components are finalized',\n        (SELECT kri_code FROM kri_item WHERE kri_id = NEW.kri_id AND reporting_date = NEW.reporting_date)\n      );\n    END IF;\n  END IF;\n  \n  RETURN NEW;\nEND;\n$function$\n"
+  },
+  {
+    "trigger_name": "trigger_set_metadata_effective_date",
+    "table_name": "kri_item",
+    "schema_name": "public",
+    "function_name": "set_metadata_effective_date",
+    "trigger_timing": "BEFORE",
+    "trigger_events": "INSERT",
+    "trigger_level": "ROW",
+    "enabled": "O",
+    "trigger_definition": "CREATE TRIGGER trigger_set_metadata_effective_date BEFORE INSERT ON public.kri_item FOR EACH ROW EXECUTE FUNCTION set_metadata_effective_date()",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.set_metadata_effective_date()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  -- If metadata_effective_date is not provided, set it to the current timestamp\n  IF NEW.metadata_effective_date IS NULL THEN\n    NEW.metadata_effective_date := NOW();\n  END IF;\n  \n  RETURN NEW;\nEND;\n$function$\n"
+  },
+  {
+    "trigger_name": "trigger_archive_metadata_changes",
+    "table_name": "kri_metadata",
+    "schema_name": "public",
+    "function_name": "archive_metadata_changes",
+    "trigger_timing": "AFTER",
+    "trigger_events": "INSERT, UPDATE",
+    "trigger_level": "ROW",
+    "enabled": "O",
+    "trigger_definition": "CREATE TRIGGER trigger_archive_metadata_changes AFTER INSERT OR UPDATE ON public.kri_metadata FOR EACH ROW EXECUTE FUNCTION archive_metadata_changes()",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.archive_metadata_changes()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  -- When updating metadata, archive the old version\n  IF TG_OP = 'UPDATE' THEN\n    -- Set the effective_to date for the old version\n    UPDATE metadata_history \n    SET effective_to = NOW()\n    WHERE metadata_id = OLD.metadata_id \n      AND effective_to IS NULL;\n    \n    -- Insert the new version\n    INSERT INTO metadata_history (\n      metadata_id, kri_code, name, description, formula, owner, data_provider,\n      l1_risk_type, l2_risk_type, ras_metric, breach_type, limit_value, \n      warning_line_value, negative_warning, negative_limit, reporting_frequency,\n      is_calculated_kri, effective_from, effective_to, changed_by, changed_at, change_reason\n    ) VALUES (\n      NEW.metadata_id, NEW.kri_code, NEW.name, NEW.description, NEW.formula, \n      NEW.owner, NEW.data_provider, NEW.l1_risk_type, NEW.l2_risk_type, \n      NEW.ras_metric, NEW.breach_type, NEW.limit_value, NEW.warning_line_value,\n      NEW.negative_warning, NEW.negative_limit, NEW.reporting_frequency,\n      NEW.is_calculated_kri, OLD.updated_at, NULL, 'system', NOW(), 'Metadata updated'\n    );\n    \n    RETURN NEW;\n  END IF;\n  \n  -- When inserting new metadata, create initial history record\n  IF TG_OP = 'INSERT' THEN\n    INSERT INTO metadata_history (\n      metadata_id, kri_code, name, description, formula, owner, data_provider,\n      l1_risk_type, l2_risk_type, ras_metric, breach_type, limit_value, \n      warning_line_value, negative_warning, negative_limit, reporting_frequency,\n      is_calculated_kri, effective_from, effective_to, changed_by, changed_at, change_reason\n    ) VALUES (\n      NEW.metadata_id, NEW.kri_code, NEW.name, NEW.description, NEW.formula, \n      NEW.owner, NEW.data_provider, NEW.l1_risk_type, NEW.l2_risk_type, \n      NEW.ras_metric, NEW.breach_type, NEW.limit_value, NEW.warning_line_value,\n      NEW.negative_warning, NEW.negative_limit, NEW.reporting_frequency,\n      NEW.is_calculated_kri, NEW.created_at, NULL, 'system', NOW(), 'Initial metadata creation'\n    );\n    \n    RETURN NEW;\n  END IF;\n  \n  RETURN NULL;\nEND;\n$function$\n"
+  }
+]

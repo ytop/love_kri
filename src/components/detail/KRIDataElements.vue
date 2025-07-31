@@ -3,97 +3,19 @@
     <div class="left-title">
             <h4>Data Elements</h4>
         </div>
-    <!-- Calculation Details Section (Only for Calculated KRIs) -->
-    <div v-if="isCalculatedKRI && kriDetail.kri_formula" class="formula-result-section">
-        <div class="formula-header">
-          <h4>
-            <i class="el-icon-s-data"></i>
-            Calculation Details
-          </h4>
-          <el-tag v-if="isDynamicResult" type="success" size="mini" class="live-tag">
-            <i class="el-icon-refresh"></i> Live
-          </el-tag>
-        </div>
-        
-        <div class="formula-content">
-          <div class="formula-item">
-            <div class="formula-label">
-              <i class="el-icon-edit-outline"></i>
-              <strong>Formula:</strong>
-            </div>
-            <code class="formula-code">{{ kriDetail.kri_formula || 'No formula defined' }}</code>
-          </div>
-          
-          <div class="formula-item">
-            <div class="formula-label">
-              <i class="el-icon-s-operation"></i>
-              <strong>Substitution:</strong>
-            </div>
-            <code class="calculation-code">{{ calculateFormula }}</code>
-          </div>
-          
-          <div class="formula-item result-item">
-            <div class="formula-label">
-              <i class="el-icon-s-marketing"></i>
-              <strong>Result:</strong>
-            </div>
-            <div class="result-container">
-              <span class="result-value" :class="{'result-highlight': isDynamicResult}">
-                {{ calculatedResult }}
-              </span>
-              <div v-if="isDynamicResult" class="result-status">
-                <el-tag type="warning" size="mini">
-                  <i class="el-icon-warning-outline"></i>
-                  Different from stored value ({{ kriDetail.kri_value }})
-                </el-tag>
-              </div>
-            </div>
-          </div>
-          
-          <div v-if="atomicData.length > 0" class="atomic-values-section">
-            <div class="formula-label">
-              <i class="el-icon-collection"></i>
-              <strong>Atomic Values:</strong>
-            </div>
-            <div class="atomic-grid">
-              <div 
-                v-for="item in atomicData" 
-                :key="item.atomic_id" 
-                class="atomic-card"
-                :class="{'atomic-card-highlight': isDynamicResult}"
-                :id="`atomic-${item.atomic_id}`"
-                @click="scrollToAtomicRow(item.atomic_id)">
-                
-                <div class="atomic-header">
-                  <span class="atomic-id">A{{ item.atomic_id }}</span>
-                  <el-tag :type="getAtomicStatusType(item.atomic_status)" size="mini">
-                    {{ mapAtomicStatus(item.atomic_status) }}
-                  </el-tag>
-                </div>
-                
-                <div class="atomic-card-content">
-                  <div class="atomic-name">{{ item.atomic_metadata || `Element ${item.atomic_id}` }}</div>
-                  <div class="atomic-value-display">{{ item.atomic_value || 'N/A' }}</div>
-                </div>
-                
-                <div class="atomic-card-footer">
-                  <el-button 
-                    type="text" 
-                    size="mini" 
-                    icon="el-icon-view"
-                    @click.stop="scrollToAtomicRow(item.atomic_id)">
-                    View in Table
-                  </el-button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-    </div>
 
     <div class="actions-toolbar">
 
     <div class="right-actions">
+        <el-button
+          v-if="isCalculatedKRI && canRecalculateKRI"
+          type="primary"
+          icon="el-icon-refresh"
+          @click="handleRecalculateKRI"
+          :loading="recalculatingKRI"
+          size="small">
+          Recalculate KRI
+        </el-button>
         <el-button
           v-if="canSubmitAtomicData"
           type="success"
@@ -119,7 +41,7 @@
           @click="rejectSelectedRows"
           :disabled="!canRejectSelected"
           size="small">
-          Reject Selected
+          Reject Selected ({{ rejectableCount }})
         </el-button>
         <el-button
           v-if="showAcknowledgeButton"
@@ -207,27 +129,52 @@
               <div class="evidence-content">
                 <!-- Atomic evidence for calculated KRIs -->
                 <template v-if="isCalculatedKRI && canLinkAtomicEvidence(kriDetail, item)">
-                  <el-select
-                    :value="item.evidence_id || item.evidenceId || null"
-                    @change="handleAtomicEvidenceChange(item, $event)"
-                    placeholder="Select evidence"
-                    size="mini"
-                    style="width: 140px"
-                    :disabled="!canEditAtomicElement(item)"
-                    clearable>
-                    <el-option
-                      v-for="evidence in getAvailableEvidenceForAtomic(evidenceData, item.atomic_id, atomicData)"
-                      :key="evidence.evidence_id"
-                      :label="evidence.file_name"
-                      :value="evidence.evidence_id">
-                      <span style="float: left">{{ evidence.file_name }}</span>
-                      <span style="float: right; color: #8492a6; font-size: 13px">
-                        {{ formatEvidenceDate(evidence.uploaded_at) }}
-                      </span>
-                    </el-option>
-                  </el-select>
-                  <div v-if="item.evidenceFileName" class="evidence-filename" :title="item.evidenceFileName">
-                    {{ item.evidenceFileName }}
+                  <div class="atomic-evidence-controls">
+                    <el-select
+                      :value="item.evidence_id || item.evidenceId || null"
+                      @change="handleAtomicEvidenceChange(item, $event)"
+                      placeholder="Select evidence"
+                      size="mini"
+                      style="width: 140px"
+                      :disabled="!canEditAtomicElement(item)"
+                      clearable>
+                      <el-option
+                        v-for="evidence in getAvailableEvidenceForAtomic(evidenceData, item.atomic_id, atomicData)"
+                        :key="evidence.evidence_id"
+                        :label="evidence.file_name"
+                        :value="evidence.evidence_id">
+                        <span style="float: left">{{ evidence.file_name }}</span>
+                        <span style="float: right; color: #8492a6; font-size: 13px">
+                          {{ formatEvidenceDate(evidence.uploaded_at) }}
+                        </span>
+                      </el-option>
+                    </el-select>
+                    <el-button
+                      v-if="canEditAtomicElement(item)"
+                      type="text"
+                      size="mini"
+                      icon="el-icon-upload2"
+                      @click="showAtomicUploadModal(item)"
+                      class="atomic-upload-btn"
+                      title="Upload evidence for this atomic element"
+                    >
+                    </el-button>
+                  </div>
+                  <div v-if="item.evidenceFileName" class="evidence-filename-container">
+                    <span class="evidence-filename" :title="item.evidenceFileName">
+                      {{ item.evidenceFileName }}
+                    </span>
+                    <el-button
+                      v-if="canDownloadAtomicEvidence(item.atomic_id)"
+                      type="text"
+                      size="mini"
+                      icon="el-icon-download"
+                      @click="downloadAtomicEvidence(item)"
+                      class="atomic-download-btn"
+                      title="Download atomic evidence"
+                    >
+                    </el-button>
+                    <span v-else-if="item.evidenceFileName" class="no-permission-text">No Download Permission</span>
                   </div>
                 </template>
                 
@@ -266,7 +213,8 @@
                     icon="el-icon-upload"
                     size="mini"
                     @click="submitAtomicElement(item)"
-                    :loading="savingAtomic === item.atomic_id">
+                    :loading="savingAtomic === item.atomic_id"
+                    :disabled="!canSubmitAtomicValue(item)">
                     Submit
                   </el-button>
                   <el-button
@@ -276,7 +224,7 @@
                     size="mini"
                     @click="saveAndSubmitAtomicElement(item)"
                     :loading="savingAtomic === item.atomic_id"
-                    :disabled="!hasAtomicValue(item)">
+                    :disabled="!canSubmitAtomicValue(item)">
                     Save & Submit
                   </el-button>
                 </template>
@@ -347,9 +295,10 @@
 <script>
 import { mapState, mapActions, mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
-import { getUserDisplayName, isCalculatedKRI, getAtomicEvidenceStatus, getAvailableEvidenceForAtomic, canLinkAtomicEvidence } from '@/utils/helpers';
-import { mapStatus } from '@/utils/types';
+import { getUserDisplayName, isCalculatedKRI, getAtomicEvidenceStatus, getAvailableEvidenceForAtomic, canLinkAtomicEvidence, canSubmitAtomicValue, calculateBreachStatusForKRI } from '@/utils/helpers';
 import { kriCalculationService } from '@/utils/kriCalculation';
+import { mapStatus, getStatusTagType } from '@/utils/types';
+import Permission from '@/utils/permission';
 import EvidenceUploadModal from '@/components/shared/EvidenceUploadModal.vue';
 import AtomicInputDialog from '@/components/shared/AtomicInputDialog.vue';
 
@@ -381,10 +330,12 @@ export default {
       editingValue: null,
       savingAtomic: null,
       submittingAtomicData: false,
+      recalculatingKRI: false,
       // Missing data properties for template
       previousAtomicData: [],
       showBulkInputDialog: false,
-      uploadModalVisible: false
+      uploadModalVisible: false,
+      currentAtomicForUpload: null
     };
   },
   computed: {
@@ -399,8 +350,17 @@ export default {
     // Bulk operation computed properties
     canSubmitAtomicData() {
       return this.isCase1Status && this.atomicData.some(item => 
-        this.canEditAtomicElement(item) && this.hasAtomicValue(item)
+        this.canEditAtomicElement(item) && this.canSubmitAtomicValue(item)
       );
+    },
+    
+    // Check if user can recalculate KRI (all atomics must be finalized)
+    canRecalculateKRI() {
+      if (!this.isCalculatedKRI || !this.atomicData || this.atomicData.length === 0) {
+        return false;
+      }
+      // Can recalculate when all atomic elements are finalized (status 60)
+      return this.atomicData.every(atomic => atomic.atomic_status === 60);
     },
     
     showApproveButton() {
@@ -408,7 +368,10 @@ export default {
     },
     
     showRejectButton() {
-      return this.atomicData.some(item => this.canApproveAtomicElement(item));
+      return this.atomicData.some(item => 
+        this.canApproveAtomicElement(item) || 
+        this.canAcknowledgeAtomicElement(item)
+      );
     },
     
     showAcknowledgeButton() {
@@ -416,18 +379,21 @@ export default {
     },
     
     canApproveSelected() {
-      return this.selectedItems.length > 0 && this.selectedItems.every(id => {
+      return this.selectedItems.length > 0 && this.selectedItems.some(id => {
         const item = this.atomicData.find(a => a.atomic_id === id);
         return item && this.canApproveAtomicElement(item);
       });
     },
     
     canRejectSelected() {
-      return this.selectedItems.length > 0;
+      return this.selectedItems.length > 0 && this.selectedItems.some(id => {
+        const item = this.atomicData.find(a => a.atomic_id === id);
+        return item && (this.canApproveAtomicElement(item) || this.canAcknowledgeAtomicElement(item));
+      });
     },
     
     canAcknowledgeSelected() {
-      return this.selectedItems.length > 0 && this.selectedItems.every(id => {
+      return this.selectedItems.length > 0 && this.selectedItems.some(id => {
         const item = this.atomicData.find(a => a.atomic_id === id);
         return item && this.canAcknowledgeAtomicElement(item);
       });
@@ -447,6 +413,13 @@ export default {
       }).length;
     },
     
+    rejectableCount() {
+      return this.selectedItems.filter(id => {
+        const item = this.atomicData.find(a => a.atomic_id === id);
+        return item && (this.canApproveAtomicElement(item) || this.canAcknowledgeAtomicElement(item));
+      }).length;
+    },
+    
     canUploadEvidence() {
       return this.isCase1Status && this.canPerform(this.kriDetail.kri_id, null, 'edit');
     },
@@ -456,30 +429,7 @@ export default {
       return this.kriDetail ? isCalculatedKRI(this.kriDetail) : false;
     },
     
-    // Calculate formula with atomic values substitution
-    calculateFormula() {
-      if (!this.isCalculatedKRI || !this.kriDetail?.kri_formula || !this.atomicData?.length) {
-        return 'No formula or atomic data available';
-      }
-      
-      try {
-        // Create substitution string showing formula with actual values
-        let substitution = this.kriDetail.kri_formula;
-        
-        this.atomicData.forEach(atomic => {
-          const atomicVar = `atomic${atomic.atomic_id}`;
-          const atomicValue = atomic.atomic_value || 0;
-          const regex = new RegExp(`\\b${atomicVar}\\b`, 'gi');
-          substitution = substitution.replace(regex, atomicValue);
-        });
-        
-        return substitution;
-      } catch (error) {
-        return `Calculation error: ${error.message}`;
-      }
-    },
-    
-    // Real-time calculated result
+    // Real-time calculated result for recalculate button
     calculatedResult() {
       if (!this.isCalculatedKRI || !this.kriDetail?.kri_formula || !this.atomicData?.length) {
         return 'N/A';
@@ -497,26 +447,23 @@ export default {
       }
     },
     
-    // Check if calculated result differs from stored value
-    isDynamicResult() {
-      if (!this.isCalculatedKRI || this.calculatedResult === 'N/A' || this.calculatedResult === 'Error') {
-        return false;
-      }
-      
-      const storedValue = parseFloat(this.kriDetail?.kri_value || 0);
-      const calculatedValue = parseFloat(this.calculatedResult);
-      
-      // Consider values different if they differ by more than 0.01
-      return Math.abs(storedValue - calculatedValue) > 0.01;
-    }
   },
   methods: {
     ...mapActions('kri', ['refreshKRIDetail', 'linkAtomicEvidence', 'unlinkAtomicEvidence']),
     
     // Permission checking methods
     canEditAtomicElement(item) {
+      // Check both KRI-level status and atomic-level status
+      // KRI must be in input stages (10, 20, 30) and atomic must be in editable states
+      const kriInputStages = [10, 20, 30]; // KRI input stages
+      const atomicEditableStates = [10, 20, 30]; // Atomic editable states
+      
+      const kriInInputStage = kriInputStages.includes(this.kriDetail?.kri_status);
+      const atomicInEditableState = atomicEditableStates.includes(item.atomic_status);
+      
       return this.canPerform(this.kriDetail.kri_id, item.atomic_id, 'edit') && 
-             [10, 20, 30].includes(item.atomic_status);
+             kriInInputStage && 
+             atomicInEditableState;
     },
     
     canApproveAtomicElement(item) {
@@ -625,6 +572,16 @@ export default {
     async submitAtomicElement(item) {
       if (this.savingAtomic === item.atomic_id) return;
       
+      // Validate evidence/source before submission
+      if (!this.canSubmitAtomicValue(item)) {
+        if (item.source === 'system') {
+          this.$message.error('Value is required for system-generated data');
+        } else {
+          this.$message.error('Evidence is required for manual data entries. Please link evidence before submitting.');
+        }
+        return;
+      }
+      
       this.savingAtomic = item.atomic_id;
       try {
         // Determine next status based on KRI owner/data provider logic
@@ -652,6 +609,16 @@ export default {
     
     async saveAndSubmitAtomicElement(item) {
       if (this.savingAtomic === item.atomic_id) return;
+      
+      // Validate evidence/source before submission
+      if (!this.canSubmitAtomicValue(item)) {
+        if (item.source === 'system') {
+          this.$message.error('Value is required for system-generated data');
+        } else {
+          this.$message.error('Evidence is required for manual data entries. Please link evidence before submitting.');
+        }
+        return;
+      }
       
       this.savingAtomic = item.atomic_id;
       try {
@@ -721,20 +688,33 @@ export default {
       this.submittingAtomicData = true;
       try {
         const nextStatus = this.getNextSubmitStatus();
-        const promises = this.atomicData
-          .filter(item => this.canEditAtomicElement(item) && this.hasAtomicValue(item))
-          .map(item => kriService.updateatomickri(
-            this.kriDetail.kri_id,
-            item.atomic_id,
-            this.kriDetail.reporting_date,
-            { atomic_status: nextStatus },
-            getUserDisplayName(this.currentUser),
-            'bulk_submit_atomic',
-            'Bulk atomic data submission'
-          ));
+        const eligibleItems = this.atomicData
+          .filter(item => this.canEditAtomicElement(item) && this.canSubmitAtomicValue(item));
+        
+        if (eligibleItems.length === 0) {
+          this.$message.warning('No items available for submission. Please ensure items have values and evidence (or source=system).');
+          return;
+        }
+        
+        const promises = eligibleItems.map(item => kriService.updateatomickri(
+          this.kriDetail.kri_id,
+          item.atomic_id,
+          this.kriDetail.reporting_date,
+          { atomic_status: nextStatus },
+          getUserDisplayName(this.currentUser),
+          'bulk_submit_atomic',
+          'Bulk atomic data submission'
+        ));
         
         await Promise.all(promises);
-        this.$message.success('All atomic data submitted successfully');
+        
+        const totalEditable = this.atomicData.filter(item => this.canEditAtomicElement(item)).length;
+        if (eligibleItems.length === totalEditable) {
+          this.$message.success('All atomic data submitted successfully');
+        } else {
+          this.$message.success(`${eligibleItems.length} of ${totalEditable} items submitted successfully (remaining items need evidence)`);
+        }
+        
         this.$emit('data-updated');
       } catch (error) {
         console.error('Error submitting atomic data:', error);
@@ -744,21 +724,77 @@ export default {
       }
     },
     
+    async handleRecalculateKRI() {
+      if (!this.canRecalculateKRI) return;
+      
+      this.recalculatingKRI = true;
+      try {
+        // Recalculate KRI value based on finalized atomic values
+        const calculatedValue = this.calculatedResult;
+        
+        // Calculate breach status for the recalculated value
+        const breachStatus = calculateBreachStatusForKRI(parseFloat(calculatedValue), this.kriDetail);
+        
+        // Update the KRI with the recalculated value and breach status
+        await kriService.updateKRI(
+          this.kriDetail.kri_id,
+          this.kriDetail.reporting_date,
+          { 
+            kri_value: calculatedValue,
+            breach_type: breachStatus
+          },
+          getUserDisplayName(this.currentUser),
+          'recalculate_kri',
+          `KRI recalculated from atomic elements: ${calculatedValue} (Breach: ${breachStatus})`
+        );
+        
+        this.$message.success('KRI recalculated successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error recalculating KRI:', error);
+        this.$message.error('Failed to recalculate KRI');
+      } finally {
+        this.recalculatingKRI = false;
+      }
+    },
+    
     async approveSelectedRows() {
-      await this.bulkUpdateSelected(50, 'bulk_approve_atomic', 'Selected atomic elements approved');
+      await this.bulkUpdateSelected(50, 'bulk_approve_atomic', 'Selected atomic elements approved', 'canApproveAtomicElement');
     },
     
     async rejectSelectedRows() {
-      await this.bulkUpdateSelected(20, 'bulk_reject_atomic', 'Selected atomic elements rejected');
+      await this.bulkUpdateSelected(20, 'bulk_reject_atomic', 'Selected atomic elements rejected', item => 
+        this.canApproveAtomicElement(item) || this.canAcknowledgeAtomicElement(item)
+      );
     },
     
     async acknowledgeSelectedRows() {
-      await this.bulkUpdateSelected(60, 'bulk_acknowledge_atomic', 'Selected atomic elements acknowledged');
+      await this.bulkUpdateSelected(60, 'bulk_acknowledge_atomic', 'Selected atomic elements acknowledged', 'canAcknowledgeAtomicElement');
     },
     
-    async bulkUpdateSelected(newStatus, action, successMessage) {
+    async bulkUpdateSelected(newStatus, action, successMessage, filterFunction) {
       try {
-        const promises = this.selectedItems.map(atomicId => 
+        // Filter selected items based on the provided filter function
+        const eligibleItems = this.selectedItems.filter(atomicId => {
+          const item = this.atomicData.find(a => a.atomic_id === atomicId);
+          if (!item) return false;
+          
+          if (typeof filterFunction === 'string') {
+            // If string, use it as method name
+            return this[filterFunction](item);
+          } else if (typeof filterFunction === 'function') {
+            // If function, call it directly
+            return filterFunction(item);
+          }
+          return true; // No filter, process all
+        });
+        
+        if (eligibleItems.length === 0) {
+          this.$message.warning('No items selected that can be processed');
+          return;
+        }
+        
+        const promises = eligibleItems.map(atomicId => 
           kriService.updateatomickri(
             this.kriDetail.kri_id,
             atomicId,
@@ -766,12 +802,21 @@ export default {
             { atomic_status: newStatus },
             getUserDisplayName(this.currentUser),
             action,
-            successMessage
+            `${action} - ${successMessage}`
           )
         );
         
         await Promise.all(promises);
-        this.$message.success(successMessage);
+        
+        const processedCount = eligibleItems.length;
+        const totalSelected = this.selectedItems.length;
+        
+        if (processedCount === totalSelected) {
+          this.$message.success(successMessage);
+        } else {
+          this.$message.success(`${processedCount} of ${totalSelected} selected items processed successfully`);
+        }
+        
         this.selectedItems = [];
         this.selectAll = false;
         this.$emit('data-updated');
@@ -787,20 +832,17 @@ export default {
       return (this.kriDetail.kri_owner === this.kriDetail.data_provider) ? 50 : 40;
     },
     
+    
     mapAtomicStatus(status) {
       return mapStatus(status);
     },
     
     getAtomicStatusType(status) {
-      const typeMap = {
-        10: 'info',     // Pending Input
-        20: 'warning',  // Under Rework
-        30: 'primary',  // Saved
-        40: 'warning',  // Submitted to Data Provider
-        50: 'warning',  // Submitted to KRI Owner
-        60: 'success'   // Finalized
-      };
-      return typeMap[status] || 'info';
+      return getStatusTagType(status);
+    },
+    
+    canSubmitAtomicValue(item) {
+      return canSubmitAtomicValue(item, this.evidenceData);
     },
     
     getProviderName(_item) {
@@ -866,7 +908,73 @@ export default {
     canLinkAtomicEvidence,
     
     showUploadModal() {
+      this.currentAtomicForUpload = null; // General upload
       this.uploadModalVisible = true;
+    },
+    
+    showAtomicUploadModal(atomic) {
+      this.currentAtomicForUpload = atomic; // Specific atomic upload
+      this.uploadModalVisible = true;
+    },
+
+    // Check if user can download atomic evidence
+    canDownloadAtomicEvidence(atomicId) {
+      if (!this.currentUser || !this.currentUser.permissions || !atomicId) {
+        return false;
+      }
+      
+      const kriIdNum = parseInt(this.kriDetail.kri_id, 10);
+      const userPermissions = this.currentUser.permissions || [];
+      
+      return Permission.canDownloadAtomicEvidence(kriIdNum, atomicId, userPermissions);
+    },
+
+    // Download atomic evidence file
+    async downloadAtomicEvidence(atomicItem) {
+      if (!atomicItem || !atomicItem.evidenceFileName) {
+        this.$message.warning('No evidence file available for download');
+        return;
+      }
+
+      // Check permissions
+      if (!this.canDownloadAtomicEvidence(atomicItem.atomic_id)) {
+        this.$message.error('You do not have permission to download this atomic evidence file');
+        return;
+      }
+
+      try {
+        // Find the evidence data to get the file URL
+        const evidenceFile = this.evidenceData.find(evidence => 
+          evidence.file_name === atomicItem.evidenceFileName ||
+          evidence.evidence_id === atomicItem.evidence_id
+        );
+
+        if (!evidenceFile || !evidenceFile.file_url) {
+          this.$message.error('Evidence file URL not found');
+          return;
+        }
+
+        // Download the file
+        const response = await fetch(evidenceFile.file_url);
+        if (!response.ok) {
+          throw new Error('Failed to fetch file');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = evidenceFile.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        this.$message.success('Atomic evidence downloaded successfully');
+      } catch (error) {
+        console.error('Error downloading atomic evidence:', error);
+        this.$message.error('Failed to download atomic evidence file');
+      }
     },
     
     // Missing methods for template event handlers
@@ -881,13 +989,28 @@ export default {
       this.$message.success('Bulk atomic data updated successfully');
     },
     
-    handleUploadSuccess(uploadData) {
+    async handleUploadSuccess(uploadData) {
       // Handle evidence upload completion from EvidenceUploadModal
       console.log('Upload success:', uploadData);
-      // Close the modal
+      
+      // If upload was for a specific atomic element, link it automatically
+      if (this.currentAtomicForUpload && uploadData && uploadData.evidence_id) {
+        try {
+          await this.handleAtomicEvidenceChange(this.currentAtomicForUpload, uploadData.evidence_id);
+          this.$message.success(`Evidence uploaded and linked to atomic element ${this.currentAtomicForUpload.atomic_id}`);
+        } catch (error) {
+          console.error('Error linking uploaded evidence to atomic:', error);
+          this.$message.warning('Evidence uploaded but failed to link to atomic element');
+        }
+      }
+      
+      // Close the modal and reset atomic selection
       this.uploadModalVisible = false;
+      this.currentAtomicForUpload = null;
+      
       // Emit evidence-uploaded event to parent  
       this.$emit('evidence-uploaded');
+      
       // Refresh data
       this.refreshKRIDetail();
     },
@@ -965,17 +1088,21 @@ export default {
         try {
           const newKriValue = parseFloat(this.calculatedResult);
           
-          // Update KRI with calculated value via service
+          // Calculate breach status for the new KRI value
+          const breachStatus = calculateBreachStatusForKRI(newKriValue, this.kriDetail);
+          
+          // Update KRI with calculated value and breach status via service
           await kriService.updateKRI(
             this.kriDetail.kri_id,
             this.kriDetail.reporting_date,
             { 
               kri_value: newKriValue.toString(),
-              kri_status: 30 // Set to "Saved" status after auto-calculation
+              kri_status: 30, // Set to "Saved" status after auto-calculation
+              breach_type: breachStatus
             },
             getUserDisplayName(this.currentUser),
             'auto_recalculate_kri',
-            `Auto-recalculated KRI value from atomic elements: ${this.calculatedResult}`
+            `Auto-recalculated KRI value from atomic elements: ${this.calculatedResult} (Breach: ${breachStatus})`
           );
           
           this.$message.success(
@@ -1245,252 +1372,14 @@ export default {
 }
 /* .upload-icon, .comment-icon { } */
 
-/* Enhanced Formula/Calculation Result Section */
-.formula-result-section {
-    background-color: #f8f9fa;
-    padding: 20px;
-    border-radius: 12px;
-    margin: 20px 0;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
-    max-width: 100%;
-}
 
-/* Responsive formula section */
-@media (max-width: 768px) {
-  .formula-result-section {
-    padding: 16px;
-    margin: 16px 0;
-    border-radius: 8px;
-  }
-  
-  .formula-header h4 {
-    font-size: 16px;
-  }
-  
-  .formula-content {
-    gap: 12px;
-  }
-}
 
-.formula-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #e2e8f0;
-}
 
-.formula-header h4 {
-    font-size: 18px;
-    color: #1a202c;
-    font-weight: 600;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
 
-.live-tag {
-    animation: pulse 2s infinite;
-}
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-}
 
-.formula-content {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
 
-.formula-item {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
 
-.formula-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #718096;
-    font-weight: 500;
-    font-size: 14px;
-}
-
-.formula-code, .calculation-code {
-    background-color: #2d3748;
-    color: #e2e8f0;
-    padding: 12px 16px;
-    border-radius: 6px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 13px;
-    border: 1px solid #4a5568;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-    max-width: 100%;
-    display: block;
-    box-sizing: border-box;
-}
-
-/* Responsive code blocks */
-@media (max-width: 768px) {
-  .formula-code, .calculation-code {
-    font-size: 12px;
-    padding: 10px 12px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-}
-
-.result-item {
-    background-color: white;
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-}
-
-.result-container {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.result-value {
-    font-size: 20px;
-    font-weight: 700;
-    color: #059669;
-    padding: 8px 16px;
-    border-radius: 6px;
-    background-color: #f0fdf4;
-}
-
-.result-status {
-    flex: 1;
-}
-
-.atomic-values-section {
-    background-color: white;
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-}
-
-.atomic-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-}
-
-/* Responsive atomic cards grid */
-@media (max-width: 768px) {
-  .atomic-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 12px;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .atomic-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
-  }
-}
-
-@media (min-width: 1025px) {
-  .atomic-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 18px;
-  }
-}
-
-.atomic-card {
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-    min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.atomic-card:hover {
-    border-color: #409eff;
-    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
-    transform: translateY(-2px);
-}
-
-.atomic-card-highlight {
-    border-color: #f6ad55;
-    background: #fef5e7;
-    box-shadow: 0 2px 8px rgba(246, 173, 85, 0.2);
-}
-
-/* Mobile atomic card optimizations */
-@media (max-width: 768px) {
-  .atomic-card {
-    padding: 16px;
-    min-height: 100px;
-  }
-  
-  .atomic-card:hover {
-    transform: none; /* Disable hover transform on mobile */
-    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
-  }
-}
-
-.atomic-card-content {
-    margin-bottom: 8px;
-}
-
-.atomic-card-footer {
-    display: flex;
-    justify-content: center;
-}
-
-.atomic-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-
-.atomic-id {
-    font-weight: 600;
-    color: #409eff;
-    font-size: 12px;
-}
-
-.atomic-name {
-    font-size: 13px;
-    color: #6b7280;
-    margin-bottom: 8px;
-    font-weight: 500;
-}
-
-.atomic-value-display {
-    font-size: 16px;
-    font-weight: 600;
-    color: #059669;
-    background-color: white;
-    padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid #d1fae5;
-    text-align: center;
-}
 
 /* Row Actions Styling */
 .row-actions {
@@ -1747,6 +1636,70 @@ export default {
 .evidence-cell .el-select .el-input__inner {
   padding-left: 8px;
   padding-right: 24px;
+}
+
+/* Atomic Evidence Controls */
+.atomic-evidence-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.atomic-upload-btn {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+  color: #409eff;
+  transition: all 0.2s ease;
+}
+
+.atomic-upload-btn:hover {
+  background-color: #409eff;
+  color: white;
+  border-color: #409eff;
+}
+
+/* Atomic Evidence Filename Container */
+.evidence-filename-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.evidence-filename {
+  flex: 1;
+  font-size: 12px;
+  color: #606266;
+  background-color: #f5f7fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.atomic-download-btn {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+  color: #409eff;
+  transition: all 0.2s ease;
+}
+
+.atomic-download-btn:hover {
+  background-color: #409eff;
+  color: white;
+  border-color: #409eff;
+}
+
+/* Permission-related styles */
+.no-permission-text {
+  color: #909399;
+  font-size: 12px;
+  font-style: italic;
 }
 
 </style>
