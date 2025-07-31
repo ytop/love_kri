@@ -40,6 +40,12 @@ permission for viewing level2/level3 data hiding
 
 
 Pending:
+admin management page
+- optimize the UI/UX design
+- change department display for display and manage Users not permissions
+department admin page
+- implement the logic for department admin page
+
 add Object Storage preview for evidence
 modify atomic data element input dialog (new window?)
 
