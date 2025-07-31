@@ -2,6 +2,8 @@
  * Admin Helpers Mixin
  * Shared helper methods used across admin components
  */
+import { getLastDayOfPreviousMonth } from '@/utils/helpers';
+
 export default {
   methods: {
     /**
@@ -115,11 +117,24 @@ export default {
     
     /**
      * Get current reporting date in YYYYMMDD format
-     * @returns {number} Current date as integer
+     * Uses last day of previous month as the standard reporting period, or a provided date
+     * @param {number|string} providedDate - Optional specific reporting date to use
+     * @returns {number} Reporting date as integer
      */
-    getCurrentReportingDate() {
-      const today = new Date();
-      return parseInt(today.toISOString().slice(0, 10).replace(/-/g, ''));
+    getCurrentReportingDate(providedDate = null) {
+      if (providedDate) {
+        // If a specific date is provided, use it
+        return typeof providedDate === 'number' ? providedDate : parseInt(providedDate.toString().replace(/-/g, ''));
+      }
+      
+      // Check if this component has a selectedReportingDate (for AdminManagement)
+      if (this.selectedReportingDate) {
+        return this.selectedReportingDate;
+      }
+      
+      // Default to last day of previous month
+      const dateString = getLastDayOfPreviousMonth();
+      return parseInt(dateString.replace(/-/g, ''));
     }
   }
 };

@@ -210,6 +210,13 @@ export default {
   name: 'AdminSystemOverview',
   mixins: [adminCrudMixin],
   
+  props: {
+    selectedReportingDate: {
+      type: Number,
+      default: null
+    }
+  },
+  
   data() {
     return {
       systemStats: {
@@ -292,7 +299,7 @@ export default {
         const [users, departments, permissions] = await Promise.all([
           kriService.getAllUsers(),
           kriService.getAllDepartments(),
-          kriService.getUserPermissionsSummary()
+          kriService.getUserPermissionsSummary(null, { reporting_date: this.selectedReportingDate })
         ]);
         
         // Calculate user role distribution

@@ -1,15 +1,36 @@
 <template>
   <div class="admin-management">
     <div class="admin-header">
-      <h1 class="admin-title">
-        <i class="el-icon-setting"></i>
-        {{ adminTitle }}
-      </h1>
-      <div class="admin-breadcrumb">
-        <el-breadcrumb separator="/">
-          <el-breadcrumb-item :to="{ path: '/' }">Dashboard</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ breadcrumbTitle }}</el-breadcrumb-item>
-        </el-breadcrumb>
+      <div class="admin-header-left">
+        <h1 class="admin-title">
+          <i class="el-icon-setting"></i>
+          {{ adminTitle }}
+        </h1>
+        <div class="admin-breadcrumb">
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item :to="{ path: '/' }">Dashboard</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ breadcrumbTitle }}</el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+      </div>
+      <div class="admin-header-right">
+        <div class="reporting-period-selector">
+          <label class="period-label">Reporting Period:</label>
+          <el-select 
+            v-model="selectedReportingDate" 
+            placeholder="Select period"
+            @change="handleReportingDateChange"
+            class="period-select"
+            size="small"
+          >
+            <el-option
+              v-for="period in availableReportingPeriods"
+              :key="period.value"
+              :label="period.label"
+              :value="period.value"
+            ></el-option>
+          </el-select>
+        </div>
       </div>
     </div>
 
@@ -32,7 +53,10 @@
         <el-tab-pane :label="userManagementLabel" name="users">
           <admin-user-management 
             v-if="isSystemAdmin"
-            @data-updated="handleDataUpdated" 
+            :selected-reporting-date="selectedReportingDate"
+            @data-updated="handleDataUpdated"
+            @manage-user-permissions="handleManageUserPermissions"
+            @view-user-details="handleViewUserDetails"
           />
           <admin-base-user-management
             v-else-if="isDepartmentAdmin"
@@ -48,47 +72,23 @@
             :show-edit-role="false"
             :show-bulk-role-change="false"
             :show-permission-summary="true"
+            :selected-reporting-date="selectedReportingDate"
             @refresh-users="refreshDepartmentUsers"
             @manage-user-permissions="handleManageUserPermissions"
             @view-user-details="handleViewUserDetails"
           />
         </el-tab-pane>
-        <!-- Role Management Tab (System Admin Only) -->
-        <el-tab-pane v-if="isSystemAdmin" label="Role Management" name="roles">
-          <admin-role-management @data-updated="handleDataUpdated" />
-        </el-tab-pane>
 
         <!-- Department Administration Tab (System Admin Only) -->
-        <el-tab-pane v-if="isSystemAdmin" label="department Admin" name="departments">
-          <admin-department-management @data-updated="handleDataUpdated" />
-        </el-tab-pane>
-
-        <!-- Permission Management Tab -->
-        <el-tab-pane label="Permission Management" name="permissions">
-          <admin-permission-management 
-            v-if="isSystemAdmin"
+        <el-tab-pane v-if="isSystemAdmin" label="Department Admin" name="departments">
+          <admin-department-management 
+            :selected-reporting-date="selectedReportingDate"
             @data-updated="handleDataUpdated" 
-          />
-          <admin-base-permission-management
-            v-else-if="isDepartmentAdmin"
-            :title="'Department Permission Management'"
-            :description="'Assign and manage permissions for department KRIs'"
-            :permission-data="departmentPermissions"
-            :available-users="departmentUsers"
-            :available-k-r-is="departmentKRIs"
-            :departments="[currentUser.department]"
-            :loading="permissionsLoading"
-            :show-department-filter="false"
-            :show-user-filter="true"
-            @apply-template="handleApplyPermissionTemplate"
-            @filter-changed="handlePermissionFilterChange"
-            @load-permissions="loadDepartmentPermissions"
-            @bulk-assignment-completed="loadDepartmentPermissions"
           />
         </el-tab-pane>
 
         <!-- KRI Management Tab (Department Admin Only) -->
-        <el-tab-pane v-if="isDepartmentAdmin" label="department KRIs" name="kris">
+        <el-tab-pane v-if="isDepartmentAdmin" label="Department KRIs" name="kris">
           <admin-base-user-management
             :title="'Department KRIs'"
             :description="'Manage KRIs assigned to your department.'"
@@ -102,6 +102,7 @@
             :show-view-details="false"
             :show-bulk-actions="false"
             :action-column-width="'150'"
+            :selected-reporting-date="selectedReportingDate"
             @refresh-users="refreshDepartmentKRIs"
             @manage-user-permissions="handleManageKRIPermissions"
           />
@@ -120,6 +121,7 @@
             :show-department-filter="isSystemAdmin"
             :show-user-filter="true"
             :show-department-column="isSystemAdmin"
+            :selected-reporting-date="selectedReportingDate"
             @filter-changed="handleAuditFilterChange"
             @load-audit-data="loadAuditData"
             @export-audit-data="handleExportAuditData"
@@ -128,7 +130,9 @@
 
         <!-- System Overview Tab (System Admin Only) -->
         <el-tab-pane v-if="isSystemAdmin" label="System Overview" name="overview">
-          <admin-system-overview />
+          <admin-system-overview 
+            :selected-reporting-date="selectedReportingDate"
+          />
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -140,6 +144,7 @@
       :editable-permissions="editablePermissions"
       :user-permissions-loading="userPermissionsLoading"
       :permission-update-loading="permissionUpdateLoading"
+      :selected-reporting-date="selectedReportingDate"
       @update-user-permissions="updateUserPermissions"
     />
 
@@ -147,6 +152,7 @@
       :visible.sync="userDetailsDialogVisible"
       :user-detail-data="userDetailData"
       :user-details-loading="userDetailsLoading"
+      :selected-reporting-date="selectedReportingDate"
     />
 
     <admin-k-r-i-permissions-dialog
@@ -155,19 +161,12 @@
       :kri-user-permissions="kriUserPermissions"
       :available-users-for-kri="availableUsersForKRI"
       :kri-permissions-loading="kriPermissionsLoading"
+      :selected-reporting-date="selectedReportingDate"
       @add-kri-user-permission="addKRIUserPermission"
       @remove-kri-user-permission="removeKRIUserPermission"
     />
 
-    <admin-bulk-permission-template-dialog
-      :visible.sync="bulkPermissionDialogVisible"
-      :selected-template="selectedTemplate"
-      :permission-templates="permissionTemplates"
-      :team-members="departmentUsers"
-      :department-k-r-is="departmentKRIs"
-      :template-apply-loading="templateApplyLoading"
-      @apply-permission-template="applyPermissionTemplate"
-    />
+
   </div>
 </template>
 
@@ -178,13 +177,10 @@ import Permission from '@/utils/permission';
 // Base components
 import AdminBaseDashboard from '@/components/admin/shared/AdminBaseDashboard.vue';
 import AdminBaseUserManagement from '@/components/admin/shared/AdminBaseUserManagement.vue';
-import AdminBasePermissionManagement from '@/components/admin/shared/AdminBasePermissionManagement.vue';
 import AdminBaseActivityAudit from '@/components/admin/shared/AdminBaseActivityAudit.vue';
 
 // System admin specific components
 import AdminUserManagement from '@/components/admin/AdminUserManagement.vue';
-import AdminRoleManagement from '@/components/admin/AdminRoleManagement.vue';
-import AdminPermissionManagement from '@/components/admin/AdminPermissionManagement.vue';
 import AdminDepartmentManagement from '@/components/admin/AdminDepartmentManagement.vue';
 import AdminSystemOverview from '@/components/admin/AdminSystemOverview.vue';
 
@@ -192,13 +188,13 @@ import AdminSystemOverview from '@/components/admin/AdminSystemOverview.vue';
 import AdminUserPermissionsDialog from '@/components/admin/dialogs/AdminUserPermissionsDialog.vue';
 import AdminUserDetailsDialog from '@/components/admin/dialogs/AdminUserDetailsDialog.vue';
 import AdminKRIPermissionsDialog from '@/components/admin/dialogs/AdminKRIPermissionsDialog.vue';
-import AdminBulkPermissionTemplateDialog from '@/components/admin/dialogs/AdminBulkPermissionTemplateDialog.vue';
 
 // Services and mixins
 import { departmentAdminService } from '@/services/departmentAdminService';
 import { kriService } from '@/services/kriService';
 import adminHelpersMixin from '@/mixins/adminHelpersMixin';
 import adminPermissionMixin from '@/mixins/adminPermissionMixin';
+import { generateReportingPeriods } from '@/utils/helpers';
 import '@/assets/styles/admin.css';
 
 export default {
@@ -207,16 +203,12 @@ export default {
   components: {
     AdminBaseDashboard,
     AdminBaseUserManagement,
-    AdminBasePermissionManagement,
     AdminBaseActivityAudit,
     AdminUserManagement,
-    AdminRoleManagement,
-    AdminPermissionManagement,
     AdminDepartmentManagement,
     AdminSystemOverview,
     AdminUserPermissionsDialog,
     AdminUserDetailsDialog,
-    AdminBulkPermissionTemplateDialog,
     AdminKRIPermissionsDialog
   },
   
@@ -225,6 +217,10 @@ export default {
   data() {
     return {
       activeTab: 'dashboard',
+      
+      // Global reporting period selection
+      selectedReportingDate: null,
+      availableReportingPeriods: [],
       
       // Department admin specific data
       departmentStats: {
@@ -238,24 +234,21 @@ export default {
       },
       departmentUsers: [],
       departmentKRIs: [],
-      departmentPermissions: [],
       
       // Loading states
       teamLoading: false,
       krisLoading: false,
-      permissionsLoading: false,
       auditLoading: false,
       
       // Dialog states
       userPermissionsDialogVisible: false,
       userDetailsDialogVisible: false,
       kriPermissionsDialogVisible: false,
-      bulkPermissionDialogVisible: false,
+
       
       // Dialog data
       selectedUser: null,
       selectedKRI: null,
-      selectedTemplate: '',
       editablePermissions: [],
       userDetailData: null,
       kriUserPermissions: [],
@@ -266,7 +259,6 @@ export default {
       userDetailsLoading: false,
       kriPermissionsLoading: false,
       permissionUpdateLoading: false,
-      templateApplyLoading: false,
       
       // Audit data
       auditData: [],
@@ -378,6 +370,9 @@ export default {
       return;
     }
     
+    // Initialize reporting periods
+    this.initializeReportingPeriods();
+    
     // Set default tab based on role
     if (this.isDepartmentAdmin) {
       this.activeTab = 'dashboard';
@@ -388,6 +383,208 @@ export default {
   },
   
   methods: {
+    /**
+     * Initialize available reporting periods (current month and last 5 months)
+     */
+    initializeReportingPeriods() {
+      // Generate 6 periods: current month + last 5 months
+      this.availableReportingPeriods = generateReportingPeriods(6);
+      
+      // Set default to the second period (index 1) which represents last month
+      // This ensures we use the same date format as generated by generateReportingPeriods
+      if (this.availableReportingPeriods.length > 1) {
+        this.selectedReportingDate = this.availableReportingPeriods[1].value;
+      } else {
+        // Fallback to first period if not enough periods generated
+        this.selectedReportingDate = this.availableReportingPeriods[0]?.value || null;
+      }
+    },
+    
+    /**
+     * Handle reporting date change - trigger soft refresh
+     */
+    async handleReportingDateChange(newDate) {
+      console.log('Reporting date changed to:', newDate);
+      
+      // Show loading indicator
+      this.$message.info(`Switching to reporting period: ${this.getSelectedPeriodLabel()}`);
+      
+      try {
+        // Refresh open dialogs first
+        await this.refreshOpenDialogs();
+        
+        // Refresh tab-specific data based on current active tab
+        await this.refreshCurrentTabData();
+        
+        // Emit global data update event
+        this.$emit('admin-data-updated');
+        
+        this.$message.success('Data refreshed for new reporting period');
+      } catch (error) {
+        console.error('Error refreshing data for new reporting period:', error);
+        this.$message.error('Failed to refresh data for new period');
+      }
+    },
+    
+    /**
+     * Get the label for currently selected reporting period
+     */
+    getSelectedPeriodLabel() {
+      const selectedPeriod = this.availableReportingPeriods.find(p => p.value === this.selectedReportingDate);
+      return selectedPeriod ? selectedPeriod.label : 'Unknown Period';
+    },
+    
+    /**
+     * Refresh data for all open dialogs
+     */
+    async refreshOpenDialogs() {
+      const refreshPromises = [];
+      
+      // Refresh user permissions dialog if open
+      if (this.userPermissionsDialogVisible && this.selectedUser) {
+        refreshPromises.push(this.refreshUserPermissionsData());
+      }
+      
+      // Refresh user details dialog if open
+      if (this.userDetailsDialogVisible && this.selectedUser) {
+        refreshPromises.push(this.refreshUserDetailsData());
+      }
+      
+      // Refresh KRI permissions dialog if open
+      if (this.kriPermissionsDialogVisible && this.selectedKRI) {
+        refreshPromises.push(this.refreshKRIPermissionsData());
+      }
+      
+      // Wait for all dialog refreshes to complete
+      if (refreshPromises.length > 0) {
+        await Promise.all(refreshPromises);
+      }
+    },
+    
+    /**
+     * Refresh current tab data based on active tab
+     */
+    async refreshCurrentTabData() {
+      switch (this.activeTab) {
+      case 'dashboard':
+        if (this.isDepartmentAdmin) {
+          await this.loadDepartmentData();
+        }
+        break;
+      case 'users':
+        if (this.isDepartmentAdmin) {
+          await this.refreshDepartmentUsers();
+        }
+        // System admin user data is not period-specific, so no refresh needed
+        break;
+      case 'kris':
+        if (this.isDepartmentAdmin) {
+          await this.refreshDepartmentKRIs();
+        }
+        break;
+      case 'audit':
+        await this.loadAuditData();
+        break;
+      // 'departments' and 'overview' tabs don't have period-specific data
+      }
+    },
+    
+    /**
+     * Refresh user details data when reporting date changes
+     */
+    async refreshUserDetailsData() {
+      if (!this.selectedUser) return;
+      
+      this.userDetailsLoading = true;
+      try {
+        const [permissions, recentActivity] = await Promise.all([
+          kriService.getUserPermissionsSummary(this.selectedUser.uuid, { reporting_date: this.selectedReportingDate }),
+          this.getUserRecentActivity(this.selectedUser.uuid)
+        ]);
+        
+        this.userDetailData = {
+          ...this.selectedUser,
+          permissions,
+          recentActivity,
+          permissionSummary: {
+            totalKRIs: permissions.length,
+            totalPermissions: permissions.reduce((sum, p) => sum + (p.actions ? p.actions.split(',').length : 0), 0),
+            lastActivity: recentActivity.length > 0 ? recentActivity[0].changed_at : null
+          }
+        };
+      } catch (error) {
+        console.error('Error refreshing user details:', error);
+        this.$message.error('Failed to refresh user details');
+      } finally {
+        this.userDetailsLoading = false;
+      }
+    },
+    
+    /**
+     * Refresh KRI permissions data when reporting date changes
+     */
+    async refreshKRIPermissionsData() {
+      if (!this.selectedKRI) return;
+      
+      this.kriPermissionsLoading = true;
+      try {
+        const allPermissions = await kriService.getUserPermissionsSummary();
+        this.kriUserPermissions = allPermissions
+          .filter(p => p.kri_id === this.selectedKRI.kri_code)
+          .map(p => ({
+            ...p,
+            user_name: p.kri_user ? p.kri_user.user_name : 'Unknown',
+            user_id: p.kri_user ? p.kri_user.user_id : 'Unknown',
+            user_department: p.kri_user ? p.kri_user.department : 'Unknown'
+          }));
+          
+        this.availableUsersForKRI = this.departmentUsers.filter(member => 
+          !this.kriUserPermissions.some(p => p.user_uuid === member.uuid)
+        );
+      } catch (error) {
+        console.error('Error refreshing KRI permissions:', error);
+        this.$message.error('Failed to refresh KRI permissions');
+      } finally {
+        this.kriPermissionsLoading = false;
+      }
+    },
+    
+    /**
+     * Refresh user permissions data when reporting date changes
+     */
+    async refreshUserPermissionsData() {
+      if (!this.selectedUser) return;
+      
+      this.userPermissionsLoading = true;
+      try {
+        const permissions = await kriService.getUserPermissionsSummary(this.selectedUser.uuid, { reporting_date: this.selectedReportingDate });
+        
+        // For system admins, get all KRIs, for department admins use department KRIs
+        let availableKRIs = [];
+        if (this.isSystemAdmin) {
+          availableKRIs = await kriService.getAllKRIMetadata();
+        } else {
+          availableKRIs = this.departmentKRIs;
+        }
+        
+        this.editablePermissions = availableKRIs.map(kri => {
+          const existingPerm = permissions.find(p => p.kri_id === kri.kri_id);
+          return {
+            kri_id: kri.kri_id,
+            kri_name: kri.name,
+            current_actions: existingPerm ? existingPerm.actions : '',
+            new_actions: existingPerm ? existingPerm.actions : '',
+            is_calculated: kri.is_calculated_kri
+          };
+        });
+      } catch (error) {
+        console.error('Error refreshing user permissions:', error);
+        this.$message.error('Failed to refresh user permissions');
+      } finally {
+        this.userPermissionsLoading = false;
+      }
+    },
+
     async handleTabClick(tab) {
       // Tab switching is handled automatically by el-tabs
       // Load data for department admin tabs as needed
@@ -426,7 +623,8 @@ export default {
       try {
         const overview = await departmentAdminService.getDepartmentOverview(
           this.currentUser.department,
-          this.currentUser
+          this.currentUser,
+          this.selectedReportingDate
         );
         
         this.departmentStats = overview;
@@ -443,7 +641,8 @@ export default {
       try {
         this.departmentUsers = await departmentAdminService.getDepartmentUsersWithPermissions(
           this.currentUser.department,
-          this.currentUser
+          this.currentUser,
+          this.selectedReportingDate
         );
       } catch (error) {
         console.error('Error loading department users:', error);
@@ -465,20 +664,7 @@ export default {
       }
     },
     
-    async loadDepartmentPermissions() {
-      this.permissionsLoading = true;
-      try {
-        // Load permissions for department users and KRIs
-        this.departmentPermissions = await kriService.getDepartmentPermissions(
-          this.currentUser.department
-        );
-      } catch (error) {
-        console.error('Error loading department permissions:', error);
-        this.$message.error('Failed to load permissions');
-      } finally {
-        this.permissionsLoading = false;
-      }
-    },
+
     
     async loadAuditData() {
       this.auditLoading = true;
@@ -519,11 +705,20 @@ export default {
       this.userPermissionsDialogVisible = true;
       
       try {
-        const permissions = await kriService.getUserPermissionsSummary(user.uuid);
-        this.editablePermissions = this.departmentKRIs.map(kri => {
-          const existingPerm = permissions.find(p => p.kri_id === kri.kri_code);
+        const permissions = await kriService.getUserPermissionsSummary(user.uuid, { reporting_date: this.selectedReportingDate });
+        
+        // For system admins, get all KRIs, for department admins use department KRIs
+        let availableKRIs = [];
+        if (this.isSystemAdmin) {
+          availableKRIs = await kriService.getAllKRIMetadata();
+        } else {
+          availableKRIs = this.departmentKRIs;
+        }
+        
+        this.editablePermissions = availableKRIs.map(kri => {
+          const existingPerm = permissions.find(p => p.kri_id === kri.kri_id);
           return {
-            kri_id: kri.kri_code,
+            kri_id: kri.kri_id,
             kri_name: kri.name,
             current_actions: existingPerm ? existingPerm.actions : '',
             new_actions: existingPerm ? existingPerm.actions : '',
@@ -545,7 +740,7 @@ export default {
       
       try {
         const [permissions, recentActivity] = await Promise.all([
-          kriService.getUserPermissionsSummary(user.uuid),
+          kriService.getUserPermissionsSummary(user.uuid, { reporting_date: this.selectedReportingDate }),
           this.getUserRecentActivity(user.uuid)
         ]);
         
@@ -594,14 +789,7 @@ export default {
       }
     },
     
-    handleApplyPermissionTemplate(templateKey) {
-      this.selectedTemplate = templateKey;
-      this.bulkPermissionDialogVisible = true;
-    },
-    
-    handlePermissionFilterChange(_filters) {
-      // Handle permission filter changes
-    },
+
     
     handleAuditFilterChange(_filters) {
       // Handle audit filter changes
@@ -614,7 +802,58 @@ export default {
     
     // Permission management methods
     async updateUserPermissions(permissions) {
-      const success = await this.bulkUpdateUserPermissions(permissions, this.currentUser.user_id);
+      // Use the globally selected reporting date
+      const reportingDate = this.getCurrentReportingDate();
+      
+      // Convert the permissions format from dialog to the expected format
+      // Each permission can have multiple actions, so we need to create individual records
+      const permissionUpdates = [];
+      
+      for (const perm of permissions) {
+        if (perm.new_actions !== perm.current_actions) { // Only update changed permissions
+          if (perm.new_actions && perm.new_actions.trim()) {
+            // Split actions and create individual permission records for new permissions
+            const actions = perm.new_actions.split(',').map(action => action.trim());
+            
+            // Ensure "view" permission is always included when adding any permissions
+            if (!actions.includes('view')) {
+              actions.unshift('view');
+            }
+            
+            for (const action of actions) {
+              permissionUpdates.push({
+                user_uuid: this.selectedUser.uuid,
+                kri_id: perm.kri_id,
+                action: action,
+                effect: true,
+                reporting_date: reportingDate
+              });
+            }
+          } else {
+            // No actions selected - deactivate existing permissions by setting effect to false
+            if (perm.current_actions && perm.current_actions.trim()) {
+              const currentActions = perm.current_actions.split(',').map(action => action.trim());
+              for (const action of currentActions) {
+                permissionUpdates.push({
+                  user_uuid: this.selectedUser.uuid,
+                  kri_id: perm.kri_id,
+                  action: action,
+                  effect: false,
+                  reporting_date: reportingDate
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      if (permissionUpdates.length === 0) {
+        this.$message.info('No permission changes detected');
+        this.userPermissionsDialogVisible = false;
+        return;
+      }
+      
+      const success = await this.bulkUpdateUserPermissions(permissionUpdates, this.currentUser.user_id);
       if (success) {
         this.userPermissionsDialogVisible = false;
         await this.refreshDepartmentUsers();
@@ -644,18 +883,7 @@ export default {
       }
     },
     
-    async applyPermissionTemplate(data) {
-      const success = await this.applyPermissionTemplate(
-        data.template,
-        data.users,
-        data.kris,
-        this.currentUser
-      );
-      if (success) {
-        this.bulkPermissionDialogVisible = false;
-        await this.refreshDepartmentUsers();
-      }
-    },
+
     
     // Helper methods
     async getUserRecentActivity(userUuid) {
@@ -697,6 +925,35 @@ export default {
 
 .admin-header {
   margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.admin-header-left {
+  flex: 1;
+}
+
+.admin-header-right {
+  display: flex;
+  align-items: center;
+  margin-top: var(--spacing-sm);
+}
+
+.reporting-period-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.period-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.period-select {
+  min-width: 140px;
 }
 
 .admin-title {
@@ -717,6 +974,26 @@ export default {
 @media (max-width: 768px) {
   .admin-management {
     padding: var(--spacing-sm);
+  }
+  
+  .admin-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .admin-header-right {
+    align-self: flex-end;
+    margin-top: 0;
+  }
+  
+  .reporting-period-selector {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-xs);
+  }
+  
+  .period-select {
+    min-width: 120px;
   }
 }
 </style>

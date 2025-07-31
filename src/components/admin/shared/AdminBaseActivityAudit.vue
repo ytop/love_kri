@@ -286,6 +286,11 @@ export default {
         { label: 'Status Changes', value: 'status_change' },
         { label: 'Data Input', value: 'data_input' }
       ]
+    },
+    // Reporting date for audit filtering
+    selectedReportingDate: {
+      type: Number,
+      default: null
     }
   },
   
@@ -304,8 +309,19 @@ export default {
         dateRange: this.dateRange,
         activityType: this.activityTypeFilter,
         department: this.departmentFilter,
-        user: this.userFilter
+        user: this.userFilter,
+        reportingDate: this.selectedReportingDate
       };
+    }
+  },
+  
+  watch: {
+    selectedReportingDate(newDate) {
+      if (newDate && !this.dateRange.length) {
+        // If reporting date changes and no date range is set, 
+        // automatically set date range to include the reporting period
+        this.setDefaultDateRange(newDate);
+      }
     }
   },
   
@@ -320,6 +336,29 @@ export default {
     
     loadAuditData() {
       this.$emit('load-audit-data', this.currentFilters);
+    },
+    
+    /**
+     * Set default date range based on reporting date
+     * @param {number} reportingDate - Reporting date in YYYYMMDD format
+     */
+    setDefaultDateRange(reportingDate) {
+      try {
+        const dateStr = reportingDate.toString();
+        const year = parseInt(dateStr.substring(0, 4));
+        const month = parseInt(dateStr.substring(4, 6)) - 1; // JS months are 0-indexed
+        const day = parseInt(dateStr.substring(6, 8));
+        
+        const reportingDateObj = new Date(year, month, day);
+        const startOfMonth = new Date(year, month, 1);
+        
+        this.dateRange = [
+          startOfMonth.toISOString().split('T')[0],
+          reportingDateObj.toISOString().split('T')[0]
+        ];
+      } catch (error) {
+        console.warn('Failed to set default date range:', error);
+      }
     }
   }
 };

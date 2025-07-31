@@ -29,6 +29,9 @@
             <el-card>
               <div slot="header" class="admin-card-header">
                 <span>Permission Summary</span>
+                <div v-if="selectedReportingDate" class="reporting-period-info">
+                  <span class="period-label">Period: {{ formatReportingDate(selectedReportingDate) }}</span>
+                </div>
               </div>
               <div class="permission-summary">
                 <div class="summary-item">
@@ -117,6 +120,10 @@ export default {
     userDetailsLoading: {
       type: Boolean,
       default: false
+    },
+    selectedReportingDate: {
+      type: Number,
+      default: null
     }
   },
   
@@ -157,6 +164,16 @@ export default {
       case 'user': return 'User';
       default: return role || 'User';
       }
+    },
+    
+    formatReportingDate(dateInt) {
+      if (!dateInt) return '';
+      const dateString = dateInt.toString();
+      const year = dateString.substring(0, 4);
+      const month = dateString.substring(4, 6);
+      const day = dateString.substring(6, 8);
+      const date = new Date(year, parseInt(month) - 1, day);
+      return date.toLocaleString('default', { month: 'short', year: 'numeric' });
     }
   }
 };
@@ -198,5 +215,20 @@ export default {
 
 .dialog-footer {
   text-align: right;
+}
+
+.admin-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reporting-period-info {
+  font-size: 12px;
+  color: #909399;
+}
+
+.period-label {
+  font-weight: 500;
 }
 </style>

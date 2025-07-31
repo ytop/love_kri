@@ -57,7 +57,7 @@
       <el-table-column prop="user_name" label="Display Name" sortable width="150">
       </el-table-column>
       
-      <el-table-column v-if="showDepartmentColumn" prop="department" label="department" sortable width="120">
+      <el-table-column v-if="showDepartmentColumn" prop="department" label="Department" sortable width="120">
       </el-table-column>
       
       <el-table-column prop="user_role" label="Role" sortable width="120">
@@ -102,7 +102,7 @@
               size="mini" 
               type="info" 
               icon="el-icon-key"
-              @click="$emit('manage-user-permissions', scope.row)"
+              @click="handlePermissionsClick(scope.row)"
             >
               Permissions
             </el-button>
@@ -111,7 +111,7 @@
               size="mini" 
               type="info" 
               icon="el-icon-view"
-              @click="$emit('view-user-details', scope.row)"
+              @click="handleDetailsClick(scope.row)"
             >
               Details
             </el-button>
@@ -240,6 +240,11 @@ export default {
     departmentFilter: {
       type: String,
       default: ''
+    },
+    // Reporting date for permission operations
+    selectedReportingDate: {
+      type: Number,
+      default: null
     }
   },
   
@@ -304,6 +309,14 @@ export default {
     handleSelectionChange(selection) {
       this.selectedItems = selection;
       this.$emit('selection-changed', selection);
+    },
+    
+    handlePermissionsClick(user) {
+      this.$emit('manage-user-permissions', user);
+    },
+    
+    handleDetailsClick(user) {
+      this.$emit('view-user-details', user);
     },
     
     async executeBulkRoleChange() {

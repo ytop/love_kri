@@ -76,7 +76,7 @@
               <el-option label="View Only" value="view"></el-option>
               <el-option label="View + Edit" value="view,edit"></el-option>
               <el-option label="Data Provider" value="view,edit,review"></el-option>
-              <el-option label="KRI Owner" value="view,edit,review,acknowledge"></el-option>
+              <el-option label="KRI Owner" value="view,edit,acknowledge"></el-option>
             </el-select>
           </el-form-item>
           <el-form-item>

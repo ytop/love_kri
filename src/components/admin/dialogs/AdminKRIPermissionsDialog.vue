@@ -7,7 +7,12 @@
   >
     <div v-if="selectedKRI">
       <div class="kri-info-header">
-        <h4>{{ selectedKRI.kri_code }} - {{ selectedKRI.name }}</h4>
+        <div>
+          <h4>{{ selectedKRI.kri_code }} - {{ selectedKRI.name }}</h4>
+          <div v-if="selectedReportingDate" class="reporting-period-info">
+            <span class="period-label">Reporting Period: {{ formatReportingDate(selectedReportingDate) }}</span>
+          </div>
+        </div>
         <el-tag :type="selectedKRI.is_calculated_kri ? 'warning' : 'info'" size="medium">
           {{ selectedKRI.is_calculated_kri ? 'Calculated KRI' : 'Manual KRI' }}
         </el-tag>
@@ -42,7 +47,7 @@
               <el-option label="View Only" value="view"></el-option>
               <el-option label="View + Edit" value="view,edit"></el-option>
               <el-option label="Data Provider" value="view,edit,review"></el-option>
-              <el-option label="KRI Owner" value="view,edit,review,acknowledge"></el-option>
+              <el-option label="KRI Owner" value="view,edit,acknowledge"></el-option>
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -140,6 +145,10 @@ export default {
     kriPermissionsLoading: {
       type: Boolean,
       default: false
+    },
+    selectedReportingDate: {
+      type: Number,
+      default: null
     }
   },
   
@@ -167,6 +176,16 @@ export default {
     handleClose() {
       this.$emit('update:visible', false);
       this.newUserPermissions = { user_uuid: '', actions: '' };
+    },
+    
+    formatReportingDate(dateInt) {
+      if (!dateInt) return '';
+      const dateString = dateInt.toString();
+      const year = dateString.substring(0, 4);
+      const month = dateString.substring(4, 6);
+      const day = dateString.substring(6, 8);
+      const date = new Date(year, parseInt(month) - 1, day);
+      return date.toLocaleString('default', { month: 'short', year: 'numeric' });
     }
   }
 };
@@ -190,5 +209,15 @@ export default {
 
 .dialog-footer {
   text-align: right;
+}
+
+.reporting-period-info {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.period-label {
+  font-weight: 500;
 }
 </style>

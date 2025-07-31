@@ -6,6 +6,7 @@
 .vscode
 .cursor
 .DS_Store
+.git
 
 node_modules/
 dist/

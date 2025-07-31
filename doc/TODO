@@ -29,6 +29,7 @@ new tabele for formula calculation?
 
 
 Working:
+!!! Urgent: add data-initlization for monthly rollover (bc today is the 31st!!!)(most function will broke tmr)
 Add unit and adaption to DB
 Negative warining and limit value (4 limits)
 add department display in formula
@@ -36,6 +37,7 @@ new admin management page (offical)
  - implemented, need to test, require proper UI/UX design
 permission for viewing level2/level3 data hiding
  -> much more, enhance permission system to support admin/department hard/field director/commities/sub-commities
+
 
 Pending:
 add Object Storage preview for evidence

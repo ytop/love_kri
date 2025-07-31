@@ -179,7 +179,7 @@ export default {
         kriOwner: {
           name: 'KRI Owner',
           description: 'Full access including final approval',
-          permissions: 'view,edit,review,acknowledge,delete'
+          permissions: 'view,edit,acknowledge,delete'
         },
         departmentManager: {
           name: 'Department Manager',
@@ -230,6 +230,12 @@ export default {
         
         // Convert comma-separated actions to individual permission records
         const actions = this.newPermission.actions.split(',').map(a => a.trim()).filter(a => a);
+        
+        // Ensure "view" permission is always included
+        if (!actions.includes('view')) {
+          actions.unshift('view');
+        }
+        
         const permissionUpdates = actions.map(action => ({
           user_uuid: this.newPermission.user_uuid,
           kri_id: this.newPermission.kri_id,

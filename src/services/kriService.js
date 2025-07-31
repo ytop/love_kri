@@ -870,6 +870,42 @@ export const kriService = {
   },
 
   /**
+   * Bulk update user roles
+   * @param {Array} userUuids - Array of user UUIDs
+   * @param {string} newRole - New role to assign
+   * @param {string} changedBy - User making the changes
+   * @returns {Promise<Array>} Array of updated user records
+   */
+  async bulkUpdateUserRoles(userUuids, newRole, changedBy) {
+    if (!Array.isArray(userUuids) || userUuids.length === 0) {
+      throw new Error('userUuids must be a non-empty array');
+    }
+    if (!newRole || !changedBy) {
+      throw new Error('newRole and changedBy are required');
+    }
+
+    const validRoles = ['user', 'dept_admin', 'admin'];
+    if (!validRoles.includes(newRole)) {
+      throw new Error(`Invalid role: ${newRole}. Valid roles: ${validRoles.join(', ')}`);
+    }
+
+    const { data, error } = await supabase
+      .from('kri_user')
+      .update({ user_role: newRole })
+      .in('uuid', userUuids)
+      .select();
+
+    if (error) throw error;
+
+    // Log the role changes for audit purposes
+    for (const userUuid of userUuids) {
+      await this.logUserRoleChange(userUuid, newRole, changedBy);
+    }
+
+    return data;
+  },
+
+  /**
    * Get all departments in the system
    * @returns {Promise<Array>} Array of unique departments
    */
@@ -877,13 +913,12 @@ export const kriService = {
     const { data, error } = await supabase
       .from('kri_user')
       .select('department')
-      .not('department', 'is', null)
-      .not('department', 'eq', '');
+      .not('department', 'is', null);
     
     if (error) throw error;
     
-    // Extract unique departments
-    const departments = [...new Set(data.map(row => row.department))].filter(dept => dept);
+    // Extract unique departments and filter out empty strings
+    const departments = [...new Set(data.map(row => row.department))].filter(dept => dept && dept.trim() !== '');
     return departments.sort();
   },
 
@@ -907,30 +942,51 @@ export const kriService = {
 
   /**
    * Bulk delete permissions
-   * @param {Array} permissionIds - Array of permission IDs to delete
+   * @param {Array} permissions - Array of permission objects with composite key fields {user_uuid, kri_id, reporting_date, action}
    * @param {string} changedBy - User making the changes
    * @returns {Promise<void>}
    */
-  async bulkDeletePermissions(permissionIds, changedBy) {
-    if (!Array.isArray(permissionIds) || permissionIds.length === 0) {
-      throw new Error('permissionIds must be a non-empty array');
+  async bulkDeletePermissions(permissions, changedBy) {
+    if (!Array.isArray(permissions) || permissions.length === 0) {
+      throw new Error('permissions must be a non-empty array');
     }
     if (!changedBy) {
       throw new Error('changedBy is required');
     }
 
-    const { data, error } = await supabase
-      .from('kri_user_permission')
-      .delete()
-      .in('id', permissionIds)
-      .select();
+    const results = [];
+    
+    for (const permission of permissions) {
+      const { user_uuid, kri_id, reporting_date, action } = permission;
+      
+      if (!user_uuid || !kri_id || !reporting_date || !action) {
+        throw new Error('Each permission must have user_uuid, kri_id, reporting_date, and action');
+      }
 
-    if (error) throw error;
+      try {
+        const { data, error } = await supabase
+          .from('kri_user_permission')
+          .delete()
+          .eq('user_uuid', user_uuid)
+          .eq('kri_id', kri_id)
+          .eq('reporting_date', reporting_date)
+          .eq('action', action)
+          .select();
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          results.push(...data);
+        }
+      } catch (err) {
+        console.error(`Error deleting permission for user ${user_uuid}, KRI ${kri_id}, action ${action}:`, err);
+        throw err;
+      }
+    }
 
     // Log the deletion for audit purposes
-    console.log(`Bulk deleted ${permissionIds.length} permissions by ${changedBy} at ${new Date().toISOString()}`);
+    console.log(`Bulk deleted ${results.length} permissions by ${changedBy} at ${new Date().toISOString()}`);
 
-    return data;
+    return results;
   },
 
   /**
@@ -960,24 +1016,38 @@ export const kriService = {
       }
 
       try {
-        // Try to update existing permission first
-        let { data, error } = await supabase
+        // Check if this specific permission exists using the composite primary key
+        const { data: existingPermission } = await supabase
           .from('kri_user_permission')
-          .update({
-            action: permissionAction,
-            effect,
-            update_date: new Date().toISOString()
-          })
+          .select('*')
           .eq('user_uuid', user_uuid)
           .eq('kri_id', kri_id)
           .eq('reporting_date', reporting_date)
           .eq('action', permissionAction)
-          .select()
-          .single();
+          .maybeSingle();
 
-        // If no existing permission, insert new one
-        if (error && error.code === 'PGRST116') {
-          const insertResult = await supabase
+        let data;
+        
+        if (existingPermission) {
+          // Update existing permission - only update effect and timestamp
+          const { data: updateData, error: updateError } = await supabase
+            .from('kri_user_permission')
+            .update({
+              effect,
+              update_date: new Date().toISOString()
+            })
+            .eq('user_uuid', user_uuid)
+            .eq('kri_id', kri_id)
+            .eq('reporting_date', reporting_date)
+            .eq('action', permissionAction)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          data = updateData;
+        } else {
+          // Insert new permission
+          const { data: insertData, error: insertError } = await supabase
             .from('kri_user_permission')
             .insert({
               user_uuid,
@@ -991,15 +1061,13 @@ export const kriService = {
             .select()
             .single();
 
-          if (insertResult.error) throw insertResult.error;
-          data = insertResult.data;
-        } else if (error) {
-          throw error;
+          if (insertError) throw insertError;
+          data = insertData;
         }
 
         results.push(data);
       } catch (err) {
-        console.error(`Error updating permission for user ${user_uuid}, KRI ${kri_id}:`, err);
+        console.error(`Error updating permission for user ${user_uuid}, KRI ${kri_id}, action ${permissionAction}:`, err);
         throw err;
       }
     }
@@ -1100,6 +1168,9 @@ export const kriService = {
     }
     if (filters.kri_id) {
       query = query.eq('kri_id', filters.kri_id);
+    }
+    if (filters.reporting_date) {
+      query = query.eq('reporting_date', filters.reporting_date);
     }
 
     query = query.order('kri_id', { ascending: true });

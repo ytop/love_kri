@@ -233,10 +233,18 @@ import { mapGetters } from 'vuex';
 import { kriService } from '@/services/kriService';
 import Permission from '@/utils/permission';
 import adminCrudMixin from '@/mixins/adminCrudMixin';
+import adminHelpersMixin from '@/mixins/adminHelpersMixin';
 
 export default {
   name: 'AdminDepartmentManagement',
-  mixins: [adminCrudMixin],
+  mixins: [adminCrudMixin, adminHelpersMixin],
+  
+  props: {
+    selectedReportingDate: {
+      type: Number,
+      default: null
+    }
+  },
   
   data() {
     return {
@@ -470,7 +478,9 @@ export default {
       this.userPermissionsDialogVisible = true;
       
       try {
-        this.userPermissions = await kriService.getUserPermissionsSummary(user.uuid);
+        // Use the selected reporting date for permission lookups
+        const reportingDate = this.selectedReportingDate || this.getCurrentReportingDate();
+        this.userPermissions = await kriService.getUserPermissionsSummary(user.uuid, { reporting_date: reportingDate });
       } catch (error) {
         console.error('Error loading user permissions:', error);
         this.$message.error('Failed to load user permissions');

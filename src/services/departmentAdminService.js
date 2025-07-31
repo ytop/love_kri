@@ -12,17 +12,18 @@ class DepartmentAdminService {
    * Get comprehensive department overview
    * @param {string} department - Department name
    * @param {Object} currentUser - Current user making the request
+   * @param {number} reportingDate - Optional reporting date (YYYYMMDD format)
    * @returns {Promise<Object>} Department overview with statistics and data
    */
-  async getDepartmentOverview(department, currentUser) {
+  async getDepartmentOverview(department, currentUser, reportingDate = null) {
     // Validate permissions
     if (!Permission.canManageDepartment(currentUser, department)) {
       throw new Error('Insufficient permissions to access department data');
     }
 
     try {
-      // Get basic department statistics
-      const stats = await kriService.getDepartmentStatistics(department);
+      // Get basic department statistics (date-aware if provided)
+      const stats = await kriService.getDepartmentStatistics(department, reportingDate);
       
       // Get all department users with detailed info
       const users = await kriService.getUsersByDepartment(department);
@@ -30,11 +31,11 @@ class DepartmentAdminService {
       // Get department KRIs with metadata
       const kris = await kriService.getDepartmentKRIs(department);
       
-      // Get recent KRI activity for the department
-      const recentActivity = await this.getDepartmentRecentActivity(department);
+      // Get recent KRI activity for the department (date-aware if provided)
+      const recentActivity = await this.getDepartmentRecentActivity(department, reportingDate);
       
-      // Calculate pending items that need department attention
-      const pendingItems = await this.getDepartmentPendingItems(department);
+      // Calculate pending items that need department attention (date-aware if provided)
+      const pendingItems = await this.getDepartmentPendingItems(department, reportingDate);
 
       return {
         ...stats,
@@ -59,9 +60,10 @@ class DepartmentAdminService {
    * Get department users with their KRI permissions
    * @param {string} department - Department name
    * @param {Object} currentUser - Current user making the request
+   * @param {number} reportingDate - Optional reporting date (YYYYMMDD format)
    * @returns {Promise<Array>} Array of users with permission details
    */
-  async getDepartmentUsersWithPermissions(department, currentUser) {
+  async getDepartmentUsersWithPermissions(department, currentUser, reportingDate = null) {
     if (!Permission.canManageDepartment(currentUser, department)) {
       throw new Error('Insufficient permissions to access department user data');
     }
@@ -71,7 +73,7 @@ class DepartmentAdminService {
       const usersWithPermissions = [];
 
       for (const user of users) {
-        const permissions = await kriService.getUserPermissionsSummary(user.uuid);
+        const permissions = await kriService.getUserPermissionsSummary(user.uuid, { reporting_date: reportingDate });
         
         // Count permissions by type
         const permissionSummary = permissions.reduce((acc, perm) => {
@@ -159,12 +161,13 @@ class DepartmentAdminService {
   /**
    * Get recent activity for department KRIs
    * @param {string} department - Department name
+   * @param {number} reportingDate - Optional reporting date (YYYYMMDD format)
    * @returns {Promise<Array>} Array of recent activity records
    * @private
    */
-  async getDepartmentRecentActivity(department) {
+  async getDepartmentRecentActivity(department, reportingDate = null) {
     try {
-      return await kriService.getDepartmentRecentActivity(department);
+      return await kriService.getDepartmentRecentActivity(department, reportingDate);
     } catch (error) {
       console.error('Error getting department recent activity:', error);
       return [];
@@ -174,12 +177,13 @@ class DepartmentAdminService {
   /**
    * Get pending items that need department attention
    * @param {string} department - Department name
+   * @param {number} reportingDate - Optional reporting date (YYYYMMDD format)
    * @returns {Promise<Object>} Pending items summary
    * @private
    */
-  async getDepartmentPendingItems(department) {
+  async getDepartmentPendingItems(department, reportingDate = null) {
     try {
-      return await kriService.getDepartmentPendingItems(department);
+      return await kriService.getDepartmentPendingItems(department, reportingDate);
     } catch (error) {
       console.error('Error getting department pending items:', error);
       return { pendingApprovals: 0, pendingInputs: 0, overdueTasks: 0 };
@@ -261,7 +265,7 @@ class DepartmentAdminService {
       kriOwner: {
         name: 'KRI Owner',
         description: 'Full access including final approval',
-        permissions: 'view,edit,review,acknowledge,delete'
+        permissions: 'view,edit,acknowledge,delete'
       },
       departmentManager: {
         name: 'Department Manager',

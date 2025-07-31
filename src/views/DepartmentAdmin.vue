@@ -383,9 +383,9 @@ export default {
         
         // Transform permissions for editing
         this.editablePermissions = this.departmentKRIs.map(kri => {
-          const existingPerm = this.userCurrentPermissions.find(p => p.kri_id === kri.kri_code);
+          const existingPerm = this.userCurrentPermissions.find(p => p.kri_id === kri.kri_id);
           return {
-            kri_id: kri.kri_code,
+            kri_id: kri.kri_id,
             kri_name: kri.name,
             current_actions: existingPerm ? existingPerm.actions : '',
             new_actions: existingPerm ? existingPerm.actions : '',

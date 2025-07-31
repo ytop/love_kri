@@ -47,6 +47,33 @@ export const getLastDayOfPreviousMonth = () => {
   return format(lastDay, 'yyyy-MM-dd');
 };
 
+// Generate available reporting periods (current month and last N months)
+export const generateReportingPeriods = (monthsCount = 6) => {
+  const periods = [];
+  const today = new Date();
+  
+  // Generate current month and last N-1 months (0, -1, -2, -3, -4, -5...)
+  for (let i = 0; i < monthsCount; i++) {
+    // Get the target month and year
+    const targetMonth = today.getMonth() - i;
+    const targetYear = today.getFullYear() + Math.floor(targetMonth / 12);
+    const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+    
+    // Get last day of the target month
+    const periodDate = new Date(targetYear, normalizedMonth + 1, 0);
+    const label = periodDate.toLocaleString('default', { month: 'short', year: 'numeric' });
+    const value = formatDateToInt(periodDate.toISOString().slice(0, 10));
+    
+    periods.push({
+      label: label,
+      value: value,
+      date: periodDate
+    });
+  }
+  
+  return periods;
+};
+
 // Format date from integer format (YYYYMMDD) to readable string
 export const formatDateFromInt = (dateInt) => {
   if (!dateInt) return '';
@@ -65,9 +92,20 @@ export const formatDateToInt = (dateString) => {
     return parseInt(dateString, 10);
   }
   if (typeof dateString === 'string' && dateString.indexOf('-') !== -1) {
+    // Parse date string manually to avoid timezone issues
+    // I have so many questions about this
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const month = parts[1].padStart(2, '0');
+      const day = parts[2].padStart(2, '0');
+      return parseInt(year + month + day, 10);
+    }
+    // Fallback to date-fns for other formats
     const date = new Date(dateString);
     return parseInt(format(date, 'yyyyMMdd'), 10);
   }
+  console.warn('Failed to format date to int:', dateString);
   return '';
 };
 

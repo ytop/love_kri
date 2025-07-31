@@ -31,8 +31,11 @@
         <el-form-item label="department:" prop="department">
           <el-select 
             v-model="newUser.department" 
-            placeholder="Select department" 
+            placeholder="Select department or type new one" 
             class="admin-full-width"
+            filterable
+            allow-create
+            default-first-option
           >
             <el-option 
               v-for="dept in departments" 

@@ -52,8 +52,24 @@ export default {
         
         const updates = [];
         for (const update of permissionUpdates) {
-          // Convert comma-separated actions to individual permission records
-          const actions = Array.isArray(update.actions) ? update.actions : update.actions.split(',').map(a => a.trim()).filter(a => a);
+          // Handle both 'action' and 'actions' fields for backward compatibility
+          let actions;
+          if (update.action) {
+            // Single action
+            actions = [update.action];
+          } else if (update.actions) {
+            // Multiple actions - convert comma-separated string to array
+            actions = Array.isArray(update.actions) ? update.actions : update.actions.split(',').map(a => a.trim()).filter(a => a);
+          } else {
+            // No actions provided, skip this update
+            console.warn('Permission update missing action/actions field:', update);
+            continue;
+          }
+          
+          // Ensure "view" permission is always included when adding any permissions (except when effect is false)
+          if (update.effect !== false && actions.length > 0 && !actions.includes('view')) {
+            actions.unshift('view');
+          }
           
           for (const action of actions) {
             updates.push({
@@ -163,6 +179,12 @@ export default {
           // For system admin context
           const updates = [];
           const actionArray = Array.isArray(actions) ? actions : actions.split(',').map(a => a.trim());
+          
+          // Ensure "view" permission is always included when adding any permissions
+          if (actionArray.length > 0 && !actionArray.includes('view')) {
+            actionArray.unshift('view');
+          }
+          
           for (const userId of userIds) {
             for (const kriId of kriIds) {
               // Create individual permission records for each action
@@ -241,6 +263,12 @@ export default {
         
         // Convert comma-separated actions to individual permission records
         const actionArray = Array.isArray(actions) ? actions : actions.split(',').map(a => a.trim()).filter(a => a);
+        
+        // Ensure "view" permission is always included when adding any permissions
+        if (actionArray.length > 0 && !actionArray.includes('view')) {
+          actionArray.unshift('view');
+        }
+        
         const permissionUpdates = actionArray.map(action => ({
           user_uuid: userUuid,
           kri_id: kriId,
@@ -288,7 +316,7 @@ export default {
       if (userRole !== 'user') {
         suggestions.push(
           { label: 'Data Provider', value: 'view,edit,review' },
-          { label: 'KRI Owner', value: 'view,edit,review,acknowledge' }
+          { label: 'KRI Owner', value: 'view,edit,acknowledge' }
         );
       }
       

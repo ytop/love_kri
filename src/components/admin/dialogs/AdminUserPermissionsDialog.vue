@@ -7,7 +7,12 @@
   >
     <div v-if="selectedUser">
       <div class="user-info-header">
-        <h4>{{ selectedUser.user_name }} ({{ selectedUser.user_id }})</h4>
+        <div class="user-info-left">
+          <h4>{{ selectedUser.user_name }} ({{ selectedUser.user_id }})</h4>
+          <div class="reporting-period-info" v-if="selectedReportingDate">
+            <span class="period-label">Reporting Period: {{ formatReportingDate(selectedReportingDate) }}</span>
+          </div>
+        </div>
         <el-tag :type="getRoleTagType(selectedUser.user_role)" size="medium">
           {{ getRoleDisplayName(selectedUser.user_role) }}
         </el-tag>
@@ -61,7 +66,7 @@
               <el-option label="View Only" value="view"></el-option>
               <el-option label="View + Edit" value="view,edit"></el-option>
               <el-option label="Data Provider" value="view,edit,review"></el-option>
-              <el-option label="KRI Owner" value="view,edit,review,acknowledge"></el-option>
+              <el-option label="KRI Owner" value="view,edit,acknowledge"></el-option>
             </el-select>
           </template>
         </el-table-column>
@@ -105,6 +110,10 @@ export default {
     permissionUpdateLoading: {
       type: Boolean,
       default: false
+    },
+    selectedReportingDate: {
+      type: Number,
+      default: null
     }
   },
   
@@ -140,6 +149,16 @@ export default {
       case 'user': return 'User';
       default: return role || 'User';
       }
+    },
+    
+    formatReportingDate(dateInt) {
+      if (!dateInt) return '';
+      const dateString = dateInt.toString();
+      const year = dateString.substring(0, 4);
+      const month = dateString.substring(4, 6);
+      const day = dateString.substring(6, 8);
+      const date = new Date(year, parseInt(month) - 1, day);
+      return date.toLocaleString('default', { month: 'short', year: 'numeric' });
     }
   }
 };
@@ -149,16 +168,31 @@ export default {
 .user-info-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 20px;
   padding: 15px;
   background: #f8f9fa;
   border-radius: 4px;
 }
 
+.user-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
 .user-info-header h4 {
   margin: 0;
   color: #303133;
+}
+
+.reporting-period-info {
+  font-size: 12px;
+  color: #909399;
+}
+
+.period-label {
+  font-weight: 500;
 }
 
 .dialog-footer {
