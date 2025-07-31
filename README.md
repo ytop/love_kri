@@ -383,14 +383,18 @@ Components use comprehensive event system:
 Relationship-based access control:
 
 ```javascript
-// Permission format: "atomic1_edit,atomic1_view,edit,view,review,acknowledge"
+// Permission format: "atomic1.edit,atomic1.view,edit,view,review,acknowledge"
 // Usage in components:
 this.canPerform(kriId, atomicId, action)
 ```
 
-Database permissions are stored as comma-separated action strings:
+Database permissions are stored as dot-separated action strings:
 ```
-"atomic1_edit,atomic1_view,atomic1_review,atomic1_acknowledge,atomic1_delete,atomic2_edit,atomic2_view,edit,view,review,acknowledge,delete"
+"atomic1.edit
+atomic1.view
+atomic1.review
+acknowledge
+delete
 ```
 
 The Permission utility class parses these into arrays and provides `canPerform(kriId, atomicId, action)` method.
