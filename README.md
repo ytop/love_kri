@@ -91,6 +91,8 @@ Unified status configuration managed by `StatusManager` class in `src/utils/type
   - `KRIStatusTag.vue` - Consistent status display components
   - `EvidenceUploadModal.vue` - Enhanced file upload with auto-parse integration
   - `TableColumnConfig.vue` - Configurable table column management
+  - `AtomicInputDialog.vue` - Dialog for atomic value input and editing
+  - `LoadingSpinner.vue` and `LoadingState.vue` - Loading state management components
     - Multi-file drag-and-drop upload with progress tracking
     - Excel file auto-parsing for KRIs with `source === 'autoParse'`
     - MD5 hash-based duplicate detection with user warnings
@@ -108,6 +110,9 @@ Unified status configuration managed by `StatusManager` class in `src/utils/type
   - `dialogs/AdminKRIPermissionsDialog.vue` - KRI-specific permission management
   - `dialogs/AdminUserDetailsDialog.vue` - Admin user detail management
   - `dialogs/AdminUserPermissionsDialog.vue` - User permission assignment in admin context
+  - `shared/AdminBaseActivityAudit.vue` - Base audit trail component for admin interfaces
+  - `shared/AdminBaseDashboard.vue` - Base dashboard component for admin views
+  - `shared/AdminBaseUserManagement.vue` - Base user management component for admin features
 - **Department Admin Components** (`src/components/departmentAdmin/`):
   - `DepartmentDashboard.vue` - Department-specific dashboard with filtered KRI views
   - `DepartmentKRIManagement.vue` - KRI management scoped to department
@@ -172,6 +177,12 @@ npm install
 - `npm run dev` - Start development server on port 8081 with hot reload
 - `npm run build` - Build production bundle (only build if explicitly requested)
 - `npm run lint` - Run ESLint on src/ directory for .js and .vue files
+
+### Utility Commands
+
+- `npm run clean` - Full cleanup (node_modules, dist, cache) and reinstall
+- `npm run clean:modules` - Clean and reinstall node_modules only
+- `npm run clean:build` - Clean build artifacts (dist, cache)
 
 ### Development Server
 
@@ -268,7 +279,6 @@ src/
 │   │   └── shared/               # Admin shared components
 │   │       ├── AdminBaseActivityAudit.vue
 │   │       ├── AdminBaseDashboard.vue
-│   │       ├── AdminBasePermissionManagement.vue
 │   │       └── AdminBaseUserManagement.vue
 │   ├── departmentAdmin/          # Department admin components
 │   │   ├── DepartmentDashboard.vue
@@ -291,6 +301,7 @@ src/
 │   │   ├── EvidenceUploadModal.vue # Enhanced file upload with auto-parse
 │   │   ├── KRIActionButtons.vue   # Standardized action buttons
 │   │   ├── KRIStatusTag.vue       # Consistent status display
+│   │   ├── AtomicInputDialog.vue  # Dialog for atomic value input
 │   │   ├── LoadingSpinner.vue     # Loading state components
 │   │   └── LoadingState.vue       # Loading state management
 │   ├── KRIFilters.vue            # Advanced filtering interface
@@ -388,16 +399,12 @@ Relationship-based access control:
 this.canPerform(kriId, atomicId, action)
 ```
 
-Database permissions are stored as dot-separated action strings:
+Database permissions are stored as comma-separated action strings:
 ```
-"atomic1.edit
-atomic1.view
-atomic1.review
-acknowledge
-delete
+"atomic1_edit,atomic1_view,atomic1_review,atomic1_acknowledge,atomic1_delete,atomic2_edit,atomic2_view,edit,view,review,acknowledge,delete"
 ```
 
-The Permission utility class parses these into arrays and provides `canPerform(kriId, atomicId, action)` method.
+**Note**: There may be inconsistency in permission format between comma-separated and dot-separated formats during system migration. The Permission utility class handles parsing and provides `canPerform(kriId, atomicId, action)` method.
 
 ### Code Organization Principles
 

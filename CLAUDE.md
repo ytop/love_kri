@@ -10,6 +10,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run build` - Build production bundle (only build if explicitly requested)
 - `npm run lint` - Run ESLint on src/ directory for .js and .vue files
 
+### Utility Commands
+
+- `npm run clean` - Full cleanup (node_modules, dist, cache) and reinstall
+- `npm run clean:modules` - Clean and reinstall node_modules only
+- `npm run clean:build` - Clean build artifacts (dist, cache)
+
 ### Testing
 
 No test framework is configured in this project.
@@ -109,6 +115,8 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
 - `KRIStatusTag.vue` - Consistent status display components
 - `EvidenceUploadModal.vue` - Enhanced file upload with auto-parse integration
 - `TableColumnConfig.vue` - Configurable table column management
+- `AtomicInputDialog.vue` - Dialog for atomic value input and editing
+- `LoadingSpinner.vue` and `LoadingState.vue` - Loading state management components
   - Multi-file drag-and-drop upload with progress tracking
   - Excel file auto-parsing for KRIs with `source === 'autoParse'`
   - MD5 hash-based duplicate detection with user warnings
@@ -124,6 +132,9 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
 - `AdminSystemOverview.vue` - System health monitoring and recent activity tracking
 - `dialogs/AddUserDialog.vue` - User creation with validation and role assignment
 - `dialogs/AddPermissionDialog.vue` - Permission creation with templates and KRI selection
+- `shared/AdminBaseActivityAudit.vue` - Base audit trail component for admin interfaces
+- `shared/AdminBaseDashboard.vue` - Base dashboard component for admin views
+- `shared/AdminBaseUserManagement.vue` - Base user management component for admin features
 
 -**Department Admin Components** (`src/components/departmentAdmin/`):
 
@@ -381,7 +392,7 @@ Database permissions are stored as comma-separated action strings:
 "atomic1_edit,atomic1_view,atomic1_review,atomic1_acknowledge,atomic1_delete,atomic2_edit,atomic2_view,edit,view,review,acknowledge,delete"
 ```
 
-The Permission utility class parses these into arrays and provides `canPerform(kriId, atomicId, action)` method.
+**Note**: There may be inconsistency in permission format between comma-separated and dot-separated formats during system migration. The Permission utility class handles parsing and provides `canPerform(kriId, atomicId, action)` method.
 
 ### Performance Considerations
 
@@ -478,3 +489,4 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
 ### Code Organization Reminder
 
 - **Store-related operations**: Store function & related ops in `@src/store/modules/kri.js`
+- **Cursor Integration**: This project is configured for Claude Code integration via `.cursor/rules/read-instructions.mdc`
