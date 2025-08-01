@@ -71,7 +71,7 @@ Unified status configuration managed by `StatusManager` class in `src/utils/type
 
 ### Component Structure
 
-- **Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement, DepartmentAdmin
+- **Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement
 - **Components**: KRIFilters, KRITable, KRIChartView, KRITableCollectData
 - **Detail Components**: 
   - `KRIGeneralInfo` - Basic KRI information display
@@ -113,16 +113,7 @@ Unified status configuration managed by `StatusManager` class in `src/utils/type
   - `shared/AdminBaseActivityAudit.vue` - Base audit trail component for admin interfaces
   - `shared/AdminBaseDashboard.vue` - Base dashboard component for admin views
   - `shared/AdminBaseUserManagement.vue` - Base user management component for admin features
-- **Department Admin Components** (`src/components/departmentAdmin/`):
-  - `DepartmentDashboard.vue` - Department-specific dashboard with filtered KRI views
-  - `DepartmentKRIManagement.vue` - KRI management scoped to department
-  - `DepartmentPermissionManagement.vue` - Department-level permission assignments
-  - `DepartmentTeamManagement.vue` - Team member management within department
-  - `DepartmentActivityAudit.vue` - Department-scoped activity monitoring
-  - `dialogs/BulkPermissionTemplateDialog.vue` - Bulk permission templates for department
-  - `dialogs/KRIPermissionsDialog.vue` - KRI-specific permission management
-  - `dialogs/UserDetailsDialog.vue` - Department user detail management
-  - `dialogs/UserPermissionsDialog.vue` - User permission assignment within department
+**Note**: Department Admin Components have been removed. Department admins now use the main AdminManagement.vue interface which provides appropriate role-based access to admin functionality.
 
 ### Routing
 
@@ -250,13 +241,7 @@ Comprehensive administrative capabilities including:
 
 ### Department Admin System
 
-Department-scoped administrative capabilities:
-
-- **Department Dashboard**: Filtered KRI views and department-specific metrics
-- **KRI Management**: Department-scoped KRI oversight and management
-- **Permission Management**: Department-level permission assignments
-- **Team Management**: Team member management within department scope
-- **Activity Audit**: Department-scoped activity monitoring and audit trails
+**Consolidated Admin Interface**: Department admins now use the same AdminManagement.vue interface as system admins, with role-based feature visibility and department-scoped data access. The separate department admin components have been removed in favor of this unified approach.
 
 ## Project Structure
 
@@ -280,17 +265,6 @@ src/
 │   │       ├── AdminBaseActivityAudit.vue
 │   │       ├── AdminBaseDashboard.vue
 │   │       └── AdminBaseUserManagement.vue
-│   ├── departmentAdmin/          # Department admin components
-│   │   ├── DepartmentDashboard.vue
-│   │   ├── DepartmentKRIManagement.vue
-│   │   ├── DepartmentPermissionManagement.vue
-│   │   ├── DepartmentTeamManagement.vue
-│   │   ├── DepartmentActivityAudit.vue
-│   │   └── dialogs/              # Department admin dialogs
-│   │       ├── BulkPermissionTemplateDialog.vue
-│   │       ├── KRIPermissionsDialog.vue
-│   │       ├── UserDetailsDialog.vue
-│   │       └── UserPermissionsDialog.vue
 │   ├── detail/                   # KRI detail view components
 │   │   ├── KRIGeneralInfo.vue    # Basic KRI information display
 │   │   ├── KRIOverview.vue       # KRI summary with data visualization
@@ -304,17 +278,17 @@ src/
 │   │   ├── AtomicInputDialog.vue  # Dialog for atomic value input
 │   │   ├── LoadingSpinner.vue     # Loading state components
 │   │   └── LoadingState.vue       # Loading state management
+│   ├── KRIBulkActionsToolbar.vue # Bulk actions toolbar
+│   ├── KRIChartView.vue          # Chart visualization
 │   ├── KRIFilters.vue            # Advanced filtering interface
 │   ├── KRITable.vue              # Data table with sorting and selection
 │   ├── KRITableInlineEdit.vue    # Inline editing table component
-│   ├── KRIChartView.vue          # Chart visualization
-│   └── KRIBulkActionsToolbar.vue # Bulk actions toolbar
+│   └── TableColumnConfig.vue     # Table column configuration
 ├── views/                        # Page components
 │   ├── Dashboard.vue             # Main dashboard with filters and table
 │   ├── KRIDetail.vue             # Comprehensive KRI detail page
 │   ├── KRIPending.vue            # Pending KRI management
-│   ├── AdminManagement.vue       # Admin management interface
-│   ├── DepartmentAdmin.vue       # Department admin interface
+│   ├── AdminManagement.vue       # Admin management interface (used by both system and department admins)
 │   ├── Login.vue                 # Authentication
 │   └── NotFound.vue              # 404 page
 ├── services/                     # Service layer

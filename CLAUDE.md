@@ -89,7 +89,7 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
 
 #### Component Structure
 
--**Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement, DepartmentAdmin
+-**Views**: Dashboard, KRIDetail, KRIListByStatus, KRIWorkflowPage, Login, NotFound, AdminManagement
 
 -**Components**: KRIFilters, KRITable, KRIChartView, KRITableCollectData
 
@@ -138,15 +138,15 @@ Unified status configuration now managed by `StatusManager` class in `src/utils/
 
 -**Department Admin Components** (`src/components/departmentAdmin/`):
 
-- `DepartmentDashboard.vue` - Department-specific dashboard with filtered KRI views
-- `DepartmentKRIManagement.vue` - KRI management scoped to department
+- `DepartmentDashboard.vue` - Department-specific dashboard with team management focus
 - `DepartmentPermissionManagement.vue` - Department-level permission assignments
 - `DepartmentTeamManagement.vue` - Team member management within department
 - `DepartmentActivityAudit.vue` - Department-scoped activity monitoring
 - `dialogs/BulkPermissionTemplateDialog.vue` - Bulk permission templates for department
-- `dialogs/KRIPermissionsDialog.vue` - KRI-specific permission management
 - `dialogs/UserDetailsDialog.vue` - Department user detail management
 - `dialogs/UserPermissionsDialog.vue` - User permission assignment within department
+
+**Note**: Department KRI management functionality has been removed. Department admins now use the main AdminManagement.vue interface which provides appropriate access based on role.
 
 #### Routing
 
@@ -452,7 +452,7 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
 
 - **Admin Management System**: Recently refactored from monolithic AdminManagement.vue (1400+ lines) into modular components:
   - `AdminUserManagement.vue` - User role and department management with bulk operations
-  - `AdminPermissionManagement.vue` - KRI-level permission assignments with filtering
+  - `AdminPermissionManagement.vue` - Permission assignments with filtering (KRI management removed)
   - `AdminRoleManagement.vue` - Role distribution analytics and bulk role changes
   - `AdminDepartmentManagement.vue` - Department statistics and user promotion features
   - `AdminSystemOverview.vue` - System health monitoring and activity tracking
@@ -461,9 +461,10 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
   - Centralized styling in `src/assets/styles/admin.css` using design system variables
   - CSS organization follows existing `src/assets/styles/variables.css` design tokens
 
+- **Department Admin Routing**: The `/dept-admin` route uses AdminManagement.vue component, providing department-scoped access to admin functionality based on user role
+- **KRI Management Removed**: Department KRI management functionality has been removed from both AdminManagement.vue and department admin components
 - **TypeScript Diagnostics**: Minor Vuex import warnings due to package.json exports compatibility (Vue 2 ecosystem constraint)
 - **Permission System Changes**: Recently migrated from comma-separated permission strings to a new format - some compatibility issues may exist and are being resolved
-- **Department Admin System**: New department-scoped admin components for role-based departmental management and KRI oversight
 - Application uses hot reload extensively - avoid running build commands during development
 - Mock data fallback system ensures functionality during database downtime
 
@@ -489,4 +490,5 @@ Due to server requirements to maintain Vue 2 compatibility, the following vulner
 ### Code Organization Reminder
 
 - **Store-related operations**: Store function & related ops in `@src/store/modules/kri.js`
-- **Cursor Integration**: This project is configured for Claude Code integration via `.cursor/rules/read-instructions.mdc`
+- **Admin Management Architecture**: Both system admins (`/admin`) and department admins (`/dept-admin`) use the same AdminManagement.vue component, with role-based feature visibility
+- **Department KRI Management**: Removed as of recent refactoring - department admins no longer have separate KRI management interface
