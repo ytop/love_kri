@@ -264,9 +264,18 @@
                     class="value-display"
                     :class="getKRIValueColorClass(scope.row.breachType)"
                   >
-                    {{ scope.row.kriValue }}
+                    {{ scope.row.kriValue || 'N/A' }}
                   </span>
-                  <i class="el-icon-edit-outline edit-icon"></i>
+                  <div class="value-icons">
+                    <el-tooltip 
+                      v-if="!hasEvidence(scope.row)" 
+                      content="Evidence is missing - required for submission" 
+                      placement="top"
+                    >
+                      <i class="el-icon-warning-outline evidence-warning-indicator"></i>
+                    </el-tooltip>
+                    <i class="el-icon-edit-outline edit-icon"></i>
+                  </div>
                 </div>
               </template>
               <!-- Inline editing for atomic values -->
@@ -308,9 +317,18 @@
                     class="value-display"
                     :class="getKRIValueColorClass(scope.row.breachType)"
                   >
-                    {{ scope.row.kriValue }}
+                    {{ scope.row.kriValue || 'N/A' }}
                   </span>
-                  <i class="el-icon-edit-outline edit-icon"></i>
+                  <div class="value-icons">
+                    <el-tooltip 
+                      v-if="!hasEvidence(scope.row)" 
+                      content="Evidence is missing - required for submission" 
+                      placement="top"
+                    >
+                      <i class="el-icon-warning-outline evidence-warning-indicator"></i>
+                    </el-tooltip>
+                    <i class="el-icon-edit-outline edit-icon"></i>
+                  </div>
                 </div>
               </template>
               <!-- Read-only value for calculated KRIs and non-editable items -->
@@ -326,13 +344,22 @@
                   >
                     {{ scope.row.kriValue || 'N/A' }}
                   </span>
-                  <el-tooltip 
-                    v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow" 
-                    content="This value is automatically calculated from atomic elements" 
-                    placement="top"
-                  >
-                    <i class="el-icon-s-operation calculated-indicator"></i>
-                  </el-tooltip>
+                  <div class="value-indicators">
+                    <el-tooltip 
+                      v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow" 
+                      content="This value is automatically calculated from atomic elements" 
+                      placement="top"
+                    >
+                      <i class="el-icon-s-operation calculated-indicator"></i>
+                    </el-tooltip>
+                    <el-tooltip 
+                      v-if="!hasEvidence(scope.row)" 
+                      content="Evidence is missing for this item" 
+                      placement="top"
+                    >
+                      <i class="el-icon-warning-outline evidence-warning-indicator"></i>
+                    </el-tooltip>
+                  </div>
                 </div>
               </template>
             </div>
@@ -408,6 +435,15 @@
                   :disabled="!hasKRIValue(scope.row)">
                   Submit
                 </el-button>
+                <el-button
+                  v-if="canPerform(scope.row.kriId || scope.row.id, null, 'edit')"
+                  type="warning"
+                  icon="el-icon-upload2"
+                  size="mini"
+                  @click.stop="openEvidenceUpload(scope.row)"
+                  plain>
+                  Evidence
+                </el-button>
               </template>
               
               <!-- Case 3: Status 40, 50 - Approval actions -->
@@ -427,6 +463,15 @@
                   @click.stop="handleRejectKRI(scope.row)"
                   :loading="savingKRI === getRowKey(scope.row)">
                   Reject
+                </el-button>
+                <el-button
+                  v-if="canPerform(scope.row.kriId || scope.row.id, null, 'edit')"
+                  type="warning"
+                  icon="el-icon-upload2"
+                  size="mini"
+                  @click.stop="openEvidenceUpload(scope.row)"
+                  plain>
+                  Evidence
                 </el-button>
               </template>
               
@@ -466,6 +511,15 @@
                   :disabled="!hasAtomicValue(scope.row)">
                   Submit
                 </el-button>
+                <el-button
+                  v-if="canPerform(scope.row.kriId, scope.row.atomicId || scope.row.atomic_id, 'edit')"
+                  type="warning"
+                  icon="el-icon-upload2"
+                  size="mini"
+                  @click.stop="openEvidenceUpload(scope.row)"
+                  plain>
+                  Evidence
+                </el-button>
               </template>
               
               <!-- Atomic approval actions -->
@@ -485,6 +539,15 @@
                   @click.stop="handleRejectAtomic(scope.row)"
                   :loading="savingKRI === getRowKey(scope.row)">
                   Reject
+                </el-button>
+                <el-button
+                  v-if="canPerform(scope.row.kriId, scope.row.atomicId || scope.row.atomic_id, 'edit')"
+                  type="warning"
+                  icon="el-icon-upload2"
+                  size="mini"
+                  @click.stop="openEvidenceUpload(scope.row)"
+                  plain>
+                  Evidence
                 </el-button>
               </template>
               
@@ -509,6 +572,14 @@
         />
       </template>
     </el-table>
+
+    <!-- Evidence Upload Modal -->
+    <evidence-upload-modal
+      :visible.sync="showEvidenceModal"
+      :kri-item="evidenceUploadRow || {}"
+      @upload-success="handleEvidenceUploadSuccess"
+      @close="handleEvidenceModalClose"
+    />
   </div>
 </template>
 
@@ -532,11 +603,13 @@ import expandableTableMixin from '@/mixins/expandableTableMixin';
 import TableColumnConfig from '@/components/TableColumnConfig.vue';
 import TableColumnManager, { TABLE_TYPES } from '@/utils/tableColumnConfig';
 import { kriService } from '@/services/kriService';
+import EvidenceUploadModal from '@/components/shared/EvidenceUploadModal.vue';
 
 export default {
   name: 'KRITableInlineEdit',
   components: {
-    TableColumnConfig
+    TableColumnConfig,
+    EvidenceUploadModal
   },
   mixins: [expandableTableMixin],
   props: {
@@ -555,7 +628,11 @@ export default {
       // Inline editing state
       editingKRI: null,
       editingValue: null,
-      savingKRI: null
+      savingKRI: null,
+      // Evidence upload modal state
+      showEvidenceModal: false,
+      evidenceUploadRow: null,
+      pendingSubmissionRow: null
     };
   },
   computed: {
@@ -611,13 +688,19 @@ export default {
             breachType: parentKRI ? calculateAtomicBreach(row, parentKRI) : 'No Breach',
             // Preserve numeric status for logic, but also add display label
             atomicStatusNumeric: row.collectionStatus, // Original numeric status
-            collectionStatus: getKRIStatusLabel(row.collectionStatus) // Display label
+            collectionStatus: getKRIStatusLabel(row.collectionStatus), // Display label
+            // Map evidence_id from rawData to top level for easier access
+            evidence_id: row.rawData?.evidence_id || row.evidence_id,
+            evidenceId: row.rawData?.evidence_id || row.evidenceId
           };
         } else {
           // Transform main KRI rows
           return {
             ...row,
-            collectionStatus: getKRIStatusLabel(row.collectionStatus)
+            collectionStatus: getKRIStatusLabel(row.collectionStatus),
+            // Map evidence_id from rawData to top level for easier access
+            evidence_id: row.rawData?.evidence_id || row.evidence_id,
+            evidenceId: row.rawData?.evidence_id || row.evidenceId
           };
         }
       });
@@ -692,6 +775,36 @@ export default {
       const atomicValue = row.kriValue || row.atomicValue;
       return atomicValue !== null && atomicValue !== undefined && atomicValue !== '';
     },
+
+    // Evidence validation methods
+    hasEvidence(row) {
+      console.log('hasEvidence', row.id || row.kriId, row?.evidence_id, row);
+      return row?.evidence_id ? true : false;
+    },
+
+    canSubmitWithoutEvidence(_row) {
+      // Evidence is always required for submission
+      return false;
+    },
+
+    // Evidence upload modal methods
+    openEvidenceUpload(row) {
+      console.warn('openEvidenceUpload', row);
+      this.evidenceUploadRow = row;
+      this.showEvidenceModal = true;
+    },
+
+    async handleEvidenceUploadSuccess(uploadedEvidenceIds) {
+      console.warn('handleEvidenceUploadSuccess', uploadedEvidenceIds);
+      this.$emit('data-updated');
+    },
+
+    handleEvidenceModalClose() {
+      this.showEvidenceModal = false;
+      this.evidenceUploadRow = null;
+      this.pendingSubmissionRow = null;
+    },
+
 
     isRowSelectable(row) {
       // Only allow selection for rows that have available actions
@@ -815,6 +928,26 @@ export default {
     async handleSubmitKRI(row) {
       if (this.savingKRI === this.getRowKey(row)) return;
       
+      // Debug: Check row data structure
+      console.log('Submit KRI - Full row object:', JSON.stringify(row, null, 2));
+      console.log('Submit KRI - Evidence fields check:', {
+        evidence_id: row.evidence_id,
+        evidenceId: row.evidenceId,
+        hasEvidence: row.hasEvidence,
+        linkedEvidence: row.linkedEvidence
+      });
+      
+      // Check if evidence is required and missing
+      const hasEvidenceResult = this.hasEvidence(row);
+      console.log('KRI submission - evidence check:', hasEvidenceResult, 'for row keys:', Object.keys(row));
+      
+      if (!hasEvidenceResult) {
+        this.pendingSubmissionRow = row;
+        this.openEvidenceUpload(row);
+        this.$message.warning('Evidence is required for submission. Please upload evidence first.');
+        return;
+      }
+      
       this.savingKRI = this.getRowKey(row);
       try {
         // Determine next status based on KRI owner/data provider logic
@@ -869,22 +1002,40 @@ export default {
     async handleRejectKRI(row) {
       if (this.savingKRI === this.getRowKey(row)) return;
       
-      this.savingKRI = this.getRowKey(row);
       try {
+        const { value: comment } = await this.$prompt(
+          'Please provide a reason for rejection:',
+          'Reject KRI',
+          {
+            confirmButtonText: 'Reject',
+            cancelButtonText: 'Cancel',
+            inputType: 'textarea',
+            inputValidator: (value) => {
+              if (!value || value.trim().length < 3) {
+                return 'Rejection reason must be at least 3 characters';
+              }
+              return true;
+            }
+          }
+        );
+
+        this.savingKRI = this.getRowKey(row);
         await kriService.updateKRI(
           row.kriId || row.id,
           row.reportingDate,
           { kri_status: 20 }, // Status 20: "Under Rework"
           getUserDisplayName(this.currentUser),
           'reject_kri',
-          'KRI rejected and sent back for rework'
+          comment
         );
         
         this.$message.success('KRI rejected successfully');
         this.$emit('data-updated');
       } catch (error) {
-        console.error('Error rejecting KRI:', error);
-        this.$message.error('Failed to reject KRI');
+        if (error !== 'cancel') {
+          console.error('Error rejecting KRI:', error);
+          this.$message.error('Failed to reject KRI');
+        }
       } finally {
         this.savingKRI = null;
       }
@@ -918,6 +1069,26 @@ export default {
     
     async handleSubmitAtomic(row) {
       if (this.savingKRI === this.getRowKey(row)) return;
+      
+      // Debug: Check row data structure
+      console.log('Submit Atomic - Full row object:', JSON.stringify(row, null, 2));
+      console.log('Submit Atomic - Evidence fields check:', {
+        evidence_id: row.evidence_id,
+        evidenceId: row.evidenceId,
+        hasEvidence: row.hasEvidence,
+        linkedEvidence: row.linkedEvidence
+      });
+      
+      // Check if evidence is required and missing
+      const hasEvidenceResult = this.hasEvidence(row);
+      console.log('Atomic submission - evidence check:', hasEvidenceResult, 'for row keys:', Object.keys(row));
+      
+      if (!hasEvidenceResult) {
+        this.pendingSubmissionRow = row;
+        this.openEvidenceUpload(row);
+        this.$message.warning('Evidence is required for submission. Please upload evidence first.');
+        return;
+      }
       
       this.savingKRI = this.getRowKey(row);
       try {
@@ -976,8 +1147,24 @@ export default {
     async handleRejectAtomic(row) {
       if (this.savingKRI === this.getRowKey(row)) return;
       
-      this.savingKRI = this.getRowKey(row);
       try {
+        const { value: comment } = await this.$prompt(
+          'Please provide a reason for rejecting this atomic element:',
+          'Reject Atomic Element',
+          {
+            confirmButtonText: 'Reject',
+            cancelButtonText: 'Cancel',
+            inputType: 'textarea',
+            inputValidator: (value) => {
+              if (!value || value.trim().length < 3) {
+                return 'Rejection reason must be at least 3 characters';
+              }
+              return true;
+            }
+          }
+        );
+
+        this.savingKRI = this.getRowKey(row);
         await kriService.updateAtomicValue(
           row.kriId,
           row.reportingDate,
@@ -985,14 +1172,16 @@ export default {
           { atomic_status: 20 }, // Status 20: "Under Rework"
           getUserDisplayName(this.currentUser),
           'reject_atomic',
-          'Atomic value rejected and sent back for rework'
+          comment
         );
         
         this.$message.success('Atomic value rejected successfully');
         this.$emit('data-updated');
       } catch (error) {
-        console.error('Error rejecting atomic value:', error);
-        this.$message.error('Failed to reject atomic value');
+        if (error !== 'cancel') {
+          console.error('Error rejecting atomic value:', error);
+          this.$message.error('Failed to reject atomic value');
+        }
       } finally {
         this.savingKRI = null;
       }
@@ -1154,6 +1343,21 @@ export default {
     // Helper method to check if a row is a calculated KRI
     isCalculatedKRI(row) {
       return isCalculatedKRI(row);
+    },
+
+    // Helper methods for common button properties
+    getButtonLoadingState(row) {
+      return this.savingKRI === this.getRowKey(row);
+    },
+
+    // Helper to check if status allows editing actions
+    isEditableStatus(status) {
+      return [10, 20, 30].includes(status);
+    },
+
+    // Helper to check if status allows approval actions  
+    isApprovalStatus(status) {
+      return [40, 50].includes(status);
     }
   }
 };
@@ -1439,6 +1643,19 @@ export default {
   background-color: rgba(0, 0, 0, 0.02);
 }
 
+.value-icons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.value-indicators {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
 .editable-value:hover {
   background-color: #f0f9ff;
   border: 1px solid #409eff;
@@ -1459,13 +1676,25 @@ export default {
   transition: all 0.2s ease;
   color: #409eff;
   font-size: 14px;
-  margin-left: 6px;
   flex-shrink: 0;
 }
 
 .editable-value:hover .edit-icon {
   opacity: 1;
   transform: scale(1.1);
+}
+
+.evidence-warning-indicator {
+  color: #E6A23C;
+  font-size: 14px;
+  flex-shrink: 0;
+  animation: pulse-warning 2s infinite;
+}
+
+.readonly-value-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .readonly-value {
@@ -1600,5 +1829,21 @@ export default {
   .warning-icon {
     font-size: 12px;
   }
+}
+
+/* Evidence Upload Button Styling */
+.row-actions .el-button--warning.is-plain {
+  color: #E6A23C;
+  border-color: #E6A23C;
+  background-color: #fdf6ec;
+  font-weight: 500;
+}
+
+.row-actions .el-button--warning.is-plain:hover {
+  background-color: #E6A23C;
+  color: #fff;
+  border-color: #E6A23C;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(230, 162, 60, 0.2);
 }
 </style>

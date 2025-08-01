@@ -91,14 +91,6 @@ export default {
       type: Boolean,
       default: false
     },
-    kriId: {
-      type: String,
-      required: true
-    },
-    reportingDate: {
-      type: Number,
-      required: true
-    },
     kriItem: {
       type: Object,
       default: () => ({})
@@ -141,6 +133,26 @@ export default {
   },
   computed: {
     ...mapState('kri', ['currentUser']),
+    
+    // Extract kriId from kriItem
+    kriId() {
+      return this.kriItem ? (this.kriItem.kriId || this.kriItem.id || this.kriItem.kri_id) : null;
+    },
+    
+    // Extract reportingDate from kriItem
+    reportingDate() {
+      return this.kriItem ? this.kriItem.reportingDate : null;
+    },
+    
+    // Check if this is an atomic element
+    isAtomicElement() {
+      return this.kriItem && (this.kriItem.isAtomicRow || this.kriItem.atomicId || this.kriItem.atomic_id);
+    },
+    
+    // Get atomic ID for atomic elements
+    atomicId() {
+      return this.kriItem ? (this.kriItem.atomicId || this.kriItem.atomic_id) : null;
+    },
     
     // Check if KRI is configured for auto-parsing
     isAutoParseKRI() {
@@ -273,7 +285,6 @@ export default {
       message += `• File: ${mostRecent.file_name}\n`;
       message += `• Uploaded by: ${mostRecent.uploaded_by || 'Unknown'}\n`;
       message += `• Date: ${uploadedDate}\n`;
-      message += `• KRI ID: ${mostRecent.kri_id}\n`;
       
       if (totalDuplicates > 1) {
         message += `\n(${totalDuplicates} total uploads of this file found)`;
@@ -284,7 +295,7 @@ export default {
       try {
         await this.$confirm(message, 'File Already Exists in System', {
           confirmButtonText: 'Upload Anyway',
-          cancelButtonText: 'Skip This File',
+          cancelButtonText: 'Use Existing Evidence',
           type: 'warning',
           customClass: 'duplicate-warning-dialog'
         });
@@ -305,9 +316,9 @@ export default {
         );
         
       } catch (error) {
-        // User chose to skip this file
+        // User cancelled or error occurred
         this.handleFileRemove(file, fileList);
-        this.$message.info(`Skipped duplicate file: ${file.name}`);
+        this.$message.info(`Cancelled upload of duplicate file: ${file.name}`);
       }
     },
 
@@ -481,13 +492,14 @@ export default {
           }
         }
 
-        // Offer evidence selection for uploaded files (if more than one file uploaded)
+        // Auto-link evidence for uploaded files
         if (successCount > 0 && this.uploadedEvidenceIds.length > 0) {
           try {
-            await this.offerEvidenceSelection();
+            await this.autoLinkEvidence();
           } catch (error) {
-            console.error('Evidence selection failed:', error);
-            // Don't show error to user - evidence selection is optional
+            console.error('Evidence auto-linking failed:', error);
+            // Fall back to manual selection
+            await this.offerEvidenceSelection();
           }
         }
 
@@ -588,9 +600,7 @@ export default {
       };
 
       try {
-        const result = await kriService.insertEvidence(
-          this.kriId,
-          this.reportingDate,
+        const result = await kriService.insertEvidenceOnly(
           insertData,
           getUserDisplayName(this.currentUser),
           'upload_evidence',
@@ -704,7 +714,6 @@ export default {
 
     // Offer user choice to select uploaded evidence as submitted evidence
     async offerEvidenceSelection() {
-      // Filter out any invalid evidence IDs
       const validEvidenceIds = this.uploadedEvidenceIds.filter(id => id && typeof id === 'number');
       
       if (validEvidenceIds.length === 0) {
@@ -712,9 +721,11 @@ export default {
         return;
       }
       
-      // If only one file uploaded, offer to select it automatically
-      if (validEvidenceIds.length === 1) {
-        try {
+      try {
+        let selectedEvidenceId = null;
+        
+        if (validEvidenceIds.length === 1) {
+          // Single file - offer automatic selection
           await this.$confirm(
             'Would you like to set this uploaded file as the submitted evidence for this KRI?',
             'Select Evidence',
@@ -724,31 +735,10 @@ export default {
               type: 'info'
             }
           );
-          
-          // User chose to select the evidence
-          await kriService.linkEvidenceToKRI(
-            this.kriId,
-            this.reportingDate,
-            validEvidenceIds[0],
-            getUserDisplayName(this.currentUser),
-            'Evidence automatically selected after upload'
-          );
-          
-          this.$message.success('Evidence has been selected as submitted evidence');
-          this.$emit('evidence-selected', validEvidenceIds[0]);
-          
-        } catch (error) {
-          // User declined or error occurred
-          if (error.message) {
-            console.error('Error selecting evidence:', error);
-            this.$message.error('Failed to select evidence: ' + error.message);
-          }
-          // User clicking "No, Thanks" will also reach this catch block, which is fine
-        }
-      } else {
-        // Multiple files uploaded - show selection dialog
-        try {
-          const { value: selectedEvidenceId } = await this.$prompt(
+          selectedEvidenceId = validEvidenceIds[0];
+        } else {
+          // Multiple files - show selection dialog
+          const { value } = await this.$prompt(
             `${validEvidenceIds.length} files were uploaded successfully. Enter the evidence ID to select as submitted evidence (or leave empty to skip):`,
             'Select Evidence',
             {
@@ -756,37 +746,91 @@ export default {
               cancelButtonText: 'Skip',
               inputType: 'number',
               inputValidator: (value) => {
-                if (!value) return true; // Allow empty (skip)
+                if (!value) return true;
                 const id = parseInt(value);
-                if (!validEvidenceIds.includes(id)) {
-                  return 'Please enter a valid evidence ID from the uploaded files';
-                }
-                return true;
+                return validEvidenceIds.includes(id) ? true : 'Please enter a valid evidence ID from the uploaded files';
               }
             }
           );
-          
-          if (selectedEvidenceId) {
-            const evidenceId = parseInt(selectedEvidenceId);
-            await kriService.linkEvidenceToKRI(
-              this.kriId,
-              this.reportingDate,
-              evidenceId,
-              getUserDisplayName(this.currentUser),
-              'Evidence selected after multiple file upload'
-            );
-            
-            this.$message.success('Evidence has been selected as submitted evidence');
-            this.$emit('evidence-selected', evidenceId);
-          }
-          
-        } catch (error) {
-          // User cancelled or error occurred
-          if (error.message) {
-            console.error('Error selecting evidence:', error);
-            this.$message.error('Failed to select evidence: ' + error.message);
-          }
+          selectedEvidenceId = value ? parseInt(value) : null;
         }
+        
+        if (selectedEvidenceId) {
+          await this.linkEvidence(selectedEvidenceId);
+        }
+        
+      } catch (error) {
+        if (error.message) {
+          console.error('Error selecting evidence:', error);
+          this.$message.error('Failed to select evidence: ' + error.message);
+        }
+      }
+    },
+
+    // Helper method to link evidence to KRI or atomic element
+    async linkEvidence(evidenceId) {
+      if (this.isAtomicElement) {
+        // Link to atomic element
+        await kriService.linkEvidenceToAtomic(
+          this.kriId,
+          this.atomicId,
+          this.reportingDate,
+          evidenceId,
+          getUserDisplayName(this.currentUser),
+          'Evidence selected after upload'
+        );
+      } else {
+        // Link to KRI
+        await kriService.linkEvidenceToKRI(
+          this.kriId,
+          this.reportingDate,
+          evidenceId,
+          getUserDisplayName(this.currentUser),
+          'Evidence selected after upload'
+        );
+      }
+      
+      console.log('Evidence linked successfully, ID:', evidenceId);
+      this.$message.success('Evidence has been selected as submitted evidence');
+    },
+
+    // Use existing evidence instead of uploading duplicate
+    async useExistingEvidence(evidenceId) {
+      console.log('Using existing evidence, ID:', evidenceId, 'for item:', this.kriItem);
+      try {
+        await this.linkEvidence(evidenceId);
+        console.log('Successfully linked existing evidence');
+        this.$message.success('Existing evidence has been linked successfully');
+        this.$emit('upload-success');
+        this.handleClose();
+      } catch (error) {
+        console.error('Error linking existing evidence:', error);
+        this.$message.error('Failed to link existing evidence');
+        throw error;
+      }
+    },
+
+    // Auto-link evidence after successful upload
+    async autoLinkEvidence() {
+      const validEvidenceIds = this.uploadedEvidenceIds.filter(id => id && typeof id === 'number');
+      console.log('Auto-linking evidence - valid IDs:', validEvidenceIds, 'for item:', this.kriItem);
+      
+      if (validEvidenceIds.length === 0) {
+        console.warn('No valid evidence IDs available for auto-linking');
+        return;
+      }
+      
+      // Auto-link the first/most recent evidence
+      const evidenceId = validEvidenceIds[0];
+      console.log('Auto-linking evidence ID:', evidenceId);
+      
+      try {
+        await this.linkEvidence(evidenceId);
+        console.log('Auto-linking completed successfully');
+        this.$message.success(`Evidence uploaded and linked successfully`);
+      } catch (error) {
+        console.error('Auto-linking failed:', error);
+        throw error; // Re-throw to trigger fallback
       }
     }
   }

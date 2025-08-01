@@ -14,10 +14,10 @@ CREATE TABLE public.kri_atomic (
   evidence_id bigint,
   CONSTRAINT kri_atomic_pkey PRIMARY KEY (kri_id, atomic_id, reporting_date),
   CONSTRAINT kri_atomic_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
-  CONSTRAINT kri_atomic_evidence_id_fkey FOREIGN KEY (evidence_id) REFERENCES public.kri_evidence(evidence_id),
   CONSTRAINT kri_atomic_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
-  CONSTRAINT kri_atomic_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
-  CONSTRAINT kri_atomic_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date)
+  CONSTRAINT kri_atomic_evidence_id_fkey FOREIGN KEY (evidence_id) REFERENCES public.kri_evidence(evidence_id),
+  CONSTRAINT kri_atomic_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT kri_atomic_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id)
 );
 CREATE TABLE public.kri_audit_trail (
   audit_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -32,22 +32,26 @@ CREATE TABLE public.kri_audit_trail (
   comment text,
   kri_code text,
   CONSTRAINT kri_audit_trail_pkey PRIMARY KEY (audit_id),
-  CONSTRAINT kri_audit_trail_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
   CONSTRAINT kri_audit_trail_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date),
   CONSTRAINT kri_audit_trail_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT kri_audit_trail_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
   CONSTRAINT kri_audit_trail_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id)
 );
 CREATE TABLE public.kri_evidence (
   evidence_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  kri_id bigint NOT NULL,
-  reporting_date integer NOT NULL,
   file_name text NOT NULL,
   file_url text NOT NULL,
   description text,
   uploaded_by text,
   uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
   md5 text,
-  CONSTRAINT kri_evidence_pkey PRIMARY KEY (evidence_id)
+  kri_id bigint,
+  reporting_date integer,
+  CONSTRAINT kri_evidence_pkey PRIMARY KEY (evidence_id),
+  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(reporting_date),
+  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (kri_id) REFERENCES public.kri_item(kri_id),
+  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(kri_id),
+  CONSTRAINT kri_evidence_kri_id_reporting_date_fkey FOREIGN KEY (reporting_date) REFERENCES public.kri_item(reporting_date)
 );
 CREATE TABLE public.kri_item (
   kri_id bigint NOT NULL,

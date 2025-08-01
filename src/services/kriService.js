@@ -526,6 +526,11 @@ export const kriService = {
     if (error) throw error;
     return data?.[0] || {};
   },
+  
+  async fetchKRIHistorical(kriId, reportingDate) {
+    const { data } = await baseKRIService.fetchKRIHistorical(kriId, reportingDate);
+    return data;
+  },
 
   async fetchKRIAtomic(kriId, reportingDate) {
     const { data } = await baseKRIService.fetchAtomicKRI(kriId, '*', reportingDate);
@@ -539,11 +544,6 @@ export const kriService = {
 
   async fetchKRIAuditTrail(kriId, reportingDate) {
     const { data } = await baseKRIService.fetchAuditTrail(kriId, reportingDate);
-    return data;
-  },
-
-  async fetchKRIHistorical(kriId, months = 12) {
-    const { data } = await baseKRIService.fetchKRIHistorical(kriId, months);
     return data;
   },
 
@@ -574,9 +574,27 @@ export const kriService = {
     return data;
   },
 
-  async insertEvidence(kriId, reportingDate, evidenceData, changedBy, action, comment = '') {
-    const { data } = await baseKRIService.insertEvidence(kriId, reportingDate, evidenceData, changedBy, action, comment);
-    return data;
+
+  // Insert evidence without KRI FK relationship (new table structure)
+  async insertEvidenceOnly(evidenceData, changedBy, action, comment = '') {
+    if (!changedBy) throw new Error('changedBy is required');
+    if (!action) throw new Error('action is required');
+    if (!comment) throw new Error('comment is required');
+    if (!evidenceData) throw new Error('evidenceData is required');
+    
+    // Insert the evidence record without FK constraints
+    const { data: evidenceRecord, error: insertError } = await supabase
+      .from('kri_evidence')
+      .insert(evidenceData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error inserting evidence:', insertError);
+      throw insertError;
+    }
+
+    return evidenceRecord;
   },
 
   async checkFileExists(md5Hash) {
@@ -584,7 +602,7 @@ export const kriService = {
     
     const { data, error } = await supabase
       .from('kri_evidence')
-      .select('evidence_id, kri_id, reporting_date, file_name, uploaded_by, uploaded_at')
+      .select('evidence_id, file_name, uploaded_by, uploaded_at')
       .eq('md5', md5Hash)
       .order('uploaded_at', { ascending: false })
       .limit(5); // Get up to 5 most recent duplicates
