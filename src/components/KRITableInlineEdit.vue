@@ -225,7 +225,7 @@
         >
           <template slot-scope="scope">
             <div class="kri-value-container">
-              <!-- Inline editing for eligible KRIs -->
+              <!-- Inline editing for eligible manual KRIs (not calculated) -->
               <template v-if="canEditKRIValue(scope.row) && !scope.row.isAtomicRow">
                 <div v-if="editingKRI === getRowKey(scope.row)" class="inline-edit-container" @click.stop @mousedown.stop @mouseup.stop @focus.stop>
                   <el-input
@@ -264,19 +264,76 @@
                     class="value-display"
                     :class="getKRIValueColorClass(scope.row.breachType)"
                   >
-                    {{ scope.row.kriValue || 'Click to edit' }}
+                    {{ scope.row.kriValue }}
                   </span>
                   <i class="el-icon-edit-outline edit-icon"></i>
                 </div>
               </template>
-              <!-- Read-only value for non-editable KRIs -->
+              <!-- Inline editing for atomic values -->
+              <template v-else-if="canEditAtomicValue(scope.row) && scope.row.isAtomicRow">
+                <div v-if="editingKRI === getRowKey(scope.row)" class="inline-edit-container" @click.stop @mousedown.stop @mouseup.stop @focus.stop>
+                  <el-input
+                    v-model="editingValue"
+                    type="number"
+                    step="0.01"
+                    size="small"
+                    @keyup.enter="saveAtomicValue(scope.row)"
+                    @keyup.esc="cancelEdit"
+                    @click.stop
+                    @mousedown.stop
+                    @focus.stop
+                    style="width: 120px"
+                    ref="editInput">
+                  </el-input>
+                  <div class="inline-edit-actions" @click.stop @mousedown.stop>
+                    <el-button
+                      type="success"
+                      icon="el-icon-check"
+                      size="mini"
+                      @click.stop="saveAtomicValue(scope.row)"
+                      :loading="savingKRI === getRowKey(scope.row)"
+                      circle>
+                    </el-button>
+                    <el-button
+                      type="info"
+                      icon="el-icon-close"
+                      size="mini"
+                      @click.stop="cancelEdit"
+                      circle>
+                    </el-button>
+                  </div>
+                </div>
+                <div v-else class="editable-value atomic-editable" @click.stop="startEditAtomic(scope.row)">
+                  <span 
+                    class="value-display"
+                    :class="getKRIValueColorClass(scope.row.breachType)"
+                  >
+                    {{ scope.row.kriValue }}
+                  </span>
+                  <i class="el-icon-edit-outline edit-icon"></i>
+                </div>
+              </template>
+              <!-- Read-only value for calculated KRIs and non-editable items -->
               <template v-else>
-                <span 
-                  :class="getKRIValueColorClass(scope.row.breachType)" 
-                  class="kri-value-display readonly-value"
-                >
-                  {{ scope.row.kriValue || 'N/A' }}
-                </span>
+                <div class="readonly-value-container">
+                  <span 
+                    :class="[
+                      getKRIValueColorClass(scope.row.breachType),
+                      'kri-value-display',
+                      'readonly-value',
+                      { 'calculated-kri-value': isCalculatedKRI(scope.row) && !scope.row.isAtomicRow }
+                    ]"
+                  >
+                    {{ scope.row.kriValue || 'N/A' }}
+                  </span>
+                  <el-tooltip 
+                    v-if="isCalculatedKRI(scope.row) && !scope.row.isAtomicRow" 
+                    content="This value is automatically calculated from atomic elements" 
+                    placement="top"
+                  >
+                    <i class="el-icon-s-operation calculated-indicator"></i>
+                  </el-tooltip>
+                </div>
               </template>
             </div>
           </template>
@@ -327,8 +384,9 @@
           :fixed="column.fixed"
         >
           <template slot-scope="scope">
+            <!-- Actions for main KRI rows -->
             <div class="row-actions" v-if="!scope.row.isAtomicRow">
-              <!-- Case 1: Status 10, 20, 30 - Input/Edit actions -->
+              <!-- Case 1: Status 10, 20, 30 - Input/Edit actions for manual KRIs only -->
               <template v-if="canEditKRIValue(scope.row)">
                 <el-button
                   v-if="[10, 20, 30].includes(scope.row.kriStatus)"
@@ -372,11 +430,67 @@
                 </el-button>
               </template>
               
+              <!-- Calculated KRIs show read-only indicator -->
+              <template v-else-if="isCalculatedKRI(scope.row)">
+                <span class="calculated-actions-text">
+                  <i class="el-icon-s-operation"></i>
+                  Auto-calculated
+                </span>
+              </template>
+              
               <!-- No actions available -->
               <span v-else class="no-actions-text">No actions available</span>
             </div>
-            <!-- Atomic rows have no actions in this table -->
-            <span v-else class="atomic-actions-text">-</span>
+            
+            <!-- Actions for atomic rows -->
+            <div class="row-actions" v-else-if="scope.row.isAtomicRow">
+              <!-- Atomic editing actions -->
+              <template v-if="canEditAtomicValue(scope.row)">
+                <el-button
+                  v-if="[10, 20, 30].includes(scope.row.atomicStatusNumeric || scope.row.atomicStatus || scope.row.atomic_status)"
+                  type="primary"
+                  icon="el-icon-document"
+                  size="mini"
+                  @click.stop="handleSaveAtomic(scope.row)"
+                  :loading="savingKRI === getRowKey(scope.row)"
+                  :disabled="!hasAtomicValue(scope.row)">
+                  Save
+                </el-button>
+                <el-button
+                  v-if="[10, 20, 30].includes(scope.row.atomicStatusNumeric || scope.row.atomicStatus || scope.row.atomic_status)"
+                  type="success"
+                  icon="el-icon-upload"
+                  size="mini"
+                  @click.stop="handleSubmitAtomic(scope.row)"
+                  :loading="savingKRI === getRowKey(scope.row)"
+                  :disabled="!hasAtomicValue(scope.row)">
+                  Submit
+                </el-button>
+              </template>
+              
+              <!-- Atomic approval actions -->
+              <template v-else-if="canApproveAtomic(scope.row)">
+                <el-button
+                  type="success"
+                  icon="el-icon-check"
+                  size="mini"
+                  @click.stop="handleApproveAtomic(scope.row)"
+                  :loading="savingKRI === getRowKey(scope.row)">
+                  Approve
+                </el-button>
+                <el-button
+                  type="danger"
+                  icon="el-icon-close"
+                  size="mini"
+                  @click.stop="handleRejectAtomic(scope.row)"
+                  :loading="savingKRI === getRowKey(scope.row)">
+                  Reject
+                </el-button>
+              </template>
+              
+              <!-- No atomic actions -->
+              <span v-else class="atomic-actions-text">No actions available</span>
+            </div>
           </template>
         </el-table-column>
         
@@ -411,7 +525,8 @@ import {
   sortNumeric,
   loadTablePreferencesFromStorage,
   formatDateFromInt,
-  getUserDisplayName
+  getUserDisplayName,
+  isCalculatedKRI
 } from '@/utils/helpers';
 import expandableTableMixin from '@/mixins/expandableTableMixin';
 import TableColumnConfig from '@/components/TableColumnConfig.vue';
@@ -494,7 +609,9 @@ export default {
           return {
             ...row,
             breachType: parentKRI ? calculateAtomicBreach(row, parentKRI) : 'No Breach',
-            collectionStatus: getKRIStatusLabel(row.collectionStatus)
+            // Preserve numeric status for logic, but also add display label
+            atomicStatusNumeric: row.collectionStatus, // Original numeric status
+            collectionStatus: getKRIStatusLabel(row.collectionStatus) // Display label
           };
         } else {
           // Transform main KRI rows
@@ -530,17 +647,50 @@ export default {
     
     // Permission checking methods
     canEditKRIValue(row) {
+      // Prevent direct editing of calculated KRIs - they should be auto-computed from atomics
+      if (isCalculatedKRI(row)) {
+        return false;
+      }
       return this.canPerform(row.kriId || row.id, null, 'edit') && 
              [10, 20, 30].includes(row.kriStatus);
+    },
+    
+    canEditAtomicValue(row) {
+      // Only atomic rows can be edited with atomic-level permissions
+      if (!row.isAtomicRow) {
+        return false;
+      }
+      const atomicId = row.atomicId || row.atomic_id;
+      // Use the preserved numeric status for logic comparison
+      const numericStatus = row.atomicStatusNumeric || row.atomicStatus || row.atomic_status;
+      return this.canPerform(row.kriId, atomicId, 'edit') && 
+             [10, 20, 30].includes(numericStatus);
     },
     
     canApproveKRI(row) {
       return this.canPerform(row.kriId || row.id, null, 'review') && 
              [40, 50].includes(row.kriStatus);
     },
+    
+    canApproveAtomic(row) {
+      // Only atomic rows can be approved with atomic-level review permissions
+      if (!row.isAtomicRow) {
+        return false;
+      }
+      const atomicId = row.atomicId || row.atomic_id;
+      // Use the preserved numeric status for logic comparison
+      const numericStatus = row.atomicStatusNumeric || row.atomicStatus || row.atomic_status;
+      return this.canPerform(row.kriId, atomicId, 'review') && 
+             [40, 50].includes(numericStatus);
+    },
 
     hasKRIValue(row) {
       return row.kriValue !== null && row.kriValue !== undefined && row.kriValue !== '';
+    },
+    
+    hasAtomicValue(row) {
+      const atomicValue = row.kriValue || row.atomicValue;
+      return atomicValue !== null && atomicValue !== undefined && atomicValue !== '';
     },
 
     isRowSelectable(row) {
@@ -550,12 +700,29 @@ export default {
     
     // Inline editing methods
     getRowKey(row) {
+      if (row.isAtomicRow) {
+        // For atomic rows, include atomicId to make each atomic element unique
+        const atomicId = row.atomicId || row.atomic_id;
+        return `${row.kriId}-${atomicId}-${row.reportingDate}`;
+      }
+      // For regular KRI rows, use existing format
       return `${row.kriId || row.id}-${row.reportingDate}`;
     },
 
     startEditKRI(row) {
       this.editingKRI = this.getRowKey(row);
       this.editingValue = row.kriValue || 0;
+      this.$nextTick(() => {
+        const input = this.$refs.editInput;
+        if (input && input.focus) {
+          input.focus();
+        }
+      });
+    },
+    
+    startEditAtomic(row) {
+      this.editingKRI = this.getRowKey(row);
+      this.editingValue = row.kriValue || row.atomicValue || 0;
       this.$nextTick(() => {
         const input = this.$refs.editInput;
         if (input && input.focus) {
@@ -589,6 +756,32 @@ export default {
       } catch (error) {
         console.error('Error updating KRI value:', error);
         this.$message.error('Failed to update KRI value');
+      } finally {
+        this.savingKRI = null;
+      }
+    },
+    
+    async saveAtomicValue(row) {
+      if (this.savingKRI === this.getRowKey(row)) return;
+      
+      this.savingKRI = this.getRowKey(row);
+      try {
+        await kriService.updateAtomicValue(
+          row.kriId,
+          row.reportingDate,
+          row.atomicId || row.atomic_id,
+          { atomic_value: this.editingValue.toString() },
+          getUserDisplayName(this.currentUser),
+          'inline_edit_atomic_value',
+          `Updated atomic value to ${this.editingValue}`
+        );
+        
+        this.cancelEdit();
+        this.$message.success('Atomic value updated successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error updating atomic value:', error);
+        this.$message.error('Failed to update atomic value');
       } finally {
         this.savingKRI = null;
       }
@@ -696,10 +889,123 @@ export default {
         this.savingKRI = null;
       }
     },
+    
+    // Atomic workflow methods
+    async handleSaveAtomic(row) {
+      if (this.savingKRI === this.getRowKey(row)) return;
+      
+      this.savingKRI = this.getRowKey(row);
+      try {
+        await kriService.updateAtomicValue(
+          row.kriId,
+          row.reportingDate,
+          row.atomicId || row.atomic_id,
+          { atomic_status: 30 }, // Status 30: "Saved"
+          getUserDisplayName(this.currentUser),
+          'save_atomic',
+          'Atomic value saved'
+        );
+        
+        this.$message.success('Atomic value saved successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error saving atomic value:', error);
+        this.$message.error('Failed to save atomic value');
+      } finally {
+        this.savingKRI = null;
+      }
+    },
+    
+    async handleSubmitAtomic(row) {
+      if (this.savingKRI === this.getRowKey(row)) return;
+      
+      this.savingKRI = this.getRowKey(row);
+      try {
+        // Determine next status based on atomic workflow
+        const nextStatus = this.getNextAtomicSubmitStatus(row);
+        
+        await kriService.updateAtomicValue(
+          row.kriId,
+          row.reportingDate,
+          row.atomicId || row.atomic_id,
+          { atomic_status: nextStatus },
+          getUserDisplayName(this.currentUser),
+          'submit_atomic',
+          `Atomic value submitted for ${nextStatus === 40 ? 'data provider' : 'KRI owner'} approval`
+        );
+        
+        this.$message.success('Atomic value submitted successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error submitting atomic value:', error);
+        this.$message.error('Failed to submit atomic value');
+      } finally {
+        this.savingKRI = null;
+      }
+    },
+    
+    async handleApproveAtomic(row) {
+      if (this.savingKRI === this.getRowKey(row)) return;
+      
+      this.savingKRI = this.getRowKey(row);
+      try {
+        // Status 40 -> 50, Status 50 -> 60
+        const currentStatus = row.kriStatus || row.collectionStatus;
+        const nextStatus = currentStatus === 40 ? 50 : 60;
+        
+        await kriService.updateAtomicValue(
+          row.kriId,
+          row.reportingDate,
+          row.atomicId || row.atomic_id,
+          { atomic_status: nextStatus },
+          getUserDisplayName(this.currentUser),
+          'approve_atomic',
+          `Atomic value approved ${nextStatus === 60 ? 'and finalized' : 'by data provider'}`
+        );
+        
+        this.$message.success('Atomic value approved successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error approving atomic value:', error);
+        this.$message.error('Failed to approve atomic value');
+      } finally {
+        this.savingKRI = null;
+      }
+    },
+    
+    async handleRejectAtomic(row) {
+      if (this.savingKRI === this.getRowKey(row)) return;
+      
+      this.savingKRI = this.getRowKey(row);
+      try {
+        await kriService.updateAtomicValue(
+          row.kriId,
+          row.reportingDate,
+          row.atomicId || row.atomic_id,
+          { atomic_status: 20 }, // Status 20: "Under Rework"
+          getUserDisplayName(this.currentUser),
+          'reject_atomic',
+          'Atomic value rejected and sent back for rework'
+        );
+        
+        this.$message.success('Atomic value rejected successfully');
+        this.$emit('data-updated');
+      } catch (error) {
+        console.error('Error rejecting atomic value:', error);
+        this.$message.error('Failed to reject atomic value');
+      } finally {
+        this.savingKRI = null;
+      }
+    },
 
     // Utility methods
     getNextSubmitStatus(row) {
       // Case 1 logic: IF KRI_OWNER == DATA_PROVIDER -> 50, ELSE -> 40
+      return (row.owner === row.dataProvider) ? 50 : 40;
+    },
+    
+    getNextAtomicSubmitStatus(row) {
+      // Same logic as KRI for atomic elements
       return (row.owner === row.dataProvider) ? 50 : 40;
     },
     
@@ -843,6 +1149,11 @@ export default {
         showIcon: false,
         tooltip: 'No threshold data available'
       };
+    },
+    
+    // Helper method to check if a row is a calculated KRI
+    isCalculatedKRI(row) {
+      return isCalculatedKRI(row);
     }
   }
 };

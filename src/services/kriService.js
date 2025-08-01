@@ -1374,6 +1374,22 @@ export const kriService = {
     return { pendingApprovals, pendingInputs, overdueTasks };
   },
 
+  // ---------------------------------- ATOMIC VALUE UPDATE WRAPPER ---------------------------
+
+  /**
+   * Update atomic value - wrapper around updateatomickri for consistent API
+   * @param {number} kriId - KRI ID
+   * @param {number} reportingDate - Reporting date (YYYYMMDD)
+   * @param {number} atomicId - Atomic ID
+   * @param {object} updateData - Fields to update (key-value pairs)
+   * @param {string} changedBy - User making the change
+   * @param {string} action - Action performed (e.g. 'update_atomic_value')
+   * @param {string} comment - Optional comment
+   * @returns {Promise<object>} Updated atomic row
+   */
+  async updateAtomicValue(kriId, reportingDate, atomicId, updateData, changedBy, action, comment = '') {
+    return await this.updateatomickri(kriId, atomicId, reportingDate, updateData, changedBy, action, comment);
+  }
 
 };
 
