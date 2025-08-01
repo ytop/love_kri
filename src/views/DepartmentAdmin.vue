@@ -39,19 +39,8 @@
           <department-permission-management 
             :permissionTemplates="permissionTemplates"
             :teamMembers="teamMembers"
-            :departmentKRIs="departmentKRIs"
-            @open-bulk-permission-dialog="openBulkPermissionDialog"
+                        @open-bulk-permission-dialog="openBulkPermissionDialog"
             @execute-bulk-permission-assignment="executeBulkPermissionAssignment"
-          />
-        </el-tab-pane>
-
-        <!-- Department KRIs Tab -->
-        <el-tab-pane label="department KRIs" name="kris">
-          <department-kri-management 
-            :departmentKRIs="departmentKRIs"
-            :loading="krisLoading"
-            @refresh-kri-data="refreshKRIData"
-            @manage-kri-permissions="manageKRIPermissions"
           />
         </el-tab-pane>
 
@@ -73,8 +62,7 @@
       :selectedTemplate="selectedTemplate"
       :permissionTemplates="permissionTemplates"
       :teamMembers="teamMembers"
-      :departmentKRIs="departmentKRIs"
-      :templateApplyLoading="templateApplyLoading"
+            :templateApplyLoading="templateApplyLoading"
       @apply-permission-template="applyPermissionTemplate"
     />
 
@@ -93,15 +81,6 @@
       :userDetailsLoading="userDetailsLoading"
     />
 
-    <kri-permissions-dialog
-      :visible.sync="kriPermissionsDialogVisible"
-      :selectedKRI="selectedKRI"
-      :kriUserPermissions="kriUserPermissions"
-      :availableUsersForKRI="availableUsersForKRI"
-      :kriPermissionsLoading="kriPermissionsLoading"
-      @add-kri-user-permission="addKRIUserPermission"
-      @remove-kri-user-permission="removeKRIUserPermission"
-    />
 
   </div>
 </template>
@@ -111,7 +90,6 @@ import { mapGetters } from 'vuex';
 import { departmentAdminService } from '@/services/departmentAdminService';
 import { kriService } from '@/services/kriService';
 import Permission from '@/utils/permission';
-import DepartmentDashboard from '@/components/departmentAdmin/DepartmentDashboard.vue';
 import DepartmentTeamManagement from '@/components/departmentAdmin/DepartmentTeamManagement.vue';
 import DepartmentPermissionManagement from '@/components/departmentAdmin/DepartmentPermissionManagement.vue';
 import DepartmentActivityAudit from '@/components/departmentAdmin/DepartmentActivityAudit.vue';
@@ -119,6 +97,9 @@ import UserPermissionsDialog from '@/components/departmentAdmin/dialogs/UserPerm
 import UserDetailsDialog from '@/components/departmentAdmin/dialogs/UserDetailsDialog.vue';
 import BulkPermissionTemplateDialog from '@/components/departmentAdmin/dialogs/BulkPermissionTemplateDialog.vue';
 import '@/assets/styles/admin.css';
+
+
+import DepartmentDashboard from '@/components/departmentAdmin/DepartmentDashboard.vue';
 
 export default {
   name: 'DepartmentAdmin',
@@ -140,7 +121,6 @@ export default {
       // Department data
       departmentStats: {
         totalUsers: 0,
-        totalKRIs: 0,
         usersByRole: {},
         pendingItems: {
           pendingApprovals: 0,
@@ -155,13 +135,8 @@ export default {
       
       // Permission management
       bulkPermissionUsers: [],
-      bulkPermissionKRIs: [],
       bulkPermissionActions: '',
       bulkPermissionLoading: false,
-      
-      // Department KRIs
-      departmentKRIs: [],
-      krisLoading: false,
       
       // Audit data
       auditStats: {
@@ -174,7 +149,6 @@ export default {
       bulkPermissionDialogVisible: false,
       selectedTemplate: '',
       dialogBulkUsers: [],
-      dialogBulkKRIs: [],
       templateApplyLoading: false,
       
       // User Permissions Dialog
@@ -189,17 +163,6 @@ export default {
       userDetailsDialogVisible: false,
       userDetailData: null,
       userDetailsLoading: false,
-      
-      // KRI Permissions Dialog
-      kriPermissionsDialogVisible: false,
-      selectedKRI: null,
-      kriUserPermissions: [],
-      availableUsersForKRI: [],
-      kriPermissionsLoading: false,
-      newUserPermissions: {
-        user_uuid: '',
-        actions: ''
-      },
       
       // Audit Trail
       auditTrailData: [],
@@ -240,7 +203,6 @@ export default {
         
         this.departmentStats = overview;
         this.teamMembers = overview.detailedUsers || [];
-        this.departmentKRIs = overview.detailedKRIs || [];
         
         // Load team members with permissions
         await this.loadTeamMembersWithPermissions();
@@ -270,11 +232,6 @@ export default {
           await this.refreshTeamData();
         }
         break;
-      case 'kris':
-        if (this.departmentKRIs.length === 0) {
-          await this.refreshKRIData();
-        }
-        break;
       case 'audit':
         if (this.auditTrailData.length === 0) {
           await this.loadAuditData();
@@ -296,34 +253,14 @@ export default {
       }
     },
     
-    async refreshKRIData() {
-      this.krisLoading = true;
-      try {
-        this.departmentKRIs = await kriService.getDepartmentKRIs(this.currentUser.department);
-        this.$message.success('KRI data refreshed');
-      } catch (error) {
-        console.error('Error refreshing KRI data:', error);
-        this.$message.error('Failed to refresh KRI data');
-      } finally {
-        this.krisLoading = false;
-      }
-    },
-    
     async loadAuditData() {
       this.auditLoading = true;
       try {
         // Load department-specific audit trail data
         let auditData = [];
         
-        // Get audit data for all department KRIs
-        for (const kri of this.departmentKRIs) {
-          try {
-            const kriAudit = await kriService.fetchKRIAuditTrail(kri.kri_code, '*');
-            auditData = auditData.concat(kriAudit || []);
-          } catch (error) {
-            console.warn(`Failed to load audit data for KRI ${kri.kri_code}:`, error);
-          }
-        }
+        // Get general department audit data
+        // Note: This section was modified to remove KRI-specific audit loading
         
         // Filter by date range if specified
         if (this.auditDateRange && this.auditDateRange.length === 2) {
@@ -382,16 +319,7 @@ export default {
         this.userCurrentPermissions = await kriService.getUserPermissionsSummary(user.uuid);
         
         // Transform permissions for editing
-        this.editablePermissions = this.departmentKRIs.map(kri => {
-          const existingPerm = this.userCurrentPermissions.find(p => p.kri_id === kri.kri_id);
-          return {
-            kri_id: kri.kri_id,
-            kri_name: kri.name,
-            current_actions: existingPerm ? existingPerm.actions : '',
-            new_actions: existingPerm ? existingPerm.actions : '',
-            is_calculated: kri.is_calculated_kri
-          };
-        });
+        this.editablePermissions = [];
       } catch (error) {
         console.error('Error loading user permissions:', error);
         this.$message.error('Failed to load user permissions');
@@ -417,7 +345,6 @@ export default {
           permissions,
           recentActivity,
           permissionSummary: {
-            totalKRIs: permissions.length,
             totalPermissions: permissions.reduce((sum, p) => sum + (p.actions ? p.actions.split(',').length : 0), 0),
             lastActivity: recentActivity.length > 0 ? recentActivity[0].changed_at : null
           }
@@ -430,44 +357,14 @@ export default {
       }
     },
     
-    async manageKRIPermissions(kri) {
-      this.selectedKRI = kri;
-      this.kriPermissionsLoading = true;
-      this.kriPermissionsDialogVisible = true;
-      
-      try {
-        // Load all users who have permissions on this KRI
-        const allPermissions = await kriService.getUserPermissionsSummary();
-        this.kriUserPermissions = allPermissions
-          .filter(p => p.kri_id === kri.kri_code)
-          .map(p => ({
-            ...p,
-            user_name: p.kri_user ? p.kri_user.user_name : 'Unknown',
-            user_id: p.kri_user ? p.kri_user.user_id : 'Unknown',
-            user_department: p.kri_user ? p.kri_user.department : 'Unknown'
-          }));
-          
-        // Prepare available users for assignment (department members without current permissions)
-        this.availableUsersForKRI = this.teamMembers.filter(member => 
-          !this.kriUserPermissions.some(p => p.user_uuid === member.uuid)
-        );
-      } catch (error) {
-        console.error('Error loading KRI permissions:', error);
-        this.$message.error('Failed to load KRI permissions');
-      } finally {
-        this.kriPermissionsLoading = false;
-      }
-    },
-    
     openBulkPermissionDialog(templateKey) {
       this.selectedTemplate = templateKey;
       this.dialogBulkUsers = [];
-      this.dialogBulkKRIs = [];
       this.bulkPermissionDialogVisible = true;
     },
     
     async applyPermissionTemplate() {
-      if (!this.selectedTemplate || !this.dialogBulkUsers.length || !this.dialogBulkKRIs.length) {
+      if (!this.selectedTemplate || !this.dialogBulkUsers.length) {
         return;
       }
       
@@ -478,7 +375,6 @@ export default {
         await departmentAdminService.applyPermissionTemplate(
           this.selectedTemplate,
           this.dialogBulkUsers,
-          this.dialogBulkKRIs,
           reportingDate,
           this.currentUser
         );
@@ -495,7 +391,7 @@ export default {
     },
     
     async executeBulkPermissionAssignment() {
-      if (!this.bulkPermissionUsers.length || !this.bulkPermissionKRIs.length || !this.bulkPermissionActions) {
+      if (!this.bulkPermissionUsers.length || !this.bulkPermissionActions) {
         return;
       }
       
@@ -506,7 +402,6 @@ export default {
         await departmentAdminService.bulkAssignDepartmentPermissions(
           this.currentUser.department,
           this.bulkPermissionUsers,
-          this.bulkPermissionKRIs,
           this.bulkPermissionActions,
           reportingDate,
           this.currentUser
@@ -514,7 +409,6 @@ export default {
         
         this.$message.success('Bulk permissions assigned successfully');
         this.bulkPermissionUsers = [];
-        this.bulkPermissionKRIs = [];
         this.bulkPermissionActions = '';
         await this.loadTeamMembersWithPermissions();
       } catch (error) {
@@ -543,19 +437,10 @@ export default {
     },
     
     // Helper methods for new functionality
-    async getUserRecentActivity(userUuid) {
+    async getUserRecentActivity(_userUuid) {
       try {
-        // Get recent audit trail entries for this user across department KRIs
+        // KRI-related audit loading removed - return empty activity for now
         let recentActivity = [];
-        for (const kri of this.departmentKRIs.slice(0, 5)) { // Limit to avoid too many requests
-          try {
-            const kriAudit = await kriService.fetchKRIAuditTrail(kri.kri_code, '*');
-            const userActivity = (kriAudit || []).filter(item => item.changed_by === userUuid);
-            recentActivity = recentActivity.concat(userActivity);
-          } catch (error) {
-            console.warn(`Failed to load activity for KRI ${kri.kri_code}:`, error);
-          }
-        }
         
         // Sort by date and return recent 10 items
         return recentActivity
@@ -614,54 +499,6 @@ export default {
       }
     },
     
-    async addKRIUserPermission() {
-      if (!this.newUserPermissions.user_uuid || !this.newUserPermissions.actions || !this.selectedKRI) {
-        return;
-      }
-      
-      try {
-        const reportingDate = parseInt(new Date().toISOString().slice(0, 10).replace(/-/g, ''));
-        
-        const permissionUpdate = {
-          user_uuid: this.newUserPermissions.user_uuid,
-          kri_id: this.selectedKRI.kri_code,
-          actions: this.newUserPermissions.actions,
-          effect: true,
-          reporting_date: reportingDate
-        };
-        
-        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.user_id);
-        
-        this.$message.success('KRI permission added successfully');
-        this.newUserPermissions = { user_uuid: '', actions: '' };
-        await this.manageKRIPermissions(this.selectedKRI); // Refresh data
-      } catch (error) {
-        console.error('Error adding KRI permission:', error);
-        this.$message.error('Failed to add KRI permission');
-      }
-    },
-    
-    async removeKRIUserPermission(permission) {
-      try {
-        const reportingDate = parseInt(new Date().toISOString().slice(0, 10).replace(/-/g, ''));
-        
-        const permissionUpdate = {
-          user_uuid: permission.user_uuid,
-          kri_id: permission.kri_id,
-          actions: '',
-          effect: false,
-          reporting_date: reportingDate
-        };
-        
-        await kriService.bulkUpdatePermissions([permissionUpdate], this.currentUser.user_id);
-        
-        this.$message.success('KRI permission removed successfully');
-        await this.manageKRIPermissions(this.selectedKRI); // Refresh data
-      } catch (error) {
-        console.error('Error removing KRI permission:', error);
-        this.$message.error('Failed to remove KRI permission');
-      }
-    }
   }
 };
 </script>

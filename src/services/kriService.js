@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getLastDayOfPreviousMonth } from '@/utils/helpers';
 
 /**
  * Base service class providing common patterns for KRI database operations
@@ -575,17 +576,25 @@ export const kriService = {
   },
 
 
-  // Insert evidence without KRI FK relationship (new table structure)
-  async insertEvidenceOnly(evidenceData, changedBy, action, comment = '') {
+  async insertEvidence(evidenceData, changedBy, action, comment = '', kriId = null, reportingDate = null) {
     if (!changedBy) throw new Error('changedBy is required');
     if (!action) throw new Error('action is required');
     if (!comment) throw new Error('comment is required');
     if (!evidenceData) throw new Error('evidenceData is required');
     
-    // Insert the evidence record without FK constraints
+    // Add FK relationships if provided
+    const enrichedEvidenceData = { ...evidenceData };
+    if (kriId !== null) {
+      enrichedEvidenceData.kri_id = kriId;
+    }
+    if (reportingDate !== null) {
+      enrichedEvidenceData.reporting_date = reportingDate;
+    }
+    
+    // Insert the evidence record with optional FK constraints
     const { data: evidenceRecord, error: insertError } = await supabase
       .from('kri_evidence')
-      .insert(evidenceData)
+      .insert(enrichedEvidenceData)
       .select()
       .single();
 
@@ -602,7 +611,7 @@ export const kriService = {
     
     const { data, error } = await supabase
       .from('kri_evidence')
-      .select('evidence_id, file_name, uploaded_by, uploaded_at')
+      .select('evidence_id, kri_id, reporting_date, file_name, uploaded_by, uploaded_at')
       .eq('md5', md5Hash)
       .order('uploaded_at', { ascending: false })
       .limit(5); // Get up to 5 most recent duplicates
@@ -616,8 +625,18 @@ export const kriService = {
   },
 
   async linkEvidenceToKRI(kriId, reportingDate, evidenceId, changedBy, comment = 'Evidence selected as submitted evidence') {
-    if (!kriId || !reportingDate || !evidenceId || !changedBy) {
-      throw new Error('kriId, reportingDate, evidenceId, and changedBy are required');
+    // More specific validation with better error messages
+    if (kriId === null || kriId === undefined) {
+      throw new Error('kriId is required for linking evidence to KRI');
+    }
+    if (reportingDate === null || reportingDate === undefined) {
+      throw new Error('reportingDate is required for linking evidence to KRI');
+    }
+    if (!evidenceId) {
+      throw new Error('evidenceId is required for linking evidence to KRI');
+    }
+    if (!changedBy) {
+      throw new Error('changedBy is required for linking evidence to KRI');
     }
 
     const updateData = { evidence_id: evidenceId };
@@ -1347,18 +1366,18 @@ export const kriService = {
  * @param {number} [limit=20] - Max number of records
  * @returns {Promise<Array>}
  */
-  async getDepartmentRecentActivity(department, limit = 20) {
+  async getDepartmentRecentActivity(department, limit = 1000) {
     const { data: kris, error: kriError } = await supabase
       .from('kri_metadata')
-      .select('kri_id')
+      .select('kri_code')
       .eq('owner', department);
     if (kriError) throw kriError;
-    const kriIds = (kris || []).map(k => k.kri_id);
-    if (!kriIds.length) return [];
+    const kri_code = (kris || []).map(k => k.kri_code);
+    if (!kri_code.length) return [];
     const { data, error } = await supabase
       .from('kri_audit_trail')
       .select('*')
-      .in('kri_id', kriIds)
+      .in('kri_code', kri_code)
       .order('changed_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
@@ -1371,25 +1390,18 @@ export const kriService = {
  * @returns {Promise<Object>}
  */
   async getDepartmentPendingItems(department) {
-    const { data: kris, error: kriError } = await supabase
-      .from('kri_metadata')
-      .select('kri_id')
-      .eq('owner', department);
-    if (kriError) throw kriError;
-    const kriIds = (kris || []).map(k => k.kri_id);
-    if (!kriIds.length) return { pendingApprovals: 0, pendingInputs: 0, overdueTasks: 0 };
     const { data, error } = await supabase
-      .from('kri_item')
-      .select('status')
-      .in('kri_id', kriIds);
+      .from('kri_with_metadata')
+      .select('kri_status')
+      .eq('kri_owner', department)
+      .eq('reporting_date', baseKRIService.parseReportingDate(getLastDayOfPreviousMonth()));
     if (error) throw error;
-    let pendingApprovals = 0, pendingInputs = 0, overdueTasks = 0;
+    let pendingApprovals = 0, pendingInputs = 0;
     (data || []).forEach(item => {
-      if (item.status === 40) pendingInputs++;
-      else if (item.status === 50) pendingApprovals++;
-      else if (item.status === 60) overdueTasks++;
+      if ([10, 20, 30].includes(item.kri_status)) pendingInputs++;
+      else if ([40, 50].includes(item.kri_status)) pendingApprovals++;
     });
-    return { pendingApprovals, pendingInputs, overdueTasks };
+    return { pendingApprovals, pendingInputs};
   },
 
   // ---------------------------------- ATOMIC VALUE UPDATE WRAPPER ---------------------------
@@ -1407,6 +1419,89 @@ export const kriService = {
    */
   async updateAtomicValue(kriId, reportingDate, atomicId, updateData, changedBy, action, comment = '') {
     return await this.updateatomickri(kriId, atomicId, reportingDate, updateData, changedBy, action, comment);
+  },
+
+  /**
+   * Get system-wide audit trail for admin management
+   * @param {Object} filters - Filter options
+   * @param {Array} filters.dateRange - Date range [startDate, endDate] in YYYY-MM-DD format
+   * @param {string} filters.activityType - Activity type filter
+   * @param {string} filters.department - Department filter  
+   * @param {string} filters.user - User filter
+   * @param {number} filters.reportingDate - Reporting date filter
+   * @param {number} [limit=1000] - Maximum number of records to return
+   * @returns {Promise<Object>} Object with data and statistics
+   */
+  async getSystemAuditTrail(filters = {}, limit = 1000) {
+    let query = supabase
+      .from('kri_audit_trail')
+      .select(`
+        *,
+        kri_user(user_name, department)
+      `)
+      .order('changed_at', { ascending: false });
+
+    // Apply date range filter
+    if (filters.dateRange && Array.isArray(filters.dateRange) && filters.dateRange.length === 2) {
+      const [startDate, endDate] = filters.dateRange;
+      if (startDate) {
+        query = query.gte('changed_at', `${startDate}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        query = query.lte('changed_at', `${endDate}T23:59:59.999Z`);
+      }
+    }
+
+    // Apply activity type filter
+    if (filters.activityType) {
+      query = query.eq('action', filters.activityType);
+    }
+
+    // Apply department filter via user join
+    if (filters.department) {
+      query = query.eq('kri_user.department', filters.department);
+    }
+
+    // Apply user filter (search by display name in changed_by field)
+    if (filters.user) {
+      query = query.eq('changed_by', filters.user);
+    }
+
+    // Apply reporting date filter
+    if (filters.reportingDate) {
+      const reportingDateInt = baseKRIService.parseReportingDate(filters.reportingDate);
+      query = query.eq('reporting_date', reportingDateInt);
+    }
+
+    // Apply limit
+    query = query.limit(limit);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Calculate statistics
+    const auditData = data || [];
+    const today = new Date().toISOString().split('T')[0];
+    const todayActivities = auditData.filter(item => 
+      item.changed_at && item.changed_at.split('T')[0] === today
+    ).length;
+
+    const uniqueUsers = new Set(auditData.map(item => item.user_uuid).filter(uuid => uuid)).size;
+
+    // Format data for display
+    const formattedData = auditData.map(item => ({
+      ...item,
+      user_department: item.kri_user?.department || 'Unknown'
+    }));
+
+    return {
+      data: formattedData,
+      statistics: {
+        totalActivities: auditData.length,
+        todayActivities,
+        uniqueUsers
+      }
+    };
   }
 
 };

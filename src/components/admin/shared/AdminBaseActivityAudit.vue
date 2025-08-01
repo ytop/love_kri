@@ -13,7 +13,7 @@
         <el-col :span="8">
           <el-card class="audit-stat-card">
             <div class="audit-stat">
-              <div class="audit-number">{{ auditStats.totalActivities }}</div>
+              <div class="audit-number">{{ filteredAuditStats.totalActivities }}</div>
               <div class="audit-label">Total Activities</div>
             </div>
           </el-card>
@@ -21,7 +21,7 @@
         <el-col :span="8">
           <el-card class="audit-stat-card">
             <div class="audit-stat">
-              <div class="audit-number">{{ auditStats.todayActivities }}</div>
+              <div class="audit-number">{{ filteredAuditStats.todayActivities }}</div>
               <div class="audit-label">Today's Activities</div>
             </div>
           </el-card>
@@ -29,7 +29,7 @@
         <el-col :span="8">
           <el-card class="audit-stat-card">
             <div class="audit-stat">
-              <div class="audit-number">{{ auditStats.uniqueUsers }}</div>
+              <div class="audit-number">{{ filteredAuditStats.uniqueUsers }}</div>
               <div class="audit-label">Active Users</div>
             </div>
           </el-card>
@@ -61,7 +61,7 @@
             @change="handleFilterChange"
           >
             <el-option 
-              v-for="type in activityTypes"
+              v-for="type in computedActivityTypes"
               :key="type.value"
               :label="type.label" 
               :value="type.value"
@@ -76,7 +76,7 @@
             @change="handleFilterChange"
           >
             <el-option 
-              v-for="dept in departments" 
+              v-for="dept in computedDepartments" 
               :key="dept" 
               :label="dept" 
               :value="dept"
@@ -92,7 +92,7 @@
             @change="handleFilterChange"
           >
             <el-option 
-              v-for="user in availableUsers" 
+              v-for="user in computedUsers" 
               :key="user.uuid || user.user_id" 
               :label="`${user.user_id} (${user.user_name})`" 
               :value="user.uuid || user.user_id"
@@ -111,9 +111,9 @@
             v-if="showExport" 
             type="info" 
             icon="el-icon-download"
-            @click="$emit('export-audit-data', { filters: currentFilters, data: auditData })"
+            @click="exportToCSV"
           >
-            Export
+            Export CSV
           </el-button>
         </el-form-item>
       </el-form>
@@ -121,7 +121,7 @@
 
     <!-- Audit Data Table -->
     <el-table 
-      :data="auditData" 
+      :data="filteredAuditData" 
       v-loading="loading"
       stripe
       border
@@ -185,7 +185,7 @@
       </el-table-column>
     </el-table>
     
-    <div v-if="auditData.length === 0 && !loading" class="no-audit-data">
+    <div v-if="filteredAuditData.length === 0 && !loading" class="no-audit-data">
       <el-empty :description="emptyMessage">
       </el-empty>
     </div>
@@ -312,6 +312,105 @@ export default {
         user: this.userFilter,
         reportingDate: this.selectedReportingDate
       };
+    },
+    
+    // Dynamically compute activity types from audit data
+    computedActivityTypes() {
+      if (!this.auditData || this.auditData.length === 0) {
+        return this.activityTypes; // Fallback to default prop values
+      }
+      
+      const uniqueActions = [...new Set(this.auditData.map(item => item.action))].filter(action => action);
+      return uniqueActions.map(action => ({
+        label: this.formatActionLabel(action),
+        value: action
+      })).sort((a, b) => a.label.localeCompare(b.label));
+    },
+    
+    // Dynamically compute departments from audit data
+    computedDepartments() {
+      if (!this.auditData || this.auditData.length === 0) {
+        return this.departments; // Fallback to prop values
+      }
+      
+      const uniqueDepartments = [...new Set(this.auditData.map(item => item.user_department || item.kri_user?.department))].filter(dept => dept);
+      return uniqueDepartments.sort();
+    },
+    
+    // Dynamically compute users from audit data
+    computedUsers() {
+      if (!this.auditData || this.auditData.length === 0) {
+        return this.availableUsers; // Fallback to prop values
+      }
+      
+      const uniqueUsers = [...new Set(this.auditData.map(item => item.changed_by))].filter(user => user);
+      return uniqueUsers.map(userId => ({
+        user_id: userId,
+        user_name: this.auditData.find(item => item.changed_by === userId)?.kri_user?.user_name || 'Unknown',
+        uuid: userId // For consistency with prop structure
+      })).sort((a, b) => a.user_id.localeCompare(b.user_id));
+    },
+    
+    // Apply filters to audit data
+    filteredAuditData() {
+      if (!this.auditData || this.auditData.length === 0) {
+        return [];
+      }
+      
+      let filtered = [...this.auditData];
+      
+      // Apply date range filter
+      if (this.dateRange && this.dateRange.length === 2) {
+        const [startDate, endDate] = this.dateRange;
+        if (startDate && endDate) {
+          const start = new Date(startDate + 'T00:00:00.000Z');
+          const end = new Date(endDate + 'T23:59:59.999Z');
+          
+          filtered = filtered.filter(item => {
+            if (!item.changed_at) return false;
+            const itemDate = new Date(item.changed_at);
+            return itemDate >= start && itemDate <= end;
+          });
+        }
+      }
+      
+      // Apply activity type filter
+      if (this.activityTypeFilter) {
+        filtered = filtered.filter(item => item.action === this.activityTypeFilter);
+      }
+      
+      // Apply department filter
+      if (this.departmentFilter) {
+        filtered = filtered.filter(item => {
+          const itemDept = item.user_department || item.kri_user?.department;
+          return itemDept === this.departmentFilter;
+        });
+      }
+      
+      // Apply user filter
+      if (this.userFilter) {
+        filtered = filtered.filter(item => item.changed_by === this.userFilter);
+      }
+      
+      return filtered;
+    },
+    
+    // Compute statistics for filtered data
+    filteredAuditStats() {
+      const filtered = this.filteredAuditData;
+      const today = new Date().toISOString().split('T')[0];
+      
+      const todayActivities = filtered.filter(item => 
+        item.changed_at && item.changed_at.split('T')[0] === today
+      ).length;
+      
+      const uniqueUsers = new Set(filtered.map(item => item.changed_by)).size;
+      
+      return {
+        totalActivities: filtered.length,
+        todayActivities,
+        uniqueUsers
+      };
     }
   },
   
@@ -336,6 +435,130 @@ export default {
     
     loadAuditData() {
       this.$emit('load-audit-data', this.currentFilters);
+    },
+    
+    /**
+     * Format action labels for better display
+     * @param {string} action - Raw action value from database
+     * @returns {string} Formatted label
+     */
+    formatActionLabel(action) {
+      if (!action) return 'Unknown';
+      
+      // Convert snake_case and other formats to readable labels
+      const labelMap = {
+        'kri_update': 'KRI Update',
+        'permission_change': 'Permission Change',
+        'status_change': 'Status Change',
+        'data_input': 'Data Input',
+        'update_atomic': 'Atomic Update',
+        'updatekri': 'KRI Update',
+        'updateatomickri': 'Atomic KRI Update',
+        'select_evidence': 'Evidence Selected',
+        'unselect_evidence': 'Evidence Unselected',
+        'upload_evidence': 'Evidence Upload',
+        'approve_kri': 'KRI Approved',
+        'reject_kri': 'KRI Rejected',
+        'submit_kri': 'KRI Submitted'
+      };
+      
+      // If we have a specific mapping, use it
+      if (labelMap[action]) {
+        return labelMap[action];
+      }
+      
+      // Otherwise, format the action string nicely
+      return action
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    },
+    
+    /**
+     * Export filtered audit data to CSV
+     */
+    exportToCSV() {
+      try {
+        const data = this.filteredAuditData;
+        
+        if (!data || data.length === 0) {
+          this.$message.warning('No data to export');
+          return;
+        }
+        
+        // Define CSV columns and headers
+        const columns = [
+          { key: 'changed_at', header: 'Date/Time' },
+          { key: 'kri_id', header: 'KRI ID' },
+          { key: 'action', header: 'Action' },
+          { key: 'changed_by', header: 'User' },
+          { key: 'user_department', header: 'Department', transform: (item) => item.user_department || item.kri_user?.department || 'N/A' },
+          { key: 'field_name', header: 'Field' },
+          { key: 'old_value', header: 'Old Value' },
+          { key: 'new_value', header: 'New Value' },
+          { key: 'comment', header: 'Comment' }
+        ];
+        
+        // Create CSV header
+        const csvHeader = columns.map(col => `"${col.header}"`).join(',');
+        
+        // Create CSV rows
+        const csvRows = data.map(item => {
+          return columns.map(col => {
+            let value;
+            
+            // Apply custom transform if available
+            if (col.transform) {
+              value = col.transform(item);
+            } else {
+              value = item[col.key];
+            }
+            
+            // Format specific fields
+            if (col.key === 'changed_at' && value) {
+              value = this.formatDateTime(value);
+            }
+            
+            // Handle null/undefined values
+            if (value === null || value === undefined) {
+              value = '';
+            }
+            
+            // Escape quotes and wrap in quotes
+            return `"${String(value).replace(/"/g, '""')}"`;
+          }).join(',');
+        });
+        
+        // Combine header and rows
+        const csvContent = [csvHeader, ...csvRows].join('\n');
+        
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        
+        if (link.download !== undefined) {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          
+          // Generate filename with timestamp
+          const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+          const filename = `audit-trail-${timestamp}.csv`;
+          link.setAttribute('download', filename);
+          
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          this.$message.success(`Exported ${data.length} audit records to ${filename}`);
+        } else {
+          this.$message.error('CSV export not supported in this browser');
+        }
+      } catch (error) {
+        console.error('Error exporting CSV:', error);
+        this.$message.error('Failed to export audit data');
+      }
     },
     
     /**

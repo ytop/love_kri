@@ -20,7 +20,7 @@ class DepartmentAdminService {
     if (!Permission.canManageDepartment(currentUser, department)) {
       throw new Error('Insufficient permissions to access department data');
     }
-
+    
     try {
       // Get basic department statistics (date-aware if provided)
       const stats = await kriService.getDepartmentStatistics(department, reportingDate);

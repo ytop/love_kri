@@ -87,26 +87,6 @@
           />
         </el-tab-pane>
 
-        <!-- KRI Management Tab (Department Admin Only) -->
-        <el-tab-pane v-if="isDepartmentAdmin" label="Department KRIs" name="kris">
-          <admin-base-user-management
-            :title="'Department KRIs'"
-            :description="'Manage KRIs assigned to your department.'"
-            :users="departmentKRIs"
-            :loading="krisLoading"
-            :show-department-filter="false"
-            :show-department-column="false"
-            :show-permission-summary="false"
-            :show-add-user="false"
-            :show-edit-role="false"
-            :show-view-details="false"
-            :show-bulk-actions="false"
-            :action-column-width="'150'"
-            :selected-reporting-date="selectedReportingDate"
-            @refresh-users="refreshDepartmentKRIs"
-            @manage-user-permissions="handleManageKRIPermissions"
-          />
-        </el-tab-pane>
 
         <!-- Activity Audit Tab -->
         <el-tab-pane label="Activity Audit" name="audit">
@@ -233,11 +213,9 @@ export default {
         }
       },
       departmentUsers: [],
-      departmentKRIs: [],
       
       // Loading states
       teamLoading: false,
-      krisLoading: false,
       auditLoading: false,
       
       // Dialog states
@@ -336,7 +314,6 @@ export default {
         return [
           { key: 'team', type: 'primary', icon: 'el-icon-user-solid', label: 'Manage Team' },
           { key: 'permissions', type: 'success', icon: 'el-icon-key', label: 'Assign Permissions' },
-          { key: 'kris', type: 'info', icon: 'el-icon-data-analysis', label: 'Department KRIs' },
           { key: 'audit', type: 'warning', icon: 'el-icon-view', label: 'View Activity' }
         ];
       }
@@ -477,11 +454,6 @@ export default {
         }
         // System admin user data is not period-specific, so no refresh needed
         break;
-      case 'kris':
-        if (this.isDepartmentAdmin) {
-          await this.refreshDepartmentKRIs();
-        }
-        break;
       case 'audit':
         await this.loadAuditData();
         break;
@@ -564,7 +536,7 @@ export default {
         if (this.isSystemAdmin) {
           availableKRIs = await kriService.getAllKRIMetadata();
         } else {
-          availableKRIs = this.departmentKRIs;
+          availableKRIs = [];
         }
         
         this.editablePermissions = availableKRIs.map(kri => {
@@ -593,11 +565,6 @@ export default {
         case 'users':
           if (this.departmentUsers.length === 0) {
             await this.refreshDepartmentUsers();
-          }
-          break;
-        case 'kris':
-          if (this.departmentKRIs.length === 0) {
-            await this.refreshDepartmentKRIs();
           }
           break;
         case 'audit':
@@ -629,7 +596,6 @@ export default {
         
         this.departmentStats = overview;
         this.departmentUsers = overview.detailedUsers || [];
-        this.departmentKRIs = overview.detailedKRIs || [];
       } catch (error) {
         console.error('Error loading department data:', error);
         this.$message.error('Failed to load department data');
@@ -652,44 +618,36 @@ export default {
       }
     },
     
-    async refreshDepartmentKRIs() {
-      this.krisLoading = true;
-      try {
-        this.departmentKRIs = await kriService.getDepartmentKRIs(this.currentUser.department);
-      } catch (error) {
-        console.error('Error loading department KRIs:', error);
-        this.$message.error('Failed to load department KRIs');
-      } finally {
-        this.krisLoading = false;
-      }
-    },
-    
-
-    
     async loadAuditData() {
       this.auditLoading = true;
       try {
         if (this.isSystemAdmin) {
           // Load system-wide audit data
-          this.auditData = await kriService.getSystemAuditTrail();
+          const auditResult = await kriService.getSystemAuditTrail();
+          this.auditData = auditResult.data || [];
+          this.auditStats = auditResult.statistics || {
+            totalActivities: 0,
+            todayActivities: 0,
+            uniqueUsers: 0
+          };
         } else {
           // Load department-specific audit data
           this.auditData = await departmentAdminService.getDepartmentAuditTrail(
             this.currentUser.department
           );
+          
+          // Calculate audit statistics for department admin
+          const today = new Date();
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          
+          this.auditStats = {
+            totalActivities: this.auditData.length,
+            todayActivities: this.auditData.filter(item => 
+              new Date(item.changed_at) >= todayStart
+            ).length,
+            uniqueUsers: new Set(this.auditData.map(item => item.changed_by)).size
+          };
         }
-        
-        // Calculate audit statistics
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        
-        this.auditStats = {
-          totalActivities: this.auditData.length,
-          todayActivities: this.auditData.filter(item => 
-            new Date(item.changed_at) >= todayStart
-          ).length,
-          uniqueUsers: new Set(this.auditData.map(item => item.changed_by)).size
-        };
       } catch (error) {
         console.error('Error loading audit data:', error);
         this.$message.error('Failed to load audit data');
@@ -712,7 +670,7 @@ export default {
         if (this.isSystemAdmin) {
           availableKRIs = await kriService.getAllKRIMetadata();
         } else {
-          availableKRIs = this.departmentKRIs;
+          availableKRIs = [];
         }
         
         this.editablePermissions = availableKRIs.map(kri => {
@@ -761,35 +719,6 @@ export default {
         this.userDetailsLoading = false;
       }
     },
-    
-    async handleManageKRIPermissions(kri) {
-      this.selectedKRI = kri;
-      this.kriPermissionsLoading = true;
-      this.kriPermissionsDialogVisible = true;
-      
-      try {
-        const allPermissions = await kriService.getUserPermissionsSummary();
-        this.kriUserPermissions = allPermissions
-          .filter(p => p.kri_id === kri.kri_code)
-          .map(p => ({
-            ...p,
-            user_name: p.kri_user ? p.kri_user.user_name : 'Unknown',
-            user_id: p.kri_user ? p.kri_user.user_id : 'Unknown',
-            user_department: p.kri_user ? p.kri_user.department : 'Unknown'
-          }));
-          
-        this.availableUsersForKRI = this.departmentUsers.filter(member => 
-          !this.kriUserPermissions.some(p => p.user_uuid === member.uuid)
-        );
-      } catch (error) {
-        console.error('Error loading KRI permissions:', error);
-        this.$message.error('Failed to load KRI permissions');
-      } finally {
-        this.kriPermissionsLoading = false;
-      }
-    },
-    
-
     
     handleAuditFilterChange(_filters) {
       // Handle audit filter changes
@@ -860,36 +789,11 @@ export default {
       }
     },
     
-    async addKRIUserPermission(permissionData) {
-      const success = await this.addKRIUserPermission(
-        permissionData.user_uuid,
-        this.selectedKRI.kri_code,
-        permissionData.actions,
-        this.currentUser.user_id
-      );
-      if (success) {
-        await this.handleManageKRIPermissions(this.selectedKRI);
-      }
-    },
-    
-    async removeKRIUserPermission(permission) {
-      const success = await this.removeKRIUserPermission(
-        permission.user_uuid,
-        permission.kri_id,
-        this.currentUser.user_id
-      );
-      if (success) {
-        await this.handleManageKRIPermissions(this.selectedKRI);
-      }
-    },
-    
-
-    
     // Helper methods
     async getUserRecentActivity(userUuid) {
       try {
         let recentActivity = [];
-        const krisToCheck = this.isDepartmentAdmin ? this.departmentKRIs : [];
+        const krisToCheck = [];
         
         for (const kri of krisToCheck.slice(0, 5)) {
           try {

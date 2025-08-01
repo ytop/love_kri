@@ -141,7 +141,7 @@ export default {
     
     // Extract reportingDate from kriItem
     reportingDate() {
-      return this.kriItem ? this.kriItem.reportingDate : null;
+      return this.kriItem ? (this.kriItem.reportingDate || this.kriItem.reporting_date) : null;
     },
     
     // Check if this is an atomic element
@@ -600,11 +600,13 @@ export default {
       };
 
       try {
-        const result = await kriService.insertEvidenceOnly(
+        const result = await kriService.insertEvidence(
           insertData,
           getUserDisplayName(this.currentUser),
           'upload_evidence',
-          `Uploaded evidence file: ${evidenceData.file_name}`
+          `Uploaded evidence file: ${evidenceData.file_name}`,
+          this.kriId,
+          this.reportingDate
         );
 
         // Ensure the result has the expected structure
@@ -769,8 +771,18 @@ export default {
 
     // Helper method to link evidence to KRI or atomic element
     async linkEvidence(evidenceId) {
+      // Validate required parameters before attempting to link
+      if (!evidenceId) {
+        throw new Error('Evidence ID is required for linking');
+      }
+      
       if (this.isAtomicElement) {
         // Link to atomic element
+        if (!this.kriId || !this.reportingDate || !this.atomicId) {
+          console.warn('Missing required parameters for atomic evidence linking. Skipping auto-link.');
+          return;
+        }
+        
         await kriService.linkEvidenceToAtomic(
           this.kriId,
           this.atomicId,
@@ -780,7 +792,12 @@ export default {
           'Evidence selected after upload'
         );
       } else {
-        // Link to KRI
+        // Link to KRI - only attempt if we have the required context
+        if (!this.kriId || !this.reportingDate) {
+          console.warn('Missing KRI context (kriId or reportingDate). Skipping auto-link.');
+          return;
+        }
+        
         await kriService.linkEvidenceToKRI(
           this.kriId,
           this.reportingDate,
